@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongo:
+    image: mongo:latest
+    container_name: skillshare_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+    networks:
+      - skillshare-network
+
+  # User Service
+  user-service:
+    build: ./services/user-service
+    container_name: skillshare_user_service
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=mongodb://admin:password123@mongo:27017/userdb?authSource=admin
+      - PORT=3001
+    networks:
+      - skillshare-network
+    restart: unless-stopped
+
+  # Course Service
+  course-service:
+    build: ./services/course-service
+    container_name: skillshare_course_service
+    ports:
+      - "3002:3002"
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=mongodb://admin:password123@mongo:27017/coursedb?authSource=admin
+      - PORT=3002
+    networks:
+      - skillshare-network
+    restart: unless-stopped
+
+  # Payment Service
+  payment-service:
+    build: ./services/payment-service
+    container_name: skillshare_payment_service
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      # Thêm STRIPE_SECRET_KEY sau
+    networks:
+      - skillshare-network
+    restart: unless-stopped
+
+  # API Gateway
+  api-gateway:
+    build: ./api-gateway
+    container_name: skillshare_api_gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - user-service
+      - course-service
+      - payment-service
+    environment:
+      - PORT=3000
+      - USER_SERVICE_URL=http://user-service:3001
+      - COURSE_SERVICE_URL=http://course-service:3002
+      - PAYMENT_SERVICE_URL=http://payment-service:3003
+    networks:
+      - skillshare-network
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: skillshare_frontend
+    ports:
+      - "8081:80"  # Nginx chạy trên port 80
+    depends_on:
+      - api-gateway
+    environment:
+      - REACT_APP_API_URL=http://localhost:3000
+    networks:
+      - skillshare-network
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+
+networks:
+  skillshare-network:
+    driver: bridge
