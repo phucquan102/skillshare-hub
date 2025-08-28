@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
+const userRoutes = require('./routes/userRoutes'); 
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -32,8 +33,18 @@ app.get('/health', (req, res) => {
 });
 
 // User routes (mở rộng sau)
-app.get('/api/users', (req, res) => {
-  res.json({ users: [], message: 'Users endpoint working' });
+// app.get('/api/users', (req, res) => {
+//   res.json({ users: [], message: 'Users endpoint working' });
+// });
+// Routes
+app.use('/users', userRoutes);
+
+// Error handling middleware
+app.use((error, req, res, next) => {
+  res.status(error.status || 500).json({
+    message: error.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+  });
 });
 
 // Connect to DB and start server
