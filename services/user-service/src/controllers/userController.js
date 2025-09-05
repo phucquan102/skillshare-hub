@@ -159,6 +159,55 @@ const userController = {
     }
   },
 
+  // Thêm method mới
+getUserById: async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+   res.json({
+      user: {
+        _id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        profile: user.profile || { avatar: null, bio: null }
+      }
+    });
+  }catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+},
+// Thêm method này vào userController
+getUsersBatch: async (req, res) => {
+  try {
+    const { userIds } = req.body;
+    
+    if (!userIds || !Array.isArray(userIds)) {
+      return res.status(400).json({ message: 'userIds array is required' });
+    }
+
+    const users = await User.find({
+      _id: { $in: userIds }
+    }).select('-password');
+
+    const formattedUsers = users.map(user => ({
+      _id: user._id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      profile: user.profile || { avatar: null, bio: null }
+    }));
+
+    res.json({
+      users: formattedUsers
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+},
+
   // Khóa/mở khóa tài khoản (admin)
   toggleUserStatus: async (req, res) => {
     try {
@@ -185,6 +234,10 @@ const userController = {
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
   }
+
+  
 };
+
+
 
 module.exports = userController;

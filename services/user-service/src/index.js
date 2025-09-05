@@ -37,7 +37,8 @@ app.get('/health', (req, res) => {
 //   res.json({ users: [], message: 'Users endpoint working' });
 // });
 // Routes
-app.use('/users', userRoutes);
+app.use('/', userRoutes);
+
 
 // Error handling middleware
 app.use((error, req, res, next) => {

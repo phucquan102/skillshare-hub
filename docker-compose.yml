@@ -4,7 +4,6 @@ services:
   # MongoDB Database
   mongo:
     image: mongo:latest
-    container_name: skillshare_mongo
     ports:
       - "27017:27017"
     volumes:
@@ -18,7 +17,6 @@ services:
   # User Service
   user-service:
     build: ./services/user-service
-    container_name: skillshare_user_service
     ports:
       - "3001:3001"
     depends_on:
@@ -33,7 +31,6 @@ services:
   # Course Service
   course-service:
     build: ./services/course-service
-    container_name: skillshare_course_service
     ports:
       - "3002:3002"
     depends_on:
@@ -48,7 +45,6 @@ services:
   # Payment Service
   payment-service:
     build: ./services/payment-service
-    container_name: skillshare_payment_service
     ports:
       - "3003:3003"
     environment:
@@ -61,7 +57,6 @@ services:
   # API Gateway
   api-gateway:
     build: ./api-gateway
-    container_name: skillshare_api_gateway
     ports:
       - "3000:3000"
     depends_on:
@@ -82,7 +77,6 @@ services:
     build: 
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: skillshare_frontend
     ports:
       - "8081:80"  # Nginx chạy trên port 80
     depends_on:

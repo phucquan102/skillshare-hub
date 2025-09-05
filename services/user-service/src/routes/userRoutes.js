@@ -15,4 +15,9 @@ router.put('/profile', authMiddleware, userController.updateProfile);
 router.get('/all', authMiddleware, adminMiddleware, userController.getAllUsers);
 router.patch('/:userId/toggle-status', authMiddleware, adminMiddleware, userController.toggleUserStatus);
 
+// Thêm endpoint mới để lấy user by ID
+
+router.get('/:id', userController.getUserById);
+router.post('/batch', userController.getUsersBatch);
+
 module.exports = router;
