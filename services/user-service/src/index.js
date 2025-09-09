@@ -24,9 +24,9 @@ const connectDB = async () => {
 };
 
 // Basic routes
-app.get('/', (req, res) => {
-  res.json({ message: 'User Service Running', timestamp: new Date() });
-});
+// app.get('/', (req, res) => {
+//   res.json({ message: 'User Service Running', timestamp: new Date() });
+// });
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'user-service' });

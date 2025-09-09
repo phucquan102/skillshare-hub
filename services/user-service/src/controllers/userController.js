@@ -17,12 +17,13 @@ const userController = {
       // Mã hóa password
       const hashedPassword = await bcrypt.hash(password, 12);
 
-      // Tạo user mới
+      // Tạo user mới với các giá trị mặc định từ model
       const user = new User({
         email,
         password: hashedPassword,
         fullName,
-        role: role || 'student'
+        role: role || 'student',
+        // Các giá trị mặc định sẽ được tự động áp dụng từ schema
       });
 
       await user.save();
@@ -41,7 +42,11 @@ const userController = {
           id: user._id,
           email: user.email,
           fullName: user.fullName,
-          role: user.role
+          role: user.role,
+          isVerified: user.isVerified,
+          isActive: user.isActive,
+          emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified
         }
       });
     } catch (error) {
@@ -71,6 +76,10 @@ const userController = {
         return res.status(400).json({ message: 'Tài khoản đã bị khóa' });
       }
 
+      // Cập nhật lastLogin
+      user.lastLogin = new Date();
+      await user.save();
+
       // Tạo JWT token
       const token = jwt.sign(
         { userId: user._id, role: user.role },
@@ -85,7 +94,10 @@ const userController = {
           id: user._id,
           email: user.email,
           fullName: user.fullName,
-          role: user.role
+          role: user.role,
+          isVerified: user.isVerified,
+          isActive: user.isActive,
+          lastLogin: user.lastLogin
         }
       });
     } catch (error) {
@@ -101,7 +113,24 @@ const userController = {
         return res.status(404).json({ message: 'Không tìm thấy người dùng' });
       }
 
-      res.json({ user });
+      res.json({ 
+        user: {
+          id: user._id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          profile: user.profile,
+          preferences: user.preferences,
+          stats: user.stats,
+          isVerified: user.isVerified,
+          isActive: user.isActive,
+          lastLogin: user.lastLogin,
+          emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
+      });
     } catch (error) {
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
@@ -110,22 +139,117 @@ const userController = {
   // Cập nhật profile
   updateProfile: async (req, res) => {
     try {
-      const { fullName, profile } = req.body;
+      const { fullName, profile, preferences } = req.body;
       
+      const updateData = {};
+      if (fullName) updateData.fullName = fullName;
+      if (profile) updateData.profile = { ...profile };
+      if (preferences) updateData.preferences = { ...preferences };
+
       const user = await User.findByIdAndUpdate(
         req.userId,
-        {
-          fullName,
-          profile: {
-            ...profile
-          }
+        updateData,
+        { new: true, runValidators: true }
+      ).select('-password');
+
+      if (!user) {
+        return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      }
+
+      res.json({
+        message: 'Cập nhật thành công',
+        user: {
+          id: user._id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          profile: user.profile,
+          preferences: user.preferences,
+          stats: user.stats
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+  },
+
+  // Cập nhật thống kê học tập
+  updateLearningStats: async (req, res) => {
+    try {
+      const { coursesCompleted, totalLearningHours, avgRating } = req.body;
+      
+      const updateData = {};
+      if (coursesCompleted !== undefined) updateData['stats.coursesCompleted'] = coursesCompleted;
+      if (totalLearningHours !== undefined) updateData['stats.totalLearningHours'] = totalLearningHours;
+      if (avgRating !== undefined) updateData['stats.avgRating'] = avgRating;
+
+      const user = await User.findByIdAndUpdate(
+        req.userId,
+        updateData,
+        { new: true }
+      ).select('stats');
+
+      if (!user) {
+        return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      }
+
+      res.json({
+        message: 'Cập nhật thống kê thành công',
+        stats: user.stats
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+  },
+
+  // Xác thực email
+  verifyEmail: async (req, res) => {
+    try {
+      const user = await User.findByIdAndUpdate(
+        req.userId,
+        { 
+          emailVerified: true,
+          isVerified: true // Có thể cập nhật isVerified khi email được xác thực
         },
         { new: true }
       ).select('-password');
 
+      if (!user) {
+        return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      }
+
       res.json({
-        message: 'Cập nhật thành công',
-        user
+        message: 'Xác thực email thành công',
+        user: {
+          id: user._id,
+          emailVerified: user.emailVerified,
+          isVerified: user.isVerified
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+  },
+
+  // Xác thực số điện thoại
+  verifyPhone: async (req, res) => {
+    try {
+      const user = await User.findByIdAndUpdate(
+        req.userId,
+        { phoneVerified: true },
+        { new: true }
+      ).select('-password');
+
+      if (!user) {
+        return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      }
+
+      res.json({
+        message: 'Xác thực số điện thoại thành công',
+        user: {
+          id: user._id,
+          phoneVerified: user.phoneVerified
+        }
       });
     } catch (error) {
       res.status(500).json({ message: 'Lỗi server', error: error.message });
@@ -135,10 +259,25 @@ const userController = {
   // Lấy danh sách users (admin)
   getAllUsers: async (req, res) => {
     try {
-      const { page = 1, limit = 10, role } = req.query;
+      const { 
+        page = 1, 
+        limit = 10, 
+        role, 
+        isActive, 
+        isVerified,
+        search 
+      } = req.query;
       
       const filter = {};
       if (role) filter.role = role;
+      if (isActive !== undefined) filter.isActive = isActive === 'true';
+      if (isVerified !== undefined) filter.isVerified = isVerified === 'true';
+      if (search) {
+        filter.$or = [
+          { fullName: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } }
+        ];
+      }
 
       const users = await User.find(filter)
         .select('-password')
@@ -159,54 +298,67 @@ const userController = {
     }
   },
 
-  // Thêm method mới
-getUserById: async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+  // Lấy user theo ID
+  getUserById: async (req, res) => {
+    try {
+      const user = await User.findById(req.params.id).select('-password');
+      if (!user) {
+        return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      }
+
+      res.json({
+        user: {
+          _id: user._id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          profile: user.profile || {},
+          preferences: user.preferences,
+          stats: user.stats,
+          isVerified: user.isVerified,
+          isActive: user.isActive,
+          emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified,
+          lastLogin: user.lastLogin,
+          createdAt: user.createdAt
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
-   res.json({
-      user: {
+  },
+
+  // Lấy nhiều users theo danh sách ID
+  getUsersBatch: async (req, res) => {
+    try {
+      const { userIds } = req.body;
+      
+      if (!userIds || !Array.isArray(userIds)) {
+        return res.status(400).json({ message: 'userIds array is required' });
+      }
+
+      const users = await User.find({
+        _id: { $in: userIds }
+      }).select('-password');
+
+      const formattedUsers = users.map(user => ({
         _id: user._id,
         email: user.email,
         fullName: user.fullName,
         role: user.role,
-        profile: user.profile || { avatar: null, bio: null }
-      }
-    });
-  }catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-},
-// Thêm method này vào userController
-getUsersBatch: async (req, res) => {
-  try {
-    const { userIds } = req.body;
-    
-    if (!userIds || !Array.isArray(userIds)) {
-      return res.status(400).json({ message: 'userIds array is required' });
+        profile: user.profile || {},
+        stats: user.stats,
+        isVerified: user.isVerified,
+        isActive: user.isActive
+      }));
+
+      res.json({
+        users: formattedUsers
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
-
-    const users = await User.find({
-      _id: { $in: userIds }
-    }).select('-password');
-
-    const formattedUsers = users.map(user => ({
-      _id: user._id,
-      email: user.email,
-      fullName: user.fullName,
-      role: user.role,
-      profile: user.profile || { avatar: null, bio: null }
-    }));
-
-    res.json({
-      users: formattedUsers
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-},
+  },
 
   // Khóa/mở khóa tài khoản (admin)
   toggleUserStatus: async (req, res) => {
@@ -233,11 +385,33 @@ getUsersBatch: async (req, res) => {
     } catch (error) {
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
+  },
+
+  // Lấy thống kê tổng quan (admin)
+  getUsersStats: async (req, res) => {
+    try {
+      const totalUsers = await User.countDocuments();
+      const activeUsers = await User.countDocuments({ isActive: true });
+      const verifiedUsers = await User.countDocuments({ isVerified: true });
+      const usersByRole = await User.aggregate([
+        {
+          $group: {
+            _id: '$role',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      res.json({
+        totalUsers,
+        activeUsers,
+        verifiedUsers,
+        usersByRole
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
   }
-
-  
 };
-
-
 
 module.exports = userController;

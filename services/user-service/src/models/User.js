@@ -5,7 +5,8 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    lowercase: true
+    lowercase: true,
+    index: true
   },
   password: {
     type: String,
@@ -14,7 +15,8 @@ const userSchema = new mongoose.Schema({
   },
   fullName: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
   role: {
     type: String,
@@ -24,14 +26,33 @@ const userSchema = new mongoose.Schema({
   profile: {
     avatar: String,
     bio: String,
+    dateOfBirth: Date,
+    phone: String,
+    address: {
+      street: String,
+      city: String,
+      country: String
+    },
     skills: [String],
     experience: String,
     education: String,
     socialLinks: {
       linkedin: String,
       facebook: String,
-      website: String
+      website: String,
+      twitter: String
     }
+  },
+  preferences: {
+    emailNotifications: { type: Boolean, default: true },
+    smsNotifications: { type: Boolean, default: false },
+    language: { type: String, default: 'vi' },
+    timezone: { type: String, default: 'Asia/Ho_Chi_Minh' }
+  },
+  stats: {
+    coursesCompleted: { type: Number, default: 0 },
+    totalLearningHours: { type: Number, default: 0 },
+    avgRating: { type: Number, default: 0 }
   },
   isVerified: {
     type: Boolean,
@@ -40,7 +61,10 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  }
+  },
+  lastLogin: Date,
+  emailVerified: { type: Boolean, default: false },
+  phoneVerified: { type: Boolean, default: false }
 }, {
   timestamps: true
 });

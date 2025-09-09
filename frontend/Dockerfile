@@ -1,5 +1,4 @@
-# Dockerfile cho Frontend (./frontend/Dockerfile)
-FROM node:18-alpine as build
+FROM node:20-alpine as build
 
 # Thiết lập thư mục làm việc
 WORKDIR /app
@@ -7,9 +6,8 @@ WORKDIR /app
 # Copy package.json và package-lock.json
 COPY package*.json ./
 
-# Thiết lập npm cache và cài đặt dependencies
-RUN npm config set cache /tmp/.npm && \
-    npm ci --only=production --silent
+# Cài đặt tất cả dependencies (bao gồm devDependencies)
+RUN npm install
 
 # Copy source code
 COPY . .
@@ -22,9 +20,6 @@ FROM nginx:alpine
 
 # Copy built files từ stage trước
 COPY --from=build /app/build /usr/share/nginx/html
-
-# Copy nginx config nếu có
-# COPY nginx.conf /etc/nginx/nginx.conf
 
 # Expose port
 EXPOSE 80
