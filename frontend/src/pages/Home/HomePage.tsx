@@ -1,6 +1,6 @@
 import React from "react";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
+import Header from "../../components/common/Header/Header";
+import Footer from "../../components/common/Footer/Footer";
 
 const HomePage: React.FC = () => {
   return (
@@ -13,7 +13,7 @@ const HomePage: React.FC = () => {
   Welcome to EduPress
 </h1>
 <p className="bg-yellow-200 text-red-600 p-6 rounded-lg shadow-lg">
-  Nếu đoạn này nền vàng, chữ đỏ, có padding, bo góc và đổ bóng → Tailwind đang chạy 🎉
+  Nếu đoạn này nền vàng, chữ đỏ, có padding, bo góc và đổ bóng → Tailwind đang chạyyyyyy 🎉
 </p>
 
       </main>

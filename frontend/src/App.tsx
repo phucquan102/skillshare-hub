@@ -1,14 +1,15 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import HomePage from "./pages/HomePage";
+import { BrowserRouter } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import AppRouter from "./routes/AppRouter"; // Import AppRouter
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRouter /> {/* Sử dụng AppRouter thay vì định nghĩa Routes ở đây */}
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

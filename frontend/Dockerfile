@@ -1,28 +1,21 @@
 FROM node:20-alpine as build
 
-# Thiết lập thư mục làm việc
 WORKDIR /app
 
-# Copy package.json và package-lock.json
 COPY package*.json ./
-
-# Cài đặt tất cả dependencies (bao gồm devDependencies)
 RUN npm install
 
-# Copy source code
 COPY . .
-
-# Build ứng dụng
 RUN npm run build
 
-# Stage 2: Nginx để serve static files
 FROM nginx:alpine
 
-# Copy built files từ stage trước
+# Copy file build React
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Expose port
+# Copy file cấu hình nginx.conf vào container
+COPY nginx.conf /etc/nginx/nginx.conf
+
 EXPOSE 80
 
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]

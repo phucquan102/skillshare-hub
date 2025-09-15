@@ -47,8 +47,8 @@ const createProxy = (target, serviceName, pathRewrite = {}) => {
   return createProxyMiddleware({
     target,
     changeOrigin: true,
-    timeout: 5000,
-    proxyTimeout: 5000,
+    timeout: 15000,
+    proxyTimeout: 15000,
     pathRewrite,
     onProxyReq: (proxyReq, req, res) => {
       console.log(`Proxying to ${serviceName}: ${req.method} ${req.originalUrl} -> ${target}${req.path}`);
