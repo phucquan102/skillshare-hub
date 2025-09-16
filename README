@@ -1,0 +1,21 @@
+# Build và chạy course-service
+docker compose build --no-cache course-service
+docker compose up course-service
+
+# Build và chạy payment-service
+docker compose build --no-cache payment-service
+docker compose up payment-service
+
+# Build và chạy api-gateway
+docker compose build --no-cache api-gateway
+docker compose up api-gateway
+
+# Build và chạy frontend
+docker compose build --no-cache frontend
+docker compose up frontend
+
+
+
+
+docker compose build --no-cache
+docker compose up

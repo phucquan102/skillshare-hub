@@ -359,7 +359,69 @@ const userController = {
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
   },
+deleteUser: async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+    
+    if (user.role === 'admin') {
+      return res.status(403).json({ message: 'Không thể xóa tài khoản admin' });
+    }
 
+    await User.deleteOne({ _id: userId });
+
+    res.json({ message: 'Xóa người dùng thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+},
+updateUser: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const updateData = req.body;
+
+      // Kiểm tra vai trò hợp lệ nếu có
+      if (updateData.role && !['student', 'instructor', 'admin'].includes(updateData.role)) {
+        return res.status(400).json({ message: 'Vai trò không hợp lệ' });
+      }
+
+      const user = await User.findByIdAndUpdate(
+        userId,
+        updateData,
+        { new: true, runValidators: true }
+      ).select('-password');
+
+      if (!user) {
+        return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      }
+
+      res.json({
+        message: 'Cập nhật người dùng thành công',
+        user: {
+          id: user._id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          isActive: user.isActive,
+          isVerified: user.isVerified,
+          emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified,
+          profile: user.profile || {},
+          preferences: user.preferences || {},
+          stats: user.stats || {},
+          lastLogin: user.lastLogin,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+  },
   // Khóa/mở khóa tài khoản (admin)
   toggleUserStatus: async (req, res) => {
     try {
@@ -411,7 +473,31 @@ const userController = {
     } catch (error) {
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
+  },
+
+  // Set quyền admin cho user (chỉ dùng trong development)
+  makeAdmin: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Tìm user và cập nhật role thành admin
+      const user = await User.findByIdAndUpdate(
+        userId,
+        { role: 'admin' },
+        { new: true }
+      );
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      res.json({ message: 'User role updated to admin', user });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
   }
 };
+// Cập nhật thông tin người dùng (bao gồm vai trò)
+
 
 module.exports = userController;

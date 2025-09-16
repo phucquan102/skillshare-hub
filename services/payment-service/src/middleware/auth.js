@@ -1,3 +1,4 @@
+// payment-service/src/middleware/auth.js
 const axios = require('axios');
 
 const authMiddleware = async (req, res, next) => {

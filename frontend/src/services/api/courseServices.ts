@@ -19,20 +19,67 @@ export interface Course {
     };
   };
   category: string;
+  subcategory?: string;
   level: string;
   pricingType: string;
-  fullCoursePrice: number;
+  fullCoursePrice?: number;
   currentEnrollments: number;
   maxStudents: number;
   status: string;
   thumbnail?: string;
+  promoVideo?: string;
+  gallery?: string[];
   createdAt: string;
+  updatedAt: string;
+  startDate: string;
+  endDate: string;
   ratings: {
     average: number;
     count: number;
   };
   availableSpots: number;
   totalLessons: number;
+  lessons?: Lesson[];
+  prerequisites?: string[];
+  learningOutcomes?: string[];
+  materialsIncluded?: string[];
+  requirements?: string[];
+  tags?: string[];
+  language?: string;
+  discount?: {
+    percentage: number;
+    validUntil: string;
+  };
+  certificate?: boolean;
+  featured?: boolean;
+  coInstructors?: string[];
+  schedules?: any[];
+  approvalStatus?: {
+    status: string;
+    reason?: string;
+  };
+  isActive: boolean;
+}
+
+export interface Lesson {
+  _id: string;
+  courseId: string;
+  title: string;
+  description: string;
+  order: number;
+  duration: number;
+  price?: number;
+  type: string;
+  content?: any;
+  resources?: any[];
+  isPreview: boolean;
+  schedule?: any;
+  requirements?: string[];
+  objectives?: string[];
+  metadata?: any;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CoursesFilter {
@@ -40,6 +87,7 @@ export interface CoursesFilter {
   limit?: number;
   search?: string;
   category?: string;
+  subcategory?: string;
   level?: string;
   pricingType?: string;
   minPrice?: number;
@@ -60,33 +108,133 @@ export interface CoursesResponse {
   };
 }
 
+export interface CreateCourseData {
+  title: string;
+  description: string;
+  shortDescription?: string;
+  category: string;
+  subcategory?: string;
+  level: string;
+  pricingType: string;
+  fullCoursePrice?: number;
+  coInstructors?: string[];
+  schedules?: any[];
+  maxStudents: number;
+  prerequisites?: string[];
+  learningOutcomes?: string[];
+  materialsIncluded?: string[];
+  requirements?: string[];
+  tags?: string[];
+  language?: string;
+  thumbnail?: string;
+  promoVideo?: string;
+  gallery?: string[];
+  discount?: {
+    percentage: number;
+    validUntil: string;
+  };
+  certificate?: boolean;
+  featured?: boolean;
+  startDate: string;
+  endDate: string;
+}
+
+export interface UpdateCourseData extends Partial<CreateCourseData> {
+  // All fields are optional for updates
+}
+
+export interface CreateLessonData {
+  title: string;
+  description: string;
+  order: number;
+  duration: number;
+  price?: number;
+  type: string;
+  content?: any;
+  resources?: any[];
+  isPreview?: boolean;
+  schedule?: any;
+  requirements?: string[];
+  objectives?: string[];
+  metadata?: any;
+}
+
+export interface UpdateLessonData extends Partial<CreateLessonData> {
+  status?: string;
+}
+
+export interface LessonsResponse {
+  lessons: Lesson[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalLessons: number;
+  };
+}
+
 export const courseService = {
+  // Course Management
   getCourses: async (filters: CoursesFilter): Promise<CoursesResponse> => {
     const queryParams = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        queryParams.append(key, value.toString());
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        queryParams.append(key, String(value));
       }
     });
 
-    // ✅ Gateway expose /api/courses
     const endpoint = `${API_BASE_URL}/api/courses?${queryParams.toString()}`;
-
     try {
       return await apiRequest<CoursesResponse>(endpoint, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
     } catch (error) {
-      console.error(`Failed to fetch from ${endpoint}:`, error);
+      console.error(`Failed to fetch courses from ${endpoint}:`, error);
       throw error;
     }
   },
 
-  updateCourseStatus: async (courseId: string, { status }: { status: string }): Promise<any> => {
-    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/status`;
+  getCourseById: async (courseId: string): Promise<{ course: Course }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}`;
+    try {
+      return await apiRequest<{ course: Course }>(endpoint, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error(`Failed to fetch course ${courseId}:`, error);
+      throw error;
+    }
+  },
+
+  createCourse: async (courseData: CreateCourseData): Promise<{ message: string; course: Course }> => {
+    const endpoint = `${API_BASE_URL}/api/courses`;
+    return await apiRequest(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(courseData)
+    });
+  },
+
+  updateCourse: async (courseId: string, courseData: UpdateCourseData): Promise<{ message: string; course: Course }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}`;
     return await apiRequest(endpoint, {
       method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(courseData)
+    });
+  },
+
+  updateCourseStatus: async (courseId: string, { status }: { status: string }): Promise<{ message: string; course: { id: string; title: string; status: string; isActive: boolean } }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/status`;
+    return await apiRequest(endpoint, {
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -95,11 +243,163 @@ export const courseService = {
     });
   },
 
-  deleteCourse: async (courseId: string): Promise<any> => {
+  deleteCourse: async (courseId: string): Promise<{ message: string; courseId: string }> => {
     const endpoint = `${API_BASE_URL}/api/courses/${courseId}`;
     return await apiRequest(endpoint, {
       method: 'DELETE',
       headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+  },
+
+  getMyCourses: async (filters: { page?: number; limit?: number; status?: string }): Promise<CoursesResponse> => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        queryParams.append(key, String(value));
+      }
+    });
+
+    const endpoint = `${API_BASE_URL}/api/courses/my?${queryParams.toString()}`;
+    return await apiRequest(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+  },
+
+  // Admin Functions
+  getPendingCourses: async (filters: { page?: number; limit?: number }): Promise<CoursesResponse> => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        queryParams.append(key, String(value));
+      }
+    });
+
+    const endpoint = `${API_BASE_URL}/api/courses/pending?${queryParams.toString()}`;
+    return await apiRequest(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+  },
+
+  approveCourse: async (courseId: string): Promise<{ message: string; courseId: string }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/approve`;
+    return await apiRequest(endpoint, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+  },
+
+  rejectCourse: async (courseId: string, reason: string): Promise<{ message: string; courseId: string }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/reject`;
+    return await apiRequest(endpoint, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ reason })
+    });
+  },
+
+  // Lesson Management
+  getLessonsByCourse: async (courseId: string, filters: { page?: number; limit?: number }): Promise<LessonsResponse> => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        queryParams.append(key, String(value));
+      }
+    });
+
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/lessons?${queryParams.toString()}`;
+    return await apiRequest(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+  },
+
+  getLessonById: async (lessonId: string): Promise<{ lesson: Lesson }> => {
+    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}`;
+    return await apiRequest(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+  },
+
+  createLesson: async (courseId: string, lessonData: CreateLessonData): Promise<{ message: string; lesson: Lesson }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/lessons`;
+    return await apiRequest(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(lessonData)
+    });
+  },
+
+  updateLesson: async (lessonId: string, lessonData: UpdateLessonData): Promise<{ message: string; lesson: Lesson }> => {
+    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}`;
+    return await apiRequest(endpoint, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(lessonData)
+    });
+  },
+
+  deleteLesson: async (lessonId: string): Promise<{ message: string; lessonId: string }> => {
+    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}`;
+    return await apiRequest(endpoint, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+  },
+
+  // Enrollment
+  createEnrollment: async (courseId: string, paymentId: string): Promise<{ message: string; enrollment: any }> => {
+    const endpoint = `${API_BASE_URL}/api/enrollments`;
+    return await apiRequest(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ courseId, paymentId })
+    });
+  },
+
+  // Statistics and Analytics (if needed)
+  getCourseStats: async (courseId?: string): Promise<any> => {
+    const endpoint = courseId 
+      ? `${API_BASE_URL}/api/courses/${courseId}/stats`
+      : `${API_BASE_URL}/api/courses/stats`;
+    
+    return await apiRequest(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
