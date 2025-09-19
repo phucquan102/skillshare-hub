@@ -50,6 +50,8 @@ const login = async (data: LoginData): Promise<AuthResponse> => {
     }
 
     const result = await response.json();
+    localStorage.setItem('token', result.token);
+
     console.log('Login successful:', { userId: result.user?.id });
     return result;
   } catch (error) {
@@ -84,6 +86,8 @@ const register = async (data: RegisterData): Promise<AuthResponse> => {
     }
 
     const result = await response.json();
+    localStorage.setItem('token', result.token);
+
     console.log('Registration successful:', { userId: result.user?.id });
     return result;
   } catch (error) {

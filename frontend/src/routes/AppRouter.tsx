@@ -1,21 +1,24 @@
+// src/routes/AppRouter.tsx
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import AdminRoute from './AdminRoute'; // Nếu AdminRoute.tsx ở cùng thư mục routes/
-// Hoặc import AdminRoute from '../components/AdminRoute'; // Nếu ở thư mục khác
-
+import AdminRoute from './AdminRoute';
 import AdminLayout from '../layouts/AdminLayout/AdminLayout';
 import AdminDashboard from '../pages/admin/AdminDashboard/AdminDashboard';
 import UsersManagementPage from '../pages/admin/UsersManagement/UsersManagementPage';
 import CoursesManagementPage from '../pages/admin/CoursesManagement/CoursesManagementPage';
 import ReportsPage from '../pages/admin/ReportsPage/ReportsPage';
 import HomePage from '../pages/Home/HomePage';
+import LoginPage from '../pages/Auth/LoginPage/LoginPage';
+import RegisterPage from '../pages/Auth/RegisterPage/RegisterPage';
 
 const AppRouter: React.FC = () => {
   return (
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<HomePage />} />
-      
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+
       {/* Admin Routes - tất cả bắt đầu bằng /admin */}
       <Route
         path="/admin"
