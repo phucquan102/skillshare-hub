@@ -4,7 +4,7 @@ import { UsersFilter } from '../../../types/user.types';
 interface UserFiltersProps {
   filters: UsersFilter;
   onFilterChange: (filters: UsersFilter) => void;
-  onResetFilters: () => void; // New prop for resetting filters
+  onResetFilters: () => void;
 }
 
 const UserFilters: React.FC<UserFiltersProps> = ({ filters, onFilterChange, onResetFilters }) => {
@@ -35,61 +35,87 @@ const UserFilters: React.FC<UserFiltersProps> = ({ filters, onFilterChange, onRe
   };
 
   return (
-    <div className="user-filters">
-      <div className="filter-group search-group">
-        <label htmlFor="search">Tìm kiếm</label>
+    <div className="user-filters flex flex-wrap gap-4 items-end mb-6">
+      {/* Search */}
+      <div className="filter-group">
+        <label htmlFor="search" className="block text-sm font-medium text-gray-700">
+          Search
+        </label>
         <input
           id="search"
           type="text"
-          placeholder="Tìm kiếm theo tên hoặc email..."
+          placeholder="Search by name or email..."
           value={filters.search || ''}
           onChange={handleSearchChange}
-          className="search-input"
-          aria-label="Tìm kiếm người dùng"
+          className="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-[#3a0ca3] focus:border-[#3a0ca3] sm:text-sm"
+          aria-label="Search users"
         />
       </div>
 
+      {/* Role */}
       <div className="filter-group">
-        <label htmlFor="role">Vai trò</label>
-        <select id="role" value={filters.role || ''} onChange={handleRoleChange} aria-label="Lọc theo vai trò">
-          <option value="">Tất cả vai trò</option>
-          <option value="student">Học viên</option>
-          <option value="instructor">Giảng viên</option>
-          <option value="admin">Quản trị viên</option>
+        <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+          Role
+        </label>
+        <select
+          id="role"
+          value={filters.role || ''}
+          onChange={handleRoleChange}
+          className="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-[#3a0ca3] focus:border-[#3a0ca3] sm:text-sm"
+          aria-label="Filter by role"
+        >
+          <option value="">All roles</option>
+          <option value="student">Student</option>
+          <option value="instructor">Instructor</option>
+          <option value="admin">Administrator</option>
         </select>
       </div>
 
+      {/* Status */}
       <div className="filter-group">
-        <label htmlFor="status">Trạng thái</label>
+        <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+          Status
+        </label>
         <select
           id="status"
           value={filters.isActive === undefined ? '' : filters.isActive ? 'active' : 'inactive'}
           onChange={handleStatusChange}
-          aria-label="Lọc theo trạng thái"
+          className="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-[#3a0ca3] focus:border-[#3a0ca3] sm:text-sm"
+          aria-label="Filter by status"
         >
-          <option value="">Tất cả trạng thái</option>
-          <option value="active">Hoạt động</option>
-          <option value="inactive">Đã khóa</option>
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
         </select>
       </div>
 
+      {/* Verification */}
       <div className="filter-group">
-        <label htmlFor="verification">Xác thực</label>
+        <label htmlFor="verification" className="block text-sm font-medium text-gray-700">
+          Verification
+        </label>
         <select
           id="verification"
           value={filters.isVerified === undefined ? '' : filters.isVerified ? 'verified' : 'unverified'}
           onChange={handleVerificationChange}
-          aria-label="Lọc theo trạng thái xác thực"
+          className="mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-[#3a0ca3] focus:border-[#3a0ca3] sm:text-sm"
+          aria-label="Filter by verification"
         >
-          <option value="">Tất cả xác thực</option>
-          <option value="verified">Đã xác thực</option>
-          <option value="unverified">Chưa xác thực</option>
+          <option value="">All verifications</option>
+          <option value="verified">Verified</option>
+          <option value="unverified">Unverified</option>
         </select>
       </div>
 
-      <button className="reset-button" onClick={onResetFilters}>
-        Đặt lại
-      </button>
+      {/* Reset */}
+      <div>
+        <button
+          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition"
+          onClick={onResetFilters}
+        >
+          Reset
+        </button>
+      </div>
     </div>
   );
 };

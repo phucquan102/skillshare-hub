@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { debounce } from 'lodash';
 import { User, UsersFilter } from '../../../types/user.types';
 import { adminService } from '../../../services/api/adminService';
 import UserTable from './UserTable';
 import UserFilters from './UserFilters';
 import UserStats from './UserStats';
 import styles from './UserManagement.module.scss';
+
+// Cache với expiry
+const cache = new Map<string, { data: User[]; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 phút
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -25,36 +30,62 @@ const UserManagement: React.FC = () => {
   });
   const [stats, setStats] = useState<any>(null);
 
-  useEffect(() => {
-    fetchUsers();
-    fetchStats();
-  }, [filters]);
-
-  const fetchUsers = async () => {
+  // Fetch users với cache + expiry
+  const fetchUsers = async (currentFilters: UsersFilter) => {
     try {
+      const key = JSON.stringify(currentFilters);
+      const cached = cache.get(key);
+
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setUsers(cached.data);
+        return;
+      }
+
       setLoading(true);
-      const response = await adminService.getUsers(filters);
+      const response = await adminService.getUsers(currentFilters);
       setUsers(response.users);
       setPagination({
         totalPages: response.totalPages,
         currentPage: response.currentPage,
         total: response.total,
       });
+
+      cache.set(key, { data: response.users, timestamp: Date.now() });
     } catch (err: any) {
-      setError(err.message || 'Lỗi khi tải danh sách người dùng');
+      setError(err.message || 'Error while fetching users');
     } finally {
       setLoading(false);
     }
   };
 
+  // debounce fetch
+  const debouncedFetch = useCallback(
+    debounce((currentFilters: UsersFilter) => {
+      fetchUsers(currentFilters);
+    }, 400),
+    []
+  );
+
+  useEffect(() => {
+    debouncedFetch(filters);
+    return () => {
+      debouncedFetch.cancel();
+    };
+  }, [filters, debouncedFetch]);
+
+  // Fetch stats (không cần cache vì số liệu luôn thay đổi)
   const fetchStats = async () => {
     try {
       const statsData = await adminService.getUsersStats();
       setStats(statsData);
     } catch (err) {
-      console.error('Lỗi khi tải thống kê:', err);
+      console.error('Error fetching stats:', err);
     }
   };
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   const handleFilterChange = (newFilters: UsersFilter) => {
     setFilters({ ...filters, ...newFilters, page: 1 });
@@ -78,44 +109,48 @@ const UserManagement: React.FC = () => {
   const handleUpdateUser = async (userId: string, updates: Partial<User>) => {
     try {
       await adminService.updateUser(userId, updates);
-      fetchUsers();
+      fetchUsers(filters);
       fetchStats();
     } catch (err: any) {
-      setError(err.message || 'Lỗi khi cập nhật người dùng');
+      setError(err.message || 'Error updating user');
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa người dùng này?')) {
+    if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         await adminService.deleteUser(userId);
-        fetchUsers();
+        fetchUsers(filters);
         fetchStats();
       } catch (err: any) {
-        setError(err.message || 'Lỗi khi xóa người dùng');
+        setError(err.message || 'Error deleting user');
       }
     }
   };
 
   return (
     <div className={styles.userManagement}>
-      <h1>Quản lý Người dùng</h1>
+      <h1>User Management</h1>
 
       {stats && <UserStats stats={stats} />}
 
-      <UserFilters filters={filters} onFilterChange={handleFilterChange} onResetFilters={handleResetFilters} />
+      <UserFilters 
+        filters={filters} 
+        onFilterChange={handleFilterChange} 
+        onResetFilters={handleResetFilters} 
+      />
 
       {error && (
         <div className={styles.errorMessage}>
           <span>{error}</span>
-          <button onClick={() => setError(null)}>Đóng</button>
+          <button onClick={() => setError(null)}>Close</button>
         </div>
       )}
 
       {loading && (
         <div className={styles.loading}>
           <div className={styles.spinner}></div>
-          <span>Đang tải...</span>
+          <span>Loading...</span>
         </div>
       )}
 
@@ -132,17 +167,17 @@ const UserManagement: React.FC = () => {
           onClick={() => handlePageChange(filters.page! - 1)}
           className={styles.paginationButton}
         >
-          Trước
+          Prev
         </button>
         <span>
-          Trang {filters.page} / {pagination.totalPages}
+          Page {filters.page} / {pagination.totalPages}
         </span>
         <button
           disabled={filters.page === pagination.totalPages}
           onClick={() => handlePageChange(filters.page! + 1)}
           className={styles.paginationButton}
         >
-          Sau
+          Next
         </button>
       </div>
     </div>

@@ -1,34 +1,22 @@
 // course-service/src/index.js
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3002;
-app.disable('etag');
 
-app.use(cors({
-  origin: 'http://localhost:8081',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Accept', 'Origin', 'X-Requested-With'],
-  credentials: true
-}));
-
+// Middleware parse JSON
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-app.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'no-store');
-  next();
-});
-
+// MongoDB connect
 const connectDB = async () => {
   try {
     const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/coursedb';
     await mongoose.connect(mongoURI, {
       useNewUrlParser: true,
-      useUnifiedTopology: true
+      useUnifiedTopology: true,
     });
     console.log('✅ MongoDB connected for Course Service');
   } catch (error) {
@@ -37,40 +25,37 @@ const connectDB = async () => {
   }
 };
 
+// Routes
 const courseRoutes = require('./routes/courseRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
 
+// Health check
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
+  res.status(200).json({
+    status: 'OK',
     service: 'course-service',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
+// Mount routes
 app.use('/admin', adminRoutes);
-app.use('/', courseRoutes); // Move this after /admin
 app.use('/enrollments', enrollmentRoutes);
+app.use('/', courseRoutes);
 
+// Error handler
 app.use((error, req, res, next) => {
-  console.error(`Unhandled error at ${req.method} ${req.url}:`, error);
+  console.error(`❌ Error at ${req.method} ${req.url}:`, error);
   res.status(500).json({
     message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+    error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong',
   });
 });
 
-connectDB()
-  .then(() => {
-    app.listen(port, () => {
-      console.log(`🚀 Course Service running on port ${port}`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    });
-  })
-  .catch((error) => {
-    console.error('❌ Failed to start server:', error);
-    process.exit(1);
+// Start server
+connectDB().then(() => {
+  app.listen(port, () => {
+    console.log(`🚀 Course Service running on port ${port}`);
   });
-
-module.exports = app;
+});

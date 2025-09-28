@@ -23,7 +23,7 @@ const UserTable: React.FC<UserTableProps> = ({
   };
 
   if (users.length === 0 && !loading) {
-    return <div className="no-users">Không có người dùng nào</div>;
+    return <div className="no-users">No users found</div>;
   }
 
   return (
@@ -31,13 +31,13 @@ const UserTable: React.FC<UserTableProps> = ({
       <table>
         <thead>
           <tr>
-            <th>Họ tên</th>
+            <th>Full Name</th>
             <th>Email</th>
-            <th>Vai trò</th>
-            <th>Trạng thái</th>
-            <th>Xác thực</th>
-            <th>Ngày tạo</th>
-            <th>Hành động</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Verification</th>
+            <th>Created At</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -56,11 +56,11 @@ const UserTable: React.FC<UserTableProps> = ({
                 <select 
                   value={user.role} 
                   onChange={(e) => handleRoleChange(user._id, e.target.value)}
-                  disabled={user.role === 'admin'} // Không cho đổi role admin
+                  disabled={user.role === 'admin'} // Prevent changing admin role
                 >
-                  <option value="student">Học viên</option>
-                  <option value="instructor">Giảng viên</option>
-                  <option value="admin">Quản trị viên</option>
+                  <option value="student">Student</option>
+                  <option value="instructor">Instructor</option>
+                  <option value="admin">Administrator</option>
                 </select>
               </td>
               <td>
@@ -72,21 +72,21 @@ const UserTable: React.FC<UserTableProps> = ({
                   />
                   <span className="slider round"></span>
                 </label>
-                <span>{user.isActive ? 'Hoạt động' : 'Đã khóa'}</span>
+                <span>{user.isActive ? 'Active' : 'Inactive'}</span>
               </td>
               <td>
-                {user.isVerified ? 'Đã xác thực' : 'Chưa xác thực'}
+                {user.isVerified ? 'Verified' : 'Unverified'}
               </td>
               <td>
-                {new Date(user.createdAt).toLocaleDateString('vi-VN')}
+                {new Date(user.createdAt).toLocaleDateString('en-US')}
               </td>
               <td>
                 <button 
                   className="btn-delete"
                   onClick={() => onDeleteUser(user._id)}
-                  disabled={user.role === 'admin'} // Không cho xóa admin
+                  disabled={user.role === 'admin'} // Prevent deleting admin
                 >
-                  Xóa
+                  Delete
                 </button>
               </td>
             </tr>

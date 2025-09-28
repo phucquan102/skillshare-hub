@@ -108,37 +108,39 @@ const CoursesManagementPage: React.FC = () => {
     }
   };
 
-  // Handle approve action
-  const handleApprove = async (courseId: string) => {
-    const actionKey = `approve_${courseId}`;
-    setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
-    try {
-      await courseService.updateCourseStatus(courseId, { status: 'published' });
-      await fetchCourses();
-      setError(null);
-    } catch (error: any) {
-      console.error('Error approving course:', error);
-      setError(error?.response?.data?.message || 'Không thể phê duyệt khóa học.');
-    } finally {
-      setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
-    }
-  };
 
-  // Handle reject action
-  const handleReject = async (courseId: string) => {
-    const actionKey = `reject_${courseId}`;
-    setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
-    try {
-      await courseService.updateCourseStatus(courseId, { status: 'rejected' });
-      await fetchCourses();
-      setError(null);
-    } catch (error: any) {
-      console.error('Error rejecting course:', error);
-      setError(error?.response?.data?.message || 'Không thể từ chối khóa học.');
-    } finally {
-      setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
-    }
-  };
+ // Handle approve action
+const handleApprove = async (courseId: string) => {
+  const actionKey = `approve_${courseId}`;
+  setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
+  try {
+    await courseService.approveCourse(courseId); // ✅ dùng hàm approveCourse
+    await fetchCourses();
+    setError(null);
+  } catch (error: any) {
+    console.error('Error approving course:', error);
+    setError(error?.response?.data?.message || 'Không thể phê duyệt khóa học.');
+  } finally {
+    setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
+  }
+};
+
+// Handle reject action
+const handleReject = async (courseId: string) => {
+  const actionKey = `reject_${courseId}`;
+  setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
+  try {
+    await courseService.rejectCourse(courseId, "Nội dung không phù hợp"); // ✅ dùng rejectCourse
+    await fetchCourses();
+    setError(null);
+  } catch (error: any) {
+    console.error('Error rejecting course:', error);
+    setError(error?.response?.data?.message || 'Không thể từ chối khóa học.');
+  } finally {
+    setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
+  }
+};
+
 
   // Handle delete action
   const handleDeleteCourse = async (courseId: string) => {

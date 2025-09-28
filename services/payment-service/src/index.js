@@ -32,7 +32,7 @@ app.get('/health', (req, res) => {
 });
 
 // Payment routes
-app.use('/api/payments', require('./routes/paymentRoutes'));
+app.use('/', require('./routes/paymentRoutes'));
 
 app.listen(port, () => {
   console.log(`Payment Service running on port ${port}`);

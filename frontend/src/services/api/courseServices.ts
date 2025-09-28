@@ -231,10 +231,13 @@ export const courseService = {
     });
   },
 
-  updateCourseStatus: async (courseId: string, { status }: { status: string }): Promise<{ message: string; course: { id: string; title: string; status: string; isActive: boolean } }> => {
+  updateCourseStatus: async (
+    courseId: string,
+    { status }: { status: string }
+  ): Promise<{ message: string; course: { id: string; title: string; status: string; isActive: boolean } }> => {
     const endpoint = `${API_BASE_URL}/api/courses/${courseId}/status`;
     return await apiRequest(endpoint, {
-      method: 'PATCH',
+      method: 'PATCH', // dùng PATCH cho đúng semantics
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -272,7 +275,7 @@ export const courseService = {
   },
 
   // Admin Functions
-  getPendingCourses: async (filters: { page?: number; limit?: number }): Promise<CoursesResponse> => {
+    getPendingCourses: async (filters: { page?: number; limit?: number }) => {
     const queryParams = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && String(value).trim() !== '') {
@@ -280,7 +283,7 @@ export const courseService = {
       }
     });
 
-    const endpoint = `${API_BASE_URL}/api/courses/pending?${queryParams.toString()}`;
+    const endpoint = `${API_BASE_URL}/api/admin/courses/pending?${queryParams.toString()}`;
     return await apiRequest(endpoint, {
       method: 'GET',
       headers: {
@@ -291,7 +294,7 @@ export const courseService = {
   },
 
   approveCourse: async (courseId: string): Promise<{ message: string; courseId: string }> => {
-    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/approve`;
+    const endpoint = `${API_BASE_URL}/api/admin/courses/${courseId}/approve`;
     return await apiRequest(endpoint, {
       method: 'PATCH',
       headers: {
@@ -302,7 +305,7 @@ export const courseService = {
   },
 
   rejectCourse: async (courseId: string, reason: string): Promise<{ message: string; courseId: string }> => {
-    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/reject`;
+    const endpoint = `${API_BASE_URL}/api/admin/courses/${courseId}/reject`;
     return await apiRequest(endpoint, {
       method: 'PATCH',
       headers: {

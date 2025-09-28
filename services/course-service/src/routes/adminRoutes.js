@@ -5,7 +5,8 @@ const courseController = require('../controllers/courseController');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 
 router.get('/courses/pending', authMiddleware, adminMiddleware, courseController.getPendingCourses);
-router.put('/courses/:courseId/approve', authMiddleware, adminMiddleware, courseController.approveCourse);
-router.put('/courses/:courseId/reject', authMiddleware, adminMiddleware, courseController.rejectCourse);
+router.patch('/courses/:courseId/approve', authMiddleware, adminMiddleware, courseController.approveCourse);
+router.patch('/courses/:courseId/reject', authMiddleware, adminMiddleware, courseController.rejectCourse);
+
 
 module.exports = router;
