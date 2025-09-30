@@ -51,7 +51,7 @@ const courseSchema = new mongoose.Schema({
     required: function() { return this.pricingType === 'full_course' || this.pricingType === 'both'; },
     min: 0
   },
-  currency: { type: String, default: 'VND', enum: ['VND', 'USD'] },
+  currency: { type: String, default: 'USD', enum: ['VND', 'USD'] },
   discount: discountSchema,
   lessons: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Lesson' }],
   schedules: [scheduleSchema],
@@ -90,6 +90,7 @@ courseSchema.index({ instructor: 1 });
 courseSchema.index({ category: 1 });
 courseSchema.index({ status: 1 });
 courseSchema.index({ title: 'text', description: 'text' });
+
 courseSchema.index({ 'ratings.average': -1 });
 courseSchema.index({ createdAt: -1 });
 

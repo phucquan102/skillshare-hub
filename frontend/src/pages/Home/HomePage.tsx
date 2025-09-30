@@ -1,25 +1,24 @@
-import React from "react";
-import Header from "../../components/common/Header/Header";
-import Footer from "../../components/common/Footer/Footer";
+import React from 'react';
+import { Link } from 'react-router-dom';
 
 const HomePage: React.FC = () => {
   return (
-    <>
-      <Header />
-
-      {/* Nội dung chính của trang */}
-      <main className="max-w-6xl mx-auto px-6 py-12">
-        <h1 className="text-5xl font-extrabold text-blue-600 underline">
-  Welcome to EduPress
-</h1>
-<p className="bg-yellow-200 text-red-600 p-6 rounded-lg shadow-lg">
-  Nếu đoạn này nền vàng, chữ đỏ, có padding, bo góc và đổ bóng → Tailwind đang chạyyyyyy 🎉
-</p>
-
-      </main>
-
-      <Footer />
-    </>
+    <main className="max-w-6xl mx-auto px-6 py-12">
+      <h1 className="text-5xl font-extrabold text-red-600 underline mb-6">
+        Welcome to SkillShare Hub
+      </h1>
+      <p className="bg-yellow-200 text-red-600 p-6 rounded-lg shadow-lg mb-8">
+        Browse through our extensive catalog of courses in various categories and find the perfect learning opportunity for you.
+      </p>
+      <div className="text-center">
+        <Link
+          to="/courses"
+          className="px-6 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+        >
+          Explore Our Courses
+        </Link>
+      </div>
+    </main>
   );
 };
 

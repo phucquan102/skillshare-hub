@@ -1,15 +1,28 @@
 import React from "react";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import AppRouter from "./routes/AppRouter"; // Import AppRouter
+import AppRouter from "./routes/AppRouter";
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
+// Stripe import
+import { Elements } from '@stripe/react-stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
+
+const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY!);
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRouter /> {/* Sử dụng AppRouter thay vì định nghĩa Routes ở đây */}
-      </BrowserRouter>
-    </AuthProvider>
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <AuthProvider>
+        <BrowserRouter>
+          {/* Wrap toàn bộ app hoặc ít nhất phần route thanh toán */}
+          <Elements stripe={stripePromise}>
+            <AppRouter />
+          </Elements>
+        </BrowserRouter>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }
 

@@ -101,6 +101,13 @@ const createProxy = (target, serviceName, pathRewrite = {}) => {
  *  ROUTES
  * =====================
  */
+
+app.use('/api/enrollments', createProxyMiddleware({
+  target: COURSE_SERVICE_URL,
+  changeOrigin: true,
+  pathRewrite: { '^/api/enrollments': '/enrollments' }
+}));
+
 app.use('/api/users', createProxy(USER_SERVICE_URL, 'user-service', { '^/api/users': '/' }));
 
 app.use('/api/admin', createProxy(COURSE_SERVICE_URL, 'course-service', (path, req) => {

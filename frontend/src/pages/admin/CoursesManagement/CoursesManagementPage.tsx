@@ -72,7 +72,7 @@ const CoursesManagementPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error fetching courses:', error);
-      const errorMessage = error?.response?.data?.message || 'Không thể tải danh sách khóa học.';
+      const errorMessage = error?.response?.data?.message || 'Unable to load course list.';
       setError(errorMessage);
       setCourses([]);
     } finally {
@@ -108,43 +108,41 @@ const CoursesManagementPage: React.FC = () => {
     }
   };
 
+  // Handle approve action
+  const handleApprove = async (courseId: string) => {
+    const actionKey = `approve_${courseId}`;
+    setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
+    try {
+      await courseService.approveCourse(courseId); // ✅ use approveCourse
+      await fetchCourses();
+      setError(null);
+    } catch (error: any) {
+      console.error('Error approving course:', error);
+      setError(error?.response?.data?.message || 'Unable to approve course.');
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
+    }
+  };
 
- // Handle approve action
-const handleApprove = async (courseId: string) => {
-  const actionKey = `approve_${courseId}`;
-  setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
-  try {
-    await courseService.approveCourse(courseId); // ✅ dùng hàm approveCourse
-    await fetchCourses();
-    setError(null);
-  } catch (error: any) {
-    console.error('Error approving course:', error);
-    setError(error?.response?.data?.message || 'Không thể phê duyệt khóa học.');
-  } finally {
-    setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
-  }
-};
-
-// Handle reject action
-const handleReject = async (courseId: string) => {
-  const actionKey = `reject_${courseId}`;
-  setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
-  try {
-    await courseService.rejectCourse(courseId, "Nội dung không phù hợp"); // ✅ dùng rejectCourse
-    await fetchCourses();
-    setError(null);
-  } catch (error: any) {
-    console.error('Error rejecting course:', error);
-    setError(error?.response?.data?.message || 'Không thể từ chối khóa học.');
-  } finally {
-    setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
-  }
-};
-
+  // Handle reject action
+  const handleReject = async (courseId: string) => {
+    const actionKey = `reject_${courseId}`;
+    setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
+    try {
+      await courseService.rejectCourse(courseId, "Inappropriate content"); // ✅ use rejectCourse
+      await fetchCourses();
+      setError(null);
+    } catch (error: any) {
+      console.error('Error rejecting course:', error);
+      setError(error?.response?.data?.message || 'Unable to reject course.');
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
+    }
+  };
 
   // Handle delete action
   const handleDeleteCourse = async (courseId: string) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa khóa học này?')) return;
+    if (!window.confirm('Are you sure you want to delete this course?')) return;
     const actionKey = `delete_${courseId}`;
     setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
     try {
@@ -153,7 +151,7 @@ const handleReject = async (courseId: string) => {
       setError(null);
     } catch (error: any) {
       console.error('Error deleting course:', error);
-      const errorMessage = error?.response?.data?.message || 'Không thể xóa khóa học.';
+      const errorMessage = error?.response?.data?.message || 'Unable to delete course.';
       alert(errorMessage);
     } finally {
       setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
@@ -187,9 +185,9 @@ const handleReject = async (courseId: string) => {
 
   // Format currency, status color, and translations
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('vi-VN', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'VND',
+      currency: 'USD', // Changed to USD for English context; adjust as needed
     }).format(amount || 0);
   };
 
@@ -207,39 +205,39 @@ const handleReject = async (courseId: string) => {
 
   const translateStatus = (status: string): string => {
     const statusMap: { [key: string]: string } = {
-      published: 'Đã xuất bản',
-      draft: 'Bản nháp',
-      pending_review: 'Chờ duyệt',
-      rejected: 'Đã từ chối',
-      archived: 'Đã lưu trữ',
-      suspended: 'Đã tạm ngừng',
+      published: 'Published',
+      draft: 'Draft',
+      pending_review: 'Pending Review',
+      rejected: 'Rejected',
+      archived: 'Archived',
+      suspended: 'Suspended',
     };
     return statusMap[status] || status;
   };
 
   const translateCategory = (category: string): string => {
     const categoryMap: { [key: string]: string } = {
-      programming: 'Lập trình',
-      design: 'Thiết kế',
-      business: 'Kinh doanh',
-      marketing: 'Tiếp thị',
-      language: 'Ngôn ngữ',
-      music: 'Âm nhạc',
-      photography: 'Nhiếp ảnh',
-      cooking: 'Nấu ăn',
-      fitness: 'Thể dục',
-      art: 'Nghệ thuật',
-      writing: 'Viết lách',
-      other: 'Khác',
+      programming: 'Programming',
+      design: 'Design',
+      business: 'Business',
+      marketing: 'Marketing',
+      language: 'Language',
+      music: 'Music',
+      photography: 'Photography',
+      cooking: 'Cooking',
+      fitness: 'Fitness',
+      art: 'Art',
+      writing: 'Writing',
+      other: 'Other',
     };
     return categoryMap[category] || category;
   };
 
   const translateLevel = (level: string): string => {
     const levelMap: { [key: string]: string } = {
-      beginner: 'Cơ bản',
-      intermediate: 'Trung cấp',
-      advanced: 'Nâng cao',
+      beginner: 'Beginner',
+      intermediate: 'Intermediate',
+      advanced: 'Advanced',
     };
     return levelMap[level] || level;
   };
@@ -309,7 +307,7 @@ const handleReject = async (courseId: string) => {
       <div className="p-6">
         <div className="flex justify-center items-center h-64">
           <span className="animate-spin text-2xl">⏳</span>
-          <span className="ml-3 text-gray-600">Đang tải dữ liệu...</span>
+          <span className="ml-3 text-gray-600">Loading data...</span>
         </div>
       </div>
     );
@@ -320,16 +318,9 @@ const handleReject = async (courseId: string) => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Quản lý Khóa học</h1>
-          <p className="text-gray-600 mt-1">Tổng số: {pagination.totalCourses} khóa học</p>
+          <h1 className="text-2xl font-bold text-gray-800">Course Management</h1>
+          <p className="text-gray-600 mt-1">Total: {pagination.totalCourses} courses</p>
         </div>
-        <button
-          type="button"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors"
-          onClick={handleCreateCourse}
-        >
-          <span className="mr-2">➕</span> Tạo khóa học mới
-        </button>
       </div>
 
       {/* Error message */}
@@ -352,21 +343,21 @@ const handleReject = async (courseId: string) => {
       {/* Filter section */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Bộ lọc</h2>
+          <h2 className="text-xl font-semibold">Filters</h2>
           {loading && courses.length > 0 && (
             <div className="flex items-center text-blue-600">
               <span className="animate-spin mr-2">⏳</span>
-              <span className="text-sm">Đang cập nhật...</span>
+              <span className="text-sm">Updating...</span>
             </div>
           )}
         </div>
         <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={(e) => e.preventDefault()}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tìm kiếm</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
             <div className="relative">
               <input
                 type="text"
-                placeholder="Tên khóa học..."
+                placeholder="Course name..."
                 className="w-full p-2 pl-8 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
@@ -378,54 +369,54 @@ const handleReject = async (courseId: string) => {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
             <select
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               value={filters.category}
               onChange={(e) => handleFilterChange('category', e.target.value)}
             >
-              <option value="">Tất cả</option>
-              <option value="programming">Lập trình</option>
-              <option value="design">Thiết kế</option>
-              <option value="business">Kinh doanh</option>
-              <option value="marketing">Tiếp thị</option>
-              <option value="language">Ngôn ngữ</option>
-              <option value="music">Âm nhạc</option>
-              <option value="photography">Nhiếp ảnh</option>
-              <option value="cooking">Nấu ăn</option>
-              <option value="fitness">Thể dục</option>
-              <option value="art">Nghệ thuật</option>
-              <option value="writing">Viết lách</option>
-              <option value="other">Khác</option>
+              <option value="">All</option>
+              <option value="programming">Programming</option>
+              <option value="design">Design</option>
+              <option value="business">Business</option>
+              <option value="marketing">Marketing</option>
+              <option value="language">Language</option>
+              <option value="music">Music</option>
+              <option value="photography">Photography</option>
+              <option value="cooking">Cooking</option>
+              <option value="fitness">Fitness</option>
+              <option value="art">Art</option>
+              <option value="writing">Writing</option>
+              <option value="other">Other</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Cấp độ</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
             <select
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               value={filters.level}
               onChange={(e) => handleFilterChange('level', e.target.value)}
             >
-              <option value="">Tất cả</option>
-              <option value="beginner">Cơ bản</option>
-              <option value="intermediate">Trung cấp</option>
-              <option value="advanced">Nâng cao</option>
+              <option value="">All</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
             >
-              <option value="">Tất cả</option>
-              <option value="published">Đã xuất bản</option>
-              <option value="draft">Bản nháp</option>
-              <option value="pending_review">Chờ duyệt</option>
-              <option value="rejected">Đã từ chối</option>
-              <option value="archived">Đã lưu trữ</option>
-              <option value="suspended">Đã tạm ngừng</option>
+              <option value="">All</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+              <option value="pending_review">Pending Review</option>
+              <option value="rejected">Rejected</option>
+              <option value="archived">Archived</option>
+              <option value="suspended">Suspended</option>
             </select>
           </div>
         </form>
@@ -435,7 +426,7 @@ const handleReject = async (courseId: string) => {
             className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors"
             onClick={resetFilters}
           >
-            <span className="mr-2">🔄</span> Đặt lại
+            <span className="mr-2">🔄</span> Reset
           </button>
         </div>
       </div>
@@ -447,25 +438,25 @@ const handleReject = async (courseId: string) => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Khóa học
+                  Course
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Giảng viên
+                  Instructor
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Danh mục
+                  Category
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Học viên
+                  Students
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Giá
+                  Price
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Trạng thái
+                  Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thao tác
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -477,13 +468,13 @@ const handleReject = async (courseId: string) => {
                       <span className="text-4xl text-gray-300 mb-4">📚</span>
                       <p className="text-gray-500 text-lg">
                         {filters.search || filters.category || filters.level || filters.status !== 'published'
-                          ? 'Không tìm thấy khóa học nào phù hợp'
-                          : 'Chưa có khóa học nào'}
+                          ? 'No courses found matching the criteria'
+                          : 'No courses available yet'}
                       </p>
                       <p className="text-gray-400 text-sm mt-2">
                         {filters.search || filters.category || filters.level || filters.status !== 'published'
-                          ? 'Thử thay đổi bộ lọc để xem thêm kết quả'
-                          : 'Tạo khóa học đầu tiên của bạn'}
+                          ? 'Try adjusting the filters to see more results'
+                          : 'Create your first course'}
                       </p>
                     </div>
                   </td>
@@ -496,11 +487,11 @@ const handleReject = async (courseId: string) => {
                         <div className="flex-shrink-0 h-12 w-12">
                           <img
                             className="h-12 w-12 rounded-md object-cover"
-                            src={course.thumbnail || 'https://via.placeholder.com/300x200?text=Khóa+học'}
+                            src={course.thumbnail || 'https://via.placeholder.com/300x200?text=Course'}
                             alt={course.title}
                             onError={(e) => {
                               (e.target as HTMLImageElement).src =
-                                'https://via.placeholder.com/300x200?text=Khóa+học';
+                                'https://via.placeholder.com/300x200?text=Course';
                             }}
                           />
                         </div>
@@ -517,8 +508,8 @@ const handleReject = async (courseId: string) => {
                               : course.shortDescription || course.description}
                           </div>
                           <div className="text-xs text-gray-400 mt-1">
-                            {course.totalLessons || 0} bài học • Tạo:{' '}
-                            {new Date(course.createdAt).toLocaleDateString('vi-VN')}
+                            {course.totalLessons || 0} lessons • Created:{' '}
+                            {new Date(course.createdAt).toLocaleDateString('en-US')}
                           </div>
                         </div>
                       </div>
@@ -572,7 +563,7 @@ const handleReject = async (courseId: string) => {
                         ></div>
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        {((course.currentEnrollments || 0) / (course.maxStudents || 1) * 100).toFixed(1)}% đầy
+                        {((course.currentEnrollments || 0) / (course.maxStudents || 1) * 100).toFixed(1)}% full
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm">
@@ -583,12 +574,12 @@ const handleReject = async (courseId: string) => {
                           </div>
                           {course.discount && (
                             <div className="text-xs text-green-600">
-                              Giảm {course.discount.percentage}%
+                              Discount {course.discount.percentage}%
                             </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-green-600 font-medium">Miễn phí</span>
+                        <span className="text-green-600 font-medium">Free</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
@@ -623,15 +614,15 @@ const handleReject = async (courseId: string) => {
             <div className="flex-1 flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-700">
-                  Hiển thị{' '}
+                  Showing{' '}
                   <span className="font-medium">
                     {Math.min((filters.page - 1) * filters.limit + 1, pagination.totalCourses)}
                   </span>{' '}
-                  đến{' '}
+                  to{' '}
                   <span className="font-medium">
                     {Math.min(filters.page * filters.limit, pagination.totalCourses)}
                   </span>{' '}
-                  của <span className="font-medium">{pagination.totalCourses}</span> kết quả
+                  of <span className="font-medium">{pagination.totalCourses}</span> results
                 </p>
               </div>
               <div>

@@ -75,6 +75,8 @@ services:
       - USER_SERVICE_URL=http://user-service:3001
       - COURSE_SERVICE_URL=http://course-service:3002
       - PORT=3003
+  
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       # Thêm STRIPE_SECRET_KEY khi tích hợp Stripe
       # - STRIPE_SECRET_KEY=sk_test_...
     networks:

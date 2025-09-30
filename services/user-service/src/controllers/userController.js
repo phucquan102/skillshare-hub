@@ -1,6 +1,8 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const userController = {
   // Đăng ký người dùng mới
@@ -53,7 +55,48 @@ const userController = {
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
   },
+googleLogin: async (req, res) => {
+  try {
+    const { token } = req.body;
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
 
+    let user = await User.findOne({ email: payload.email });
+    if (!user) {
+      user = new User({
+        email: payload.email,
+        fullName: payload.name,
+        password: await bcrypt.hash(Math.random().toString(36), 12), // random password
+        role: 'student',
+        isVerified: true,
+      });
+      await user.save();
+    }
+
+    const jwtToken = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      message: 'Google login success',
+      token: jwtToken,
+      user: {
+        id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error('Google login error:', error);
+    res.status(401).json({ message: 'Invalid Google token' });
+  }
+},
   // Đăng nhập
   login: async (req, res) => {
     try {

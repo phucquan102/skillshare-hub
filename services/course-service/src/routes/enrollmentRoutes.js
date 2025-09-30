@@ -1,8 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const courseController = require('../controllers/courseController');
+const enrollmentController = require('../controllers/enrollmentController');
 const { authMiddleware, studentMiddleware } = require('../middleware/auth');
 
-router.post('/', authMiddleware, studentMiddleware, courseController.createEnrollment);
+// Debug logging
+router.use((req, res, next) => {
+  console.log(`🎯 EnrollmentRoutes: ${req.method} ${req.path}`);
+  next();
+});
 
+// Enrollment routes
+router.post('/', authMiddleware, enrollmentController.createEnrollment);
+router.get('/my-enrollments', authMiddleware, studentMiddleware, enrollmentController.getMyEnrollments);
+router.delete('/:id', authMiddleware, studentMiddleware, enrollmentController.deleteEnrollment);
 module.exports = router;

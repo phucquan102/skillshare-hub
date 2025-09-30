@@ -87,6 +87,7 @@ router.post('/internal/batch', async (req, res) => {
     res.status(500).json({ message: 'Lỗi server', error: err.message });
   }
 });
+router.post('/google', userController.googleLogin);
 
 
 module.exports = router;

@@ -2,8 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import Header from '../../../components/common/Header/Header';
-import Footer from '../../../components/common/Footer/Footer';
+ 
 import './RegisterPage.css';
 
 interface RegisterData {
@@ -33,7 +32,7 @@ const RegisterPage: React.FC = () => {
   return (
     <>
       {/* Header */}
-      <Header />
+   
 
       <div className="register-page">
         {/* Intro Section */}
@@ -145,7 +144,7 @@ const RegisterPage: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <Footer />
+ 
     </>
   );
 };

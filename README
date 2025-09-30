@@ -15,7 +15,8 @@ docker compose build --no-cache frontend
 docker compose up frontend
 
 
-
+docker compose build --no-cache user-service
+docker compose up user-service
 
 docker compose build --no-cache
 docker compose up

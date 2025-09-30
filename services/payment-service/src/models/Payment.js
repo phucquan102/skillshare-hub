@@ -20,8 +20,8 @@ const paymentSchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    default: 'VND',
-    enum: ['VND', 'USD']
+    default: 'USD',
+    enum: ['USD']
   },
   paymentMethod: {
     type: String,

@@ -489,71 +489,73 @@ getLessonsByCourse: async (req, res) => {
     }
   },
 
-  createEnrollment: async (req, res) => {
-    try {
-      const { courseId, paymentId } = req.body;
+  // createEnrollment: async (req, res) => {
+  //   try {
+  //   console.log("➡️ createEnrollment called by user:", req.userId, "role:", req.userRole);
 
-      if (!mongoose.Types.ObjectId.isValid(courseId)) {
-        return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
-      }
+  //     const { courseId, paymentId } = req.body;
 
-      if (!mongoose.Types.ObjectId.isValid(paymentId)) {
-        return res.status(400).json({ message: 'ID thanh toán không hợp lệ' });
-      }
+  //     if (!mongoose.Types.ObjectId.isValid(courseId)) {
+  //       return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
+  //     }
 
-      const course = await Course.findById(courseId);
-      if (!course) {
-        return res.status(404).json({ message: 'Không tìm thấy khóa học' });
-      }
+  //     if (!mongoose.Types.ObjectId.isValid(paymentId)) {
+  //       return res.status(400).json({ message: 'ID thanh toán không hợp lệ' });
+  //     }
 
-      if (course.status !== 'published') {
-        return res.status(400).json({ message: 'Khóa học chưa được xuất bản' });
-      }
+  //     const course = await Course.findById(courseId);
+  //     if (!course) {
+  //       return res.status(404).json({ message: 'Không tìm thấy khóa học' });
+  //     }
 
-      if (course.currentEnrollments >= course.maxStudents) {
-        return res.status(400).json({ message: 'Khóa học đã đầy' });
-      }
+  //     if (course.status !== 'published') {
+  //       return res.status(400).json({ message: 'Khóa học chưa được xuất bản' });
+  //     }
 
-      const existingEnrollment = await Enrollment.findOne({ userId: req.userId, courseId });
-      if (existingEnrollment) {
-        return res.status(400).json({ message: 'Bạn đã đăng ký khóa học này' });
-      }
+  //     if (course.currentEnrollments >= course.maxStudents) {
+  //       return res.status(400).json({ message: 'Khóa học đã đầy' });
+  //     }
 
-      const paymentServiceUrl = process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3003';
-      let payment;
-      try {
-        const response = await axios.get(`${paymentServiceUrl}/api/payments/${paymentId}`, {
-          headers: { Authorization: req.header('Authorization') },
-          timeout: 5000
-        });
-        payment = response.data.payment;
-        if (payment.userId.toString() !== req.userId || payment.courseId.toString() !== courseId) {
-          return res.status(400).json({ message: 'Thanh toán không hợp lệ' });
-        }
-        if (payment.paymentStatus !== 'completed') {
-          return res.status(400).json({ message: 'Thanh toán chưa hoàn tất' });
-        }
-      } catch (error) {
-        return res.status(400).json({ message: 'Không thể xác minh thanh toán', error: error.message });
-      }
+  //     const existingEnrollment = await Enrollment.findOne({ userId: req.userId, courseId });
+  //     if (existingEnrollment) {
+  //       return res.status(400).json({ message: 'Bạn đã đăng ký khóa học này' });
+  //     }
 
-      const enrollment = new Enrollment({
-        userId: req.userId,
-        courseId,
-        paymentId
-      });
+  //     const paymentServiceUrl = process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3003';
+  //     let payment;
+  //     try {
+  //       const response = await axios.get(`${paymentServiceUrl}/api/payments/${paymentId}`, {
+  //         headers: { Authorization: req.header('Authorization') },
+  //         timeout: 5000
+  //       });
+  //       payment = response.data.payment;
+  //       if (payment.userId.toString() !== req.userId || payment.courseId.toString() !== courseId) {
+  //         return res.status(400).json({ message: 'Thanh toán không hợp lệ' });
+  //       }
+  //       if (payment.paymentStatus !== 'completed') {
+  //         return res.status(400).json({ message: 'Thanh toán chưa hoàn tất' });
+  //       }
+  //     } catch (error) {
+  //       return res.status(400).json({ message: 'Không thể xác minh thanh toán', error: error.message });
+  //     }
 
-      await enrollment.save();
+  //     const enrollment = new Enrollment({
+  //       userId: req.userId,
+  //       courseId,
+  //       paymentId
+  //     });
 
-      course.currentEnrollments += 1;
-      await course.save();
+  //     await enrollment.save();
 
-      res.status(201).json({ message: 'Đăng ký khóa học thành công', enrollment });
-    } catch (error) {
-      console.error('Create enrollment error:', error);
-      res.status(500).json({ message: 'Lỗi server', error: error.message });
-    }
-  },
+  //     course.currentEnrollments += 1;
+  //     await course.save();
+
+  //     res.status(201).json({ message: 'Đăng ký khóa học thành công', enrollment });
+  //   } catch (error) {
+  //     console.error('Create enrollment error:', error);
+  //     res.status(500).json({ message: 'Lỗi server', error: error.message });
+  //   }
+  // },
 
   getCourses: async (req, res) => {
     try {
