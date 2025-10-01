@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const courseController = require('../controllers/courseController');
-const enrollmentController = require('../controllers/enrollmentController'); // Import enrollmentController
+ 
 const { authMiddleware, instructorMiddleware, studentMiddleware } = require('../middleware/auth'); // Thêm studentMiddleware vào import
 
 // Debug logging

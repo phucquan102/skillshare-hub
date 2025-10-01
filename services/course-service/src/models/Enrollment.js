@@ -1,14 +1,14 @@
 const mongoose = require('mongoose');
 
 const enrollmentSchema = new mongoose.Schema({
-  studentId: {  // Đổi từ userId thành studentId để khớp với code
+  studentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
   courseId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Course', 
+    ref: 'Course',
     required: true
   },
   paymentId: {
@@ -25,11 +25,8 @@ const enrollmentSchema = new mongoose.Schema({
     enum: ['active', 'completed', 'cancelled'],
     default: 'active'
   }
-}, {
-  timestamps: true
-});
+}, { timestamps: true });
 
-// Tạo compound index để mỗi student chỉ enroll 1 lần cho 1 course
 enrollmentSchema.index({ studentId: 1, courseId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Enrollment', enrollmentSchema);

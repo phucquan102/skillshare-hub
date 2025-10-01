@@ -39,7 +39,7 @@ const authMiddleware = async (req, res, next) => {
 
 /**
  * =====================
- *  ROLE MIDDLEWARE
+ *  ROLE MIDDLEWARES
  * =====================
  */
 const instructorMiddleware = (req, res, next) => {
@@ -47,7 +47,7 @@ const instructorMiddleware = (req, res, next) => {
   if (req.userRole === 'instructor' || req.userRole === 'admin') {
     return next();
   }
-  return res.status(403).json({ message: 'Chỉ giảng viên và admin mới có quyền truy cập' });
+  return res.status(403).json({ message: 'Chỉ giảng viên hoặc admin mới có quyền truy cập' });
 };
 
 const adminMiddleware = (req, res, next) => {
@@ -58,12 +58,18 @@ const adminMiddleware = (req, res, next) => {
   return res.status(403).json({ message: 'Chỉ admin mới có quyền truy cập' });
 };
 
+// course-service/src/middleware/auth.js
 const studentMiddleware = (req, res, next) => {
-  console.log("🟢 studentMiddleware check:", req.userRole);
-  if (req.userRole === 'student' || req.userRole === 'admin') {
+  console.log("🟢 studentMiddleware check - User Role:", req.userRole);
+  console.log("🟢 studentMiddleware check - User ID:", req.userId);
+  
+  if (req.userRole === 'student') {
+    console.log("✅ Student access granted");
     return next();
   }
-  return res.status(403).json({ message: 'Chỉ học viên và admin mới có quyền truy cập' });
+  
+  console.log("❌ Student access denied - Role:", req.userRole);
+  return res.status(403).json({ message: 'Chỉ học viên mới có quyền truy cập' });
 };
 
 module.exports = {

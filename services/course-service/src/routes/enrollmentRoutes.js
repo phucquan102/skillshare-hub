@@ -10,7 +10,8 @@ router.use((req, res, next) => {
 });
 
 // Enrollment routes
-router.post('/', authMiddleware, enrollmentController.createEnrollment);
+router.post('/', authMiddleware, studentMiddleware, enrollmentController.createEnrollment);
 router.get('/my-enrollments', authMiddleware, studentMiddleware, enrollmentController.getMyEnrollments);
 router.delete('/:id', authMiddleware, studentMiddleware, enrollmentController.deleteEnrollment);
+
 module.exports = router;

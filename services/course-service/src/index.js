@@ -42,10 +42,10 @@ app.get('/health', (req, res) => {
 });
 
 // Mount routes
-app.use('/', enrollmentRoutes);
+app.use('/enrollments', enrollmentRoutes);
 app.use('/admin', adminRoutes);
+app.use('/', courseRoutes); 
 
-app.use('/', courseRoutes);
 console.log('✅ Mounted routes:');
 console.log('   - /enrollments -> enrollmentRoutes');
 console.log('   - /admin -> adminRoutes'); 
