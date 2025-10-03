@@ -1,15 +1,24 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');   // Thêm dòng này
+const jwt = require('jsonwebtoken');
 const userController = require('../controllers/userController');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const User = require('../models/User');
 
-// Auth
+// Auth routes
 router.post('/register', userController.register);
 router.post('/login', userController.login);
+router.post('/google', userController.googleLogin);
 
-// Profile
+// Password reset routes
+router.post('/forgot-password', userController.forgotPassword);
+router.post('/reset-password', userController.resetPassword);
+
+// Email verification routes
+router.post('/verify-email', userController.verifyEmailWithToken);
+router.post('/resend-verification', userController.resendVerification);
+
+// Profile routes
 router.get('/profile', authMiddleware, userController.getProfile);
 router.put('/profile', authMiddleware, userController.updateProfile);
 
@@ -18,7 +27,7 @@ router.put('/stats', authMiddleware, userController.updateLearningStats);
 router.put('/verify-email', authMiddleware, userController.verifyEmail);
 router.put('/verify-phone', authMiddleware, userController.verifyPhone);
 
-// Admin
+// Admin routes
 router.get('/', authMiddleware, adminMiddleware, userController.getAllUsers);
 router.get('/:id', authMiddleware, adminMiddleware, userController.getUserById);
 router.post('/batch', authMiddleware, adminMiddleware, userController.getUsersBatch);
@@ -28,15 +37,8 @@ router.put('/:userId', authMiddleware, adminMiddleware, userController.updateUse
 router.delete('/:userId', authMiddleware, adminMiddleware, userController.deleteUser);
 router.put('/:userId/make-admin', authMiddleware, adminMiddleware, userController.makeAdmin);
 
-router.get('/admin', authMiddleware, (req, res) => {
-  if (req.role !== 'admin') {
-    return res.status(403).json({ message: 'Access denied. Admin only.' });
-  }
-  res.json({ message: 'Admin panel access granted' });
-});
-
 // Verify token (dùng cho các service khác)
-router.post('/users/verify-token', async (req, res) => {
+router.post('/verify-token', async (req, res) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     if (!token) {
@@ -87,7 +89,5 @@ router.post('/internal/batch', async (req, res) => {
     res.status(500).json({ message: 'Lỗi server', error: err.message });
   }
 });
-router.post('/google', userController.googleLogin);
-
 
 module.exports = router;

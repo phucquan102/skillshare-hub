@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styles from './CourseForm.module.scss';
-import { CreateCourseData } from '../../../services/api/courseServices';
+import { CreateCourseData } from '../../../services/api/courseService';
 
 interface CourseFormProps {
   onSubmit: (data: CreateCourseData) => void;

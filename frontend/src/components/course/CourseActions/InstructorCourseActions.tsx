@@ -1,6 +1,6 @@
 // src/components/course/CourseActions/InstructorCourseActions.tsx
 import React, { useState } from 'react';
-import { Course } from '../../../services/api/courseServices';
+import { Course } from '../../../services/api/courseService';
 
 interface InstructorCourseActionsProps {
   course: Course;

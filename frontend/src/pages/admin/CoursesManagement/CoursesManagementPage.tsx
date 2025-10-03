@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Course, CoursesResponse, courseService } from '../../../services/api/courseServices';
+import { Course, CoursesResponse, courseService } from '../../../services/api/courseService';
 import AdminCourseActions from '../../../components/admin/CourseActions/AdminCourseActions';
 
 interface FilterState {

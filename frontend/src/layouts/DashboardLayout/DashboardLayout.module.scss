@@ -1,0 +1,86 @@
+// src/layouts/DashboardLayout/DashboardLayout.module.scss
+.dashboard {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  min-height: 100vh;
+  background-color: #f5f7fb;
+}
+
+.sidebar {
+  background: #f8f9fa;
+  border-right: 1px solid #eaeaea;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.sidebarHeader {
+  padding: 25px 20px;
+  background: #3a0ca3;
+  color: white;
+  
+  h2 {
+    font-size: 20px;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  
+  p {
+    font-size: 14px;
+    opacity: 0.9;
+    margin: 0;
+  }
+}
+
+.sidebarMenu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  
+  li {
+    margin-bottom: 0;
+  }
+  
+  a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 20px;
+    color: #495057;
+    text-decoration: none;
+    transition: all 0.3s;
+    border-left: 4px solid transparent;
+    
+    &:hover {
+      background-color: #e9ecef;
+      color: #3a0ca3;
+    }
+    
+    &.active {
+      background-color: #e9ecef;
+      color: #3a0ca3;
+      border-left-color: #3a0ca3;
+      font-weight: 600;
+    }
+    
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+.mainContent {
+  padding: 0;
+  background-color: #f5f7fb;
+  overflow-y: auto;
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+  
+  .sidebar {
+    display: none;
+  }
+}

@@ -1,0 +1,12 @@
+.googleButtonContainer {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.googleButton {
+  &.loading {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}

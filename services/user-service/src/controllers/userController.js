@@ -3,9 +3,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const crypto = require('crypto');
+const emailService = require('../services/emailService');
 
 const userController = {
-  // Đăng ký người dùng mới
   register: async (req, res) => {
     try {
       const { email, password, fullName, role } = req.body;
@@ -19,16 +20,32 @@ const userController = {
       // Mã hóa password
       const hashedPassword = await bcrypt.hash(password, 12);
 
-      // Tạo user mới với các giá trị mặc định từ model
+      // Tạo verification token
+      const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+      const emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
+      // Tạo user mới
       const user = new User({
         email,
         password: hashedPassword,
         fullName,
         role: role || 'student',
-        // Các giá trị mặc định sẽ được tự động áp dụng từ schema
+        emailVerificationToken,
+        emailVerificationExpires,
+        isVerified: false,
+        emailVerified: false
       });
 
       await user.save();
+
+      // Gửi email verification (async - không chờ)
+      emailService.sendVerificationEmail(user, emailVerificationToken)
+        .then(result => {
+          console.log('✅ Verification email sent to:', user.email);
+        })
+        .catch(error => {
+          console.error('❌ Failed to send verification email:', error.message);
+        });
 
       // Tạo JWT token
       const token = jwt.sign(
@@ -38,7 +55,7 @@ const userController = {
       );
 
       res.status(201).json({
-        message: 'Đăng ký thành công',
+        message: 'Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.',
         token,
         user: {
           id: user._id,
@@ -47,57 +64,249 @@ const userController = {
           role: user.role,
           isVerified: user.isVerified,
           isActive: user.isActive,
-          emailVerified: user.emailVerified,
-          phoneVerified: user.phoneVerified
+          emailVerified: user.emailVerified
         }
       });
     } catch (error) {
+      console.error('Register error:', error);
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
   },
-googleLogin: async (req, res) => {
-  try {
-    const { token } = req.body;
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    const payload = ticket.getPayload();
 
-    let user = await User.findOne({ email: payload.email });
-    if (!user) {
-      user = new User({
-        email: payload.email,
-        fullName: payload.name,
-        password: await bcrypt.hash(Math.random().toString(36), 12), // random password
-        role: 'student',
-        isVerified: true,
-      });
+  forgotPassword: async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      const user = await User.findOne({ email });
+      if (!user) {
+        // For security, don't reveal if email exists
+        return res.json({ 
+          message: 'Nếu email tồn tại, chúng tôi đã gửi liên kết đặt lại mật khẩu' 
+        });
+      }
+
+      // Tạo reset token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
+
+      user.resetPasswordToken = resetToken;
+      user.resetPasswordExpires = resetTokenExpiry;
       await user.save();
+
+      // Gửi email reset password (async)
+      emailService.sendPasswordResetEmail(user, resetToken)
+        .then(result => {
+          console.log('✅ Password reset email sent to:', user.email);
+        })
+        .catch(error => {
+          console.error('❌ Failed to send reset email:', error.message);
+        });
+
+      res.json({ 
+        message: 'Nếu email tồn tại, chúng tôi đã gửi liên kết đặt lại mật khẩu' 
+      });
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
+  },
 
-    const jwtToken = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+  resetPassword: async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
 
-    res.json({
-      message: 'Google login success',
-      token: jwtToken,
-      user: {
-        id: user._id,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role,
-      },
-    });
-  } catch (error) {
-    console.error('Google login error:', error);
-    res.status(401).json({ message: 'Invalid Google token' });
-  }
-},
-  // Đăng nhập
+      if (!token || !newPassword) {
+        return res.status(400).json({ message: 'Token và mật khẩu mới là bắt buộc' });
+      }
+
+      // Tìm user bằng reset token và kiểm tra thời hạn
+      const user = await User.findOne({
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gt: Date.now() }
+      });
+
+      if (!user) {
+        return res.status(400).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
+      }
+
+      // Mã hóa mật khẩu mới
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+      // Cập nhật mật khẩu và xóa reset token
+      user.password = hashedPassword;
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+
+      // Gửi email xác nhận (async)
+      emailService.sendPasswordResetConfirmationEmail(user)
+        .then(result => {
+          console.log('✅ Password reset confirmation email sent to:', user.email);
+        })
+        .catch(error => {
+          console.error('❌ Failed to send reset confirmation email:', error.message);
+        });
+
+      res.json({ message: 'Đặt lại mật khẩu thành công' });
+    } catch (error) {
+      console.error('Reset password error:', error);
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+  },
+
+  verifyEmailWithToken: async (req, res) => {
+    try {
+      const { token } = req.body;
+      
+      const user = await User.findOne({
+        emailVerificationToken: token,
+        emailVerificationExpires: { $gt: Date.now() }
+      });
+
+      if (!user) {
+        return res.status(400).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
+      }
+
+      user.emailVerified = true;
+      user.isVerified = true;
+      user.emailVerificationToken = undefined;
+      user.emailVerificationExpires = undefined;
+      await user.save();
+
+      // Gửi welcome email (async)
+      emailService.sendWelcomeEmail(user)
+        .then(result => {
+          console.log('✅ Welcome email sent to:', user.email);
+        })
+        .catch(error => {
+          console.error('❌ Failed to send welcome email:', error.message);
+        });
+
+      // Tạo JWT token mới
+      const newToken = jwt.sign(
+        { userId: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      res.json({ 
+        message: 'Xác thực email thành công',
+        token: newToken,
+        user: {
+          id: user._id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          emailVerified: user.emailVerified,
+          isVerified: user.isVerified
+        }
+      });
+    } catch (error) {
+      console.error('Verify email error:', error);
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+  },
+
+  resendVerification: async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.json({ 
+          message: 'Nếu email tồn tại, chúng tôi đã gửi email xác thực' 
+        });
+      }
+
+      if (user.emailVerified) {
+        return res.status(400).json({ message: 'Email đã được xác thực' });
+      }
+
+      // Tạo verification token mới
+      const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+      const emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
+      user.emailVerificationToken = emailVerificationToken;
+      user.emailVerificationExpires = emailVerificationExpires;
+      await user.save();
+
+      // Gửi email verification (async)
+      emailService.sendVerificationEmail(user, emailVerificationToken)
+        .then(result => {
+          console.log('✅ Resent verification email to:', user.email);
+        })
+        .catch(error => {
+          console.error('❌ Failed to resend verification email:', error.message);
+        });
+
+      res.json({ 
+        message: 'Nếu email tồn tại, chúng tôi đã gửi email xác thực' 
+      });
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+  },
+
+  googleLogin: async (req, res) => {
+    try {
+      const { token } = req.body;
+      const ticket = await client.verifyIdToken({
+        idToken: token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+
+      let user = await User.findOne({ email: payload.email });
+      if (!user) {
+        // Tạo mật khẩu an toàn hơn
+        const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+        user = new User({
+          email: payload.email,
+          fullName: payload.name,
+          password: await bcrypt.hash(randomPassword, 12),
+          role: 'student',
+          isVerified: true,
+          isActive: true,
+          emailVerified: true,
+        });
+        await user.save();
+      }
+
+      // Kiểm tra xem user có bị khóa không
+      if (!user.isActive) {
+        return res.status(400).json({ message: 'Tài khoản đã bị khóa' });
+      }
+
+      // Cập nhật lastLogin
+      user.lastLogin = new Date();
+      await user.save();
+
+      const jwtToken = jwt.sign(
+        { userId: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      res.json({
+        message: 'Google login success',
+        token: jwtToken,
+        user: {
+          id: user._id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          isVerified: user.isVerified,
+          isActive: user.isActive,
+          lastLogin: user.lastLogin
+        },
+      });
+    } catch (error) {
+      console.error('Google login error:', error);
+      res.status(401).json({ message: 'Invalid Google token' });
+    }
+  },
+
   login: async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -148,7 +357,6 @@ googleLogin: async (req, res) => {
     }
   },
 
-  // Lấy thông tin profile
   getProfile: async (req, res) => {
     try {
       const user = await User.findById(req.userId).select('-password');
@@ -179,7 +387,6 @@ googleLogin: async (req, res) => {
     }
   },
 
-  // Cập nhật profile
   updateProfile: async (req, res) => {
     try {
       const { fullName, profile, preferences } = req.body;
@@ -216,7 +423,6 @@ googleLogin: async (req, res) => {
     }
   },
 
-  // Cập nhật thống kê học tập
   updateLearningStats: async (req, res) => {
     try {
       const { coursesCompleted, totalLearningHours, avgRating } = req.body;
@@ -245,14 +451,13 @@ googleLogin: async (req, res) => {
     }
   },
 
-  // Xác thực email
   verifyEmail: async (req, res) => {
     try {
       const user = await User.findByIdAndUpdate(
         req.userId,
         { 
           emailVerified: true,
-          isVerified: true // Có thể cập nhật isVerified khi email được xác thực
+          isVerified: true
         },
         { new: true }
       ).select('-password');
@@ -274,7 +479,6 @@ googleLogin: async (req, res) => {
     }
   },
 
-  // Xác thực số điện thoại
   verifyPhone: async (req, res) => {
     try {
       const user = await User.findByIdAndUpdate(
@@ -299,7 +503,6 @@ googleLogin: async (req, res) => {
     }
   },
 
-  // Lấy danh sách users (admin)
   getAllUsers: async (req, res) => {
     try {
       const { 
@@ -341,7 +544,6 @@ googleLogin: async (req, res) => {
     }
   },
 
-  // Lấy user theo ID
   getUserById: async (req, res) => {
     try {
       const user = await User.findById(req.params.id).select('-password');
@@ -371,7 +573,6 @@ googleLogin: async (req, res) => {
     }
   },
 
-  // Lấy nhiều users theo danh sách ID
   getUsersBatch: async (req, res) => {
     try {
       const { userIds } = req.body;
@@ -402,27 +603,29 @@ googleLogin: async (req, res) => {
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
   },
-deleteUser: async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
-    }
-    
-    if (user.role === 'admin') {
-      return res.status(403).json({ message: 'Không thể xóa tài khoản admin' });
-    }
 
-    await User.deleteOne({ _id: userId });
+  deleteUser: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      }
+      
+      if (user.role === 'admin') {
+        return res.status(403).json({ message: 'Không thể xóa tài khoản admin' });
+      }
 
-    res.json({ message: 'Xóa người dùng thành công' });
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server', error: error.message });
-  }
-},
-updateUser: async (req, res) => {
+      await User.deleteOne({ _id: userId });
+
+      res.json({ message: 'Xóa người dùng thành công' });
+    } catch ( error) {
+      res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+  },
+
+  updateUser: async (req, res) => {
     try {
       const { userId } = req.params;
       const updateData = req.body;
@@ -465,7 +668,7 @@ updateUser: async (req, res) => {
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
   },
-  // Khóa/mở khóa tài khoản (admin)
+
   toggleUserStatus: async (req, res) => {
     try {
       const { userId } = req.params;
@@ -492,7 +695,6 @@ updateUser: async (req, res) => {
     }
   },
 
-  // Lấy thống kê tổng quan (admin)
   getUsersStats: async (req, res) => {
     try {
       const totalUsers = await User.countDocuments();
@@ -518,7 +720,6 @@ updateUser: async (req, res) => {
     }
   },
 
-  // Set quyền admin cho user (chỉ dùng trong development)
   makeAdmin: async (req, res) => {
     try {
       const { userId } = req.params;
@@ -540,7 +741,5 @@ updateUser: async (req, res) => {
     }
   }
 };
-// Cập nhật thông tin người dùng (bao gồm vai trò)
-
 
 module.exports = userController;

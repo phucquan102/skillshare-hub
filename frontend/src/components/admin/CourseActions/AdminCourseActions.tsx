@@ -1,5 +1,5 @@
 import React from 'react';
-import { Course } from '../../../services/api/courseServices';
+import { Course } from '../../../services/api/courseService';
 
 interface AdminCourseActionsProps {
   course: Course;

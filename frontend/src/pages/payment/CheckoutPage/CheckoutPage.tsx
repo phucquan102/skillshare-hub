@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { paymentService } from '../../../services/api/paymentService';
-import { courseService } from '../../../services/api/courseServices';
+import { courseService } from '../../../services/api/courseService';
 import PaymentForm from '../../../components/payment/PaymentForm/PaymentForm';
 
 const TestCardInfo: React.FC = () => (

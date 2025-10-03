@@ -1,4 +1,4 @@
-import { Course, CoursesFilter, CoursesResponse } from '../../../services/api/courseServices';
+import { Course, CoursesFilter, CoursesResponse } from '../../../services/api/courseService';
 export interface FilterState {
   page: number;
   limit: number;

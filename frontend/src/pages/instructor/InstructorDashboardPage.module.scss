@@ -1,0 +1,301 @@
+// src/pages/Instructor/InstructorDashboardPage.module.scss
+
+.instructorDashboardPage {
+  padding: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.welcomeSection {
+  margin-bottom: 30px;
+
+  h1 {
+    font-size: 28px;
+    color: #3a0ca3;
+    margin-bottom: 8px;
+  }
+
+  p {
+    color: #6b7280;
+    font-size: 16px;
+    margin: 0;
+  }
+}
+
+.statsCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.statCard {
+  background: white;
+  border-radius: 10px;
+  padding: 25px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.statIcon {
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 15px;
+  font-size: 24px;
+
+  &.blue {
+    background-color: rgba(67, 97, 238, 0.1);
+    color: #4361ee;
+  }
+
+  &.green {
+    background-color: rgba(76, 201, 240, 0.1);
+    color: #4cc9f0;
+  }
+
+  &.orange {
+    background-color: rgba(249, 199, 79, 0.1);
+    color: #f9c74f;
+  }
+}
+
+.statInfo {
+  h3 {
+    font-size: 28px;
+    margin-bottom: 5px;
+    color: #1f2937;
+  }
+
+  p {
+    color: #6c757d;
+    font-size: 14px;
+    margin: 0;
+  }
+}
+
+.teachingSummary {
+  background: white;
+  border-radius: 10px;
+  padding: 25px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  margin-bottom: 30px;
+
+  h2 {
+    color: #3a0ca3;
+    margin-bottom: 20px;
+  }
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.summaryCard {
+  h3 {
+    font-size: 18px;
+    color: #3a0ca3;
+    margin-bottom: 15px;
+  }
+}
+
+.summaryItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  span {
+    color: #6b7280;
+  }
+
+  strong {
+    color: #3a0ca3;
+  }
+}
+
+.featuresSection {
+  margin-bottom: 30px;
+
+  h2 {
+    color: #3a0ca3;
+    margin-bottom: 20px;
+  }
+}
+
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.featureCard {
+  background: white;
+  border-radius: 10px;
+  padding: 25px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.featureIcon {
+  font-size: 40px;
+  margin-bottom: 15px;
+}
+
+.featureCard h3 {
+  font-size: 18px;
+  color: #3a0ca3;
+  margin-bottom: 10px;
+}
+
+.featureCard p {
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+.btn {
+  display: inline-block;
+  background: #4361ee;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background: #3a0ca3;
+  }
+}
+
+.btnPrimary {
+  @extend .btn;
+  background: #4361ee;
+
+  &:hover {
+    background: #3a0ca3;
+  }
+}
+
+.btnSecondary {
+  @extend .btn;
+  background: #6b7280;
+
+  &:hover {
+    background: #4b5563;
+  }
+}
+
+.benefitsSection {
+  background: white;
+  border-radius: 10px;
+  padding: 25px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  margin-bottom: 30px;
+
+  h2 {
+    color: #3a0ca3;
+    margin-bottom: 20px;
+  }
+}
+
+.benefitsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.benefitItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.benefitIcon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.benefitItem h4 {
+  font-size: 16px;
+  color: #3a0ca3;
+  margin-bottom: 5px;
+}
+
+.benefitItem p {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0;
+}
+
+.quickActions {
+  background: white;
+  border-radius: 10px;
+  padding: 25px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  text-align: center;
+
+  h2 {
+    color: #3a0ca3;
+    margin-bottom: 10px;
+  }
+
+  p {
+    color: #6b7280;
+    margin-bottom: 20px;
+  }
+}
+
+.actionButtons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .instructorDashboardPage {
+    padding: 20px;
+  }
+
+  .statsCards,
+  .featuresGrid,
+  .benefitsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .actionButtons {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .btnPrimary,
+  .btnSecondary {
+    width: 100%;
+    text-align: center;
+  }
+}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { courseService, CreateCourseData } from '../../../services/api/courseServices';
+import { courseService, CreateCourseData } from '../../../services/api/courseService';
 import CourseForm from '../../../components/course/CourseForm/CourseForm';
 
 const CreateCoursePage: React.FC = () => {

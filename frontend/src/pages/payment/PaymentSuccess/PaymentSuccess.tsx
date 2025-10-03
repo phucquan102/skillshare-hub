@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { courseService } from '../../../services/api/courseServices';
+import { courseService } from '../../../services/api/courseService';
 
 const PaymentSuccess: React.FC = () => {
   const location = useLocation();

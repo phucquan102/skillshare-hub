@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { courseService, Course, CoursesResponse } from '../../../services/api/courseServices';
+import { courseService, Course, CoursesResponse } from '../../../services/api/courseService';
 import { FilterState, CourseListProps } from './CourseList.types';
 
 const CourseList: React.FC<CourseListProps> = ({ initialFilters = {} }) => {

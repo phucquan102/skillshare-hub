@@ -1,3 +1,4 @@
+// src/types/user.types.ts
 export interface User {
   _id: string;
   id?: string; // Alias cho _id
@@ -56,4 +57,56 @@ export interface UserStats {
     _id: string;
     count: number;
   }>;
+}
+
+// Thêm các types cho auth
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  email: string;
+  password: string;
+  fullName: string;
+  role?: 'student' | 'instructor';
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+  message?: string;
+}
+
+export interface UpdateProfileData {
+  fullName?: string;
+  profile?: {
+    bio?: string;
+    phone?: string;
+    address?: string;
+    dateOfBirth?: string;
+    gender?: string;
+  };
+  preferences?: {
+    language?: string;
+    timezone?: string;
+    emailNotifications?: boolean;
+    smsNotifications?: boolean;
+  };
+}
+export interface ForgotPasswordData {
+  email: string;
+}
+
+export interface ResetPasswordData {
+  token: string;
+  newPassword: string;
+}
+
+export interface VerifyEmailData {
+  token: string;
+}
+
+export interface ResendVerificationData {
+  email: string;
 }
