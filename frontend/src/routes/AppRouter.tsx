@@ -24,7 +24,9 @@ import PaymentSuccess from '../pages/payment/PaymentSuccess/PaymentSuccess';
 import ForgotPasswordPage from '../pages/Auth/ForgotPasswordPage/ForgotPasswordPage';
 import ResetPasswordPage from '../pages/Auth/ResetPasswordPage/ResetPasswordPage';
 import EmailVerificationPage from '../pages/Auth/EmailVerificationPage/EmailVerificationPage';
-
+import BecomeInstructorPage from '../pages/become-instructor/BecomeInstructorPage'; 
+import ManageCoursesPage from '../pages/instructor/ManageCourses/ManageCoursesPage';
+ 
 const AppRouter: React.FC = () => {
   return (
     <Routes>
@@ -37,6 +39,7 @@ const AppRouter: React.FC = () => {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/payment/checkout" element={<CheckoutPage />} />
         <Route path="/payment/success" element={<PaymentSuccess />} />
+        <Route path="/become-instructor" element={<BecomeInstructorPage />} /> 
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-email" element={<EmailVerificationPage />} />
@@ -69,7 +72,8 @@ const AppRouter: React.FC = () => {
         }
       >
         <Route path="dashboard" element={<InstructorDashboardPage />} />
-        <Route path="courses" element={<div>Instructor Courses Page</div>} />
+        <Route path="courses" element={<ManageCoursesPage />} /> {/* ĐÃ SỬA */}
+        <Route path="courses/create" element={<CreateCoursePage />} /> {/* THÊM ROUTE TẠO COURSE */}
         <Route path="sessions" element={<div>Session Management Page</div>} />
         <Route path="students" element={<div>Students List Page</div>} />
         <Route path="earnings" element={<div>Earnings & Payments Page</div>} />

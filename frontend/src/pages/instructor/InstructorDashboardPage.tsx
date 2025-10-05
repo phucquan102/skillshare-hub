@@ -17,18 +17,36 @@ const InstructorDashboardPage: React.FC = () => {
     averageRating: 4.8
   };
 
-  const upcomingSessions = [
+  const testimonials = [
     {
       id: 1,
-      title: 'React Workshop with John Smith',
-      date: 'Tomorrow at 2:00 PM - 4:00 PM (GMT+7)',
-      students: 25
+      title: 'Life-changing Platform',
+      content: '"SkillShare Hub has allowed me to reach students globally and turn my passion into a full-time career. The platform is intuitive and the support team is always helpful."',
+      author: 'Dr. Sarah Chen, Data Science Instructor'
     },
     {
       id: 2,
-      title: 'Python Data Analysis',
-      date: 'June 15, 10 AM - 12 PM (GMT+7)',
-      students: 18
+      title: 'Excellent Earning Potential',
+      content: '"I\'ve been able to triple my income since starting on SkillShare Hub. The flexible schedule allows me to teach while pursuing other professional interests."',
+      author: 'Michael Rodriguez, Web Development Instructor'
+    }
+  ];
+
+  const steps = [
+    {
+      number: 1,
+      title: 'Create Your Course',
+      description: 'Develop your course content, add materials, and set pricing options.'
+    },
+    {
+      number: 2,
+      title: 'Schedule Sessions',
+      description: 'Set up live sessions, define the curriculum, and prepare interactive elements.'
+    },
+    {
+      number: 3,
+      title: 'Engage with Students',
+      description: 'Interact with your students through live sessions, chat, and feedback.'
     }
   ];
 
@@ -36,18 +54,18 @@ const InstructorDashboardPage: React.FC = () => {
     <div className={styles.instructorDashboardPage}>
       {/* Welcome Section */}
       <div className={styles.welcomeSection}>
-        <h1>Welcome back, {user?.fullName || 'Instructor'}!</h1>
+        <h2>Welcome back, {user?.fullName || 'Instructor'}!</h2>
         <p>Here's an overview of your teaching performance and upcoming schedule.</p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Section */}
       <div className={styles.statsCards}>
         <div className={styles.statCard}>
           <div className={`${styles.statIcon} ${styles.blue}`}>
             💰
           </div>
           <div className={styles.statInfo}>
-            <h3>${stats.totalEarnings}</h3>
+            <h3>${stats.totalEarnings.toLocaleString()}</h3>
             <p>Total Earnings</p>
           </div>
         </div>
@@ -75,10 +93,10 @@ const InstructorDashboardPage: React.FC = () => {
 
       {/* Teaching Summary */}
       <div className={styles.teachingSummary}>
-        <h2>Teaching Summary</h2>
+        <h3>Teaching Summary</h3>
         <div className={styles.summaryGrid}>
           <div className={styles.summaryCard}>
-            <h3>Earnings Overview</h3>
+            <h4>Earnings Overview</h4>
             <div className={styles.summaryItem}>
               <span>Monthly revenue:</span>
               <strong>$1,250</strong>
@@ -94,7 +112,7 @@ const InstructorDashboardPage: React.FC = () => {
           </div>
           
           <div className={styles.summaryCard}>
-            <h3>Teaching Schedule</h3>
+            <h4>Teaching Schedule</h4>
             <div className={styles.summaryItem}>
               <span>Next session:</span>
               <strong>Tomorrow, 2:00 PM</strong>
@@ -113,25 +131,25 @@ const InstructorDashboardPage: React.FC = () => {
 
       {/* Instructor Features */}
       <div className={styles.featuresSection}>
-        <h2>Instructor Features</h2>
+        <h3>Instructor Features</h3>
         <div className={styles.featuresGrid}>
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>📚</div>
-            <h3>Create & Manage Courses</h3>
+            <h4>Create & Manage Courses</h4>
             <p>Develop new courses, update existing content, and organize your teaching materials.</p>
             <Link to="/instructor/courses" className={styles.btn}>Manage Courses</Link>
           </div>
           
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>🎥</div>
-            <h3>Host Live Sessions</h3>
+            <h4>Host Live Sessions</h4>
             <p>Conduct interactive live classes with video, screen sharing, and real-time chat.</p>
             <Link to="/instructor/sessions" className={styles.btn}>Schedule Session</Link>
           </div>
           
           <div className={styles.featureCard}>
             <div className={styles.featureIcon}>📊</div>
-            <h3>Track Revenue & Performance</h3>
+            <h4>Track Revenue & Performance</h4>
             <p>Monitor your earnings, student engagement, and course performance metrics.</p>
             <Link to="/instructor/earnings" className={styles.btn}>View Analytics</Link>
           </div>
@@ -140,7 +158,7 @@ const InstructorDashboardPage: React.FC = () => {
 
       {/* Benefits Section */}
       <div className={styles.benefitsSection}>
-        <h2>Benefits of Teaching on SkillShare Hub</h2>
+        <h3>Benefits of Teaching on SkillShare Hub</h3>
         <div className={styles.benefitsGrid}>
           <div className={styles.benefitItem}>
             <div className={styles.benefitIcon}>🌍</div>
@@ -176,13 +194,43 @@ const InstructorDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className={styles.quickActions}>
-        <h2>Ready to Create Your Next Course?</h2>
+      {/* How It Works Section */}
+      <div className={styles.howItWorks}>
+        <h3>How To Get Started</h3>
+        <p>Follow these simple steps to create and manage your courses effectively.</p>
+        
+        <div className={styles.steps}>
+          {steps.map(step => (
+            <div key={step.number} className={styles.step}>
+              <div className={styles.stepNumber}>{step.number}</div>
+              <h4>{step.title}</h4>
+              <p>{step.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CTA Section */}
+      <div className={styles.ctaSection}>
+        <h3>Ready to Create Your Next Course?</h3>
         <p>Start developing new content or schedule your next teaching session.</p>
         <div className={styles.actionButtons}>
           <Link to="/instructor/courses/create" className={styles.btnPrimary}>Create New Course</Link>
           <Link to="/instructor/sessions" className={styles.btnSecondary}>Schedule Session</Link>
+        </div>
+      </div>
+
+      {/* Testimonials Section */}
+      <div className={styles.testimonialsSection}>
+        <h3>What Other Instructors Say</h3>
+        <div className={styles.testimonials}>
+          {testimonials.map(testimonial => (
+            <div key={testimonial.id} className={styles.testimonialCard}>
+              <h4>{testimonial.title}</h4>
+              <p>{testimonial.content}</p>
+              <p className={styles.testimonialAuthor}>— {testimonial.author}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

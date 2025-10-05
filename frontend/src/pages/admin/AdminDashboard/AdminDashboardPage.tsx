@@ -359,7 +359,12 @@ const AdminDashboardPage: React.FC = () => {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={chartData.courseCategories}
+               data={chartData.courseCategories.map((item) => ({
+  name: item.name,
+  value: item.value,
+  percentage: item.percentage
+}))}
+
                 cx="50%"
                 cy="50%"
                 labelLine={false}

@@ -163,6 +163,7 @@ const CheckoutPage: React.FC = () => {
           amount={amount / 100}
           onSuccess={handleSuccess}
           onCancel={handleCancel}
+           isInstructorFee={false}
         />
       </Elements>
     </div>

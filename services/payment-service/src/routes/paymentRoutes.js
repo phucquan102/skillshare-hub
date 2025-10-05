@@ -7,7 +7,7 @@ const { authMiddleware, studentMiddleware, instructorMiddleware, adminMiddleware
 router.post('/create-intent', authMiddleware, studentMiddleware, paymentController.createStudentPayment);
 router.post('/confirm', authMiddleware, paymentController.confirmPayment);
 router.post('/refund', authMiddleware, paymentController.refundPayment);
-router.post('/instructor/fee', authMiddleware, instructorMiddleware, paymentController.createInstructorFee);
+router.post('/instructor-fee', authMiddleware, paymentController.createInstructorFee);
 router.get('/history', authMiddleware, paymentController.getPaymentHistory);
 router.get('/stats', authMiddleware, adminMiddleware, paymentController.getPaymentsStats);
 router.get('/:paymentId', authMiddleware, paymentController.getPaymentById);

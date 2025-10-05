@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import LoginForm from '../../../components/auth/LoginForm';
+import { authService } from '../../../services/api/authService'; // Thêm import này
 
 import './LoginPage.css';
 
@@ -16,17 +17,38 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (data: LoginData) => {
-    setIsLoading(true);
-    try {
-      await login(data.email, data.password);
-      navigate('/dashboard');
-    } catch (error) {
-      console.error("Login failed:", error);
-    } finally {
-      setIsLoading(false);
+  // src/pages/auth/LoginPage/LoginPage.tsx
+const handleLogin = async (data: LoginData) => {
+  setIsLoading(true);
+  try {
+    // Login sẽ tự động set user vào context
+    await login(data.email, data.password);
+    
+    // Đợi một chút để context update
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Lấy user từ context thay vì gọi API lại
+    const { user } = await authService.getProfile();
+    
+    // Điều hướng dựa trên role
+    switch (user.role) {
+      case 'admin':
+        navigate('/admin/dashboard', { replace: true });
+        break;
+      case 'instructor':
+        navigate('/instructor/dashboard', { replace: true });
+        break;
+      case 'student':
+      default:
+        navigate('/dashboard', { replace: true });
+        break;
     }
-  };
+  } catch (error) {
+    console.error("Login failed:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="login-page">

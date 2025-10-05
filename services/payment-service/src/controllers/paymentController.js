@@ -200,12 +200,12 @@ const paymentController = {
         userId: req.userId 
       });
 
-      if (!courseId) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'courseId là bắt buộc' 
-        });
-      }
+      // if (!courseId) {
+      //   return res.status(400).json({ 
+      //     success: false,
+      //     message: 'courseId là bắt buộc' 
+      //   });
+      // }
 
       // Tạo Stripe Payment Intent cho instructor fee
       let paymentIntent;

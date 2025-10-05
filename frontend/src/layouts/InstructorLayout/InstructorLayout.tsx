@@ -5,9 +5,18 @@ import { useAuth } from '../../context/AuthContext';
 import styles from './InstructorLayout.module.scss';
 
 const InstructorLayout: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
+      </div>
+    );
+  }
+
+  // ProtectedRoute đã xử lý authentication
   const isActive = (path: string) => location.pathname === path;
 
   return (
@@ -88,6 +97,12 @@ const InstructorLayout: React.FC = () => {
             </Link>
           </li>
         </ul>
+
+        <div className={styles.sidebarFooter}>
+          <Link to="/" className={styles.backLink}>
+            ← Back to main site
+          </Link>
+        </div>
       </div>
 
       {/* Main Content */}

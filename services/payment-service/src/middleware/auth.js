@@ -10,7 +10,7 @@ const authMiddleware = async (req, res, next) => {
 
     // Gọi API verify-token của user-service
     const userServiceUrl = process.env.USER_SERVICE_URL || 'http://user-service:3001';
-    const response = await axios.post(`${userServiceUrl}/users/verify-token`, {}, {
+    const response = await axios.post(`${userServiceUrl}/verify-token`, {}, {
       headers: { Authorization: `Bearer ${token}` },
       timeout: 5000
     });

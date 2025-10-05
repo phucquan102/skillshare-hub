@@ -207,17 +207,66 @@ export const courseService = {
     }
   },
 
-  createCourse: async (courseData: CreateCourseData): Promise<{ message: string; course: Course }> => {
-    const endpoint = `${API_BASE_URL}/api/courses`;
-    return await apiRequest(endpoint, {
+createCourse: async (courseData: CreateCourseData): Promise<{ message: string; course: Course }> => {
+  const endpoint = `${API_BASE_URL}/api/courses`;
+  const token = localStorage.getItem('token');
+  
+  console.log('🔗 [createCourse] DEBUG START ==========');
+  console.log('🌐 API URL:', endpoint);
+  console.log('🔐 Token exists:', !!token);
+  console.log('📤 Request data:', JSON.stringify(courseData, null, 2));
+  
+  // Decode token để xem role hiện tại
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      console.log('🎭 Token payload:', {
+        userId: payload.userId,
+        role: payload.role,
+        exp: new Date(payload.exp * 1000)
+      });
+    } catch (e) {
+      console.error('❌ Token decode error:', e);
+    }
+  }
+
+  try {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(courseData)
     });
-  },
+
+    console.log('📥 Response status:', response.status);
+    
+    const responseText = await response.text();
+    console.log('📥 Response body:', responseText);
+
+    if (!response.ok) {
+      let errorMessage = 'Lỗi server';
+      try {
+        const errorData = JSON.parse(responseText);
+        errorMessage = errorData.message || errorMessage;
+      } catch (e) {
+        errorMessage = responseText || `HTTP ${response.status}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const result = JSON.parse(responseText);
+    console.log('✅ [createCourse] SUCCESS:', result);
+    console.log('🔚 [createCourse] DEBUG END ==========');
+    return result;
+
+  } catch (error: any) {
+    console.error('❌ [createCourse] ERROR:', error.message);
+    console.log('🔚 [createCourse] DEBUG END ==========');
+    throw error;
+  }
+},
 
   updateCourse: async (courseId: string, courseData: UpdateCourseData): Promise<{ message: string; course: Course }> => {
     const endpoint = `${API_BASE_URL}/api/courses/${courseId}`;
@@ -256,23 +305,34 @@ export const courseService = {
     });
   },
 
-  getMyCourses: async (filters: { page?: number; limit?: number; status?: string }): Promise<CoursesResponse> => {
-    const queryParams = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && String(value).trim() !== '') {
-        queryParams.append(key, String(value));
-      }
-    });
+  // trong courseService.ts
+getMyCourses: async (filters: { page?: number; limit?: number; status?: string }): Promise<CoursesResponse> => {
+  const queryParams = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      queryParams.append(key, String(value));
+    }
+  });
 
-    const endpoint = `${API_BASE_URL}/api/courses/my?${queryParams.toString()}`;
-    return await apiRequest(endpoint, {
+  const endpoint = `${API_BASE_URL}/api/courses/my?${queryParams.toString()}`;
+  console.log('📡 API Request:', endpoint);
+  
+  try {
+    const response = await apiRequest(endpoint, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
-    });
-  },
+    }) as CoursesResponse; // Thêm ép kiểu ở đây
+    
+    console.log('📥 API Response:', response);
+    return response;
+  } catch (error) {
+    console.error('💥 API Error:', error);
+    throw error;
+  }
+},
 
   // Admin Functions
     getPendingCourses: async (filters: { page?: number; limit?: number }) => {

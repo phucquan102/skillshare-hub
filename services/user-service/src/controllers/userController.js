@@ -153,7 +153,85 @@ const userController = {
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
   },
+verifyToken: async (req, res) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    console.log("🔑 User Service - Verify Token:", token ? "Present" : "Missing");
+    
+    if (!token) {
+      return res.status(401).json({ message: 'Token không tồn tại' });
+    }
 
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    const user = await User.findById(decoded.userId).select('-password');
+    
+    if (!user) {
+      return res.status(401).json({ message: 'User không tồn tại' });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'Tài khoản không hoạt động' });
+    }
+
+    console.log("✅ User Service - Token verified for user:", user._id, user.role);
+    
+    res.json({
+      userId: user._id.toString(),
+      role: user.role,
+      isActive: user.isActive
+    });
+  } catch (error) {
+    console.error('❌ Verify token error:', error.message);
+    res.status(401).json({ message: 'Token không hợp lệ' });
+  }
+},
+
+// Thêm hàm upgradeToInstructor
+upgradeToInstructor: async (req, res) => {
+  try {
+    console.log("🔄 Upgrade to instructor - User ID:", req.userId);
+    
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Không tìm thấy người dùng' 
+      });
+    }
+
+    if (user.role === 'instructor') {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Bạn đã là instructor' 
+      });
+    }
+
+    user.role = 'instructor';
+    await user.save();
+
+    console.log("✅ User upgraded to instructor:", user._id);
+
+    res.json({
+      success: true,
+      message: 'Nâng cấp lên instructor thành công',
+      user: {
+        id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('❌ Upgrade to instructor error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi server khi nâng cấp tài khoản', 
+      error: error.message 
+    });
+  }
+},
   verifyEmailWithToken: async (req, res) => {
     try {
       const { token } = req.body;
@@ -740,6 +818,7 @@ const userController = {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   }
+  
 };
 
 module.exports = userController;

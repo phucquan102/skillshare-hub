@@ -55,6 +55,9 @@ const getMultipleInstructorInfo = async (userIds) => {
 const courseController = {
   createCourse: async (req, res) => {
   try {
+    console.log('🎯 [createCourse] Started for user:', req.userId);
+    console.log('📦 Request body:', req.body);
+
     const {
       title, description, shortDescription, category, subcategory, level,
       pricingType, fullCoursePrice, coInstructors, schedules,
@@ -63,47 +66,51 @@ const courseController = {
       discount, certificate, featured, startDate, endDate
     } = req.body;
 
+    // Validate required fields
+    if (!title || !description || !category || !pricingType || !startDate || !endDate) {
+      console.log('❌ Missing required fields');
+      return res.status(400).json({ 
+        message: 'Thiếu thông tin bắt buộc',
+        required: ['title', 'description', 'category', 'pricingType', 'startDate', 'endDate']
+      });
+    }
+
     if (req.userRole !== 'instructor' && req.userRole !== 'admin') {
       return res.status(403).json({ message: 'Chỉ giảng viên mới có thể tạo khóa học' });
     }
 
-    if (!title || !description || !category || !pricingType || !startDate || !endDate) {
-      return res.status(400).json({ message: 'Thiếu thông tin bắt buộc' });
-    }
-
-    if (pricingType === 'full_course' && !fullCoursePrice) {
+    // Validate pricing
+    if (pricingType === 'full_course' && (!fullCoursePrice && fullCoursePrice !== 0)) {
       return res.status(400).json({ message: 'Giá khóa học là bắt buộc khi chọn thanh toán trọn khóa' });
     }
 
+    // Validate dates
     const start = new Date(startDate);
     const end = new Date(endDate);
     if (isNaN(start) || isNaN(end) || start >= end) {
       return res.status(400).json({ message: 'Ngày bắt đầu và kết thúc không hợp lệ' });
     }
 
-    if (coInstructors && coInstructors.length > 0) {
-      const userServiceUrl = process.env.USER_SERVICE_URL || 'http://user-service:3001';
-      const response = await axios.post(`${userServiceUrl}/users/batch`, { userIds: coInstructors }, { timeout: 10000 });
-      const users = response.data.users || response.data;
-      const invalidInstructors = coInstructors.filter(id => !users.find(user => user._id === id && user.role === 'instructor'));
-      if (invalidInstructors.length > 0) {
-        return res.status(400).json({ message: 'Một hoặc nhiều co-instructor không hợp lệ' });
-      }
-    }
+    console.log('✅ Validation passed, creating course...');
 
     const course = new Course({
       title, description, shortDescription, category, subcategory, level,
       pricingType, fullCoursePrice, coInstructors: coInstructors || [],
       schedules: schedules || [], maxStudents, prerequisites: prerequisites || [],
       learningOutcomes: learningOutcomes || [], materialsIncluded: materialsIncluded || [],
-      requirements: requirements || [], tags: tags || [], language: language || 'vi',
+      requirements: requirements || [], tags: tags || [], 
+      language: language || 'en', // ĐỔI 'vi' THÀNH 'en' HOẶC BỎ TRỐNG
       thumbnail, promoVideo, gallery: gallery || [], discount, certificate, featured,
       startDate, endDate,
-      instructor: req.userId, status: 'draft', approvalStatus: { status: 'pending' }
+      instructor: req.userId, 
+      status: 'draft', 
+      approvalStatus: { status: 'pending' }
     });
 
     await course.save();
+    console.log('✅ Course created successfully:', course._id);
 
+    // Populate instructor info
     const instructorInfo = await getInstructorInfo(req.userId);
     const courseWithInstructor = {
       ...course.toObject(),
@@ -120,8 +127,28 @@ const courseController = {
       course: courseWithInstructor
     });
   } catch (error) {
-    console.error('Create course error:', error);
-    res.status(500).json({ message: 'Lỗi server', error: error.message });
+    console.error('❌ [createCourse] Error:', {
+      message: error.message,
+      stack: error.stack,
+      userId: req.userId
+    });
+    
+    // Handle specific errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        message: 'Dữ liệu không hợp lệ',
+        errors: Object.values(error.errors).map(e => e.message)
+      });
+    }
+    
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Khóa học với tiêu đề này đã tồn tại' });
+    }
+
+    res.status(500).json({ 
+      message: 'Lỗi server khi tạo khóa học',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 },
 

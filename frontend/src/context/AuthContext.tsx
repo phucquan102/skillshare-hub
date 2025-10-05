@@ -1,7 +1,7 @@
 // src/context/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '../services/api/authService';
-import { User, LoginData, RegisterData, AuthResponse } from '../types/user.types';
+import { User } from '../types/user.types';
 
 interface AuthContextType {
   user: User | null;
@@ -34,16 +34,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const response = await authService.getProfile();
-          setUser(response.user);
-        } catch (error) {
-          console.error('Failed to get user profile:', error);
-          localStorage.removeItem('token');
-        }
+      
+      if (!token) {
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      try {
+        const response = await authService.getProfile();
+        setUser(response.user);
+      } catch (error) {
+        console.error('Failed to get user profile:', error);
+        localStorage.removeItem('token');
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
     };
 
     initAuth();

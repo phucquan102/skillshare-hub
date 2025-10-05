@@ -1,29 +1,33 @@
 // src/layouts/DashboardLayout/DashboardLayout.tsx
 import React from 'react';
-import { Link, Outlet, useLocation, Navigate } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import styles from './DashboardLayout.module.scss';
 
 const DashboardLayout: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
-  // Nếu là admin, chuyển hướng đến admin dashboard
-  if (user?.role === 'admin') {
-    return <Navigate to="/admin/dashboard" replace />;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
+      </div>
+    );
   }
 
+  // ProtectedRoute đã xử lý authentication, nên user sẽ không null ở đây
   const isActive = (path: string) => location.pathname === path;
 
   return (
     <div className={styles.dashboard}>
-      {/* Sidebar - chỉ hiển thị cho student/instructor */}
+      {/* Sidebar */}
       <div className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
           <h2>SkillShare Hub</h2>
           <p>{user?.role === 'instructor' ? 'Instructor' : 'Student'} Dashboard</p>
         </div>
-        
+
         <ul className={styles.sidebarMenu}>
           <li>
             <Link 
@@ -42,7 +46,7 @@ const DashboardLayout: React.FC = () => {
               className={isActive('/dashboard/courses') ? styles.active : ''}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13.5v-11zM2.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h11a.5.5 0 00.5-.5v-11a.5.5 0 00-.5-.5h-11z"/>
+                <path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a.5.5 0 01-.5.5h-11A.5.5 0 011 13.5v-11zM2.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h11a.5.5 0 00.5-.5v-11a.5.5 0 00-.5-.5h-11z"/>
                 <path d="M4.5 5a.5.5 0 010-1h7a.5.5 0 010 1h-7zM4 7.5a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5zM4.5 10a.5.5 0 010-1h4a.5.5 0 010 1h-4z"/>
               </svg>
               My Courses
@@ -54,7 +58,7 @@ const DashboardLayout: React.FC = () => {
               className={isActive('/dashboard/sessions') ? styles.active : ''}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13.5v-11zM2.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h11a.5.5 0 00.5-.5v-11a.5.5 0 00-.5-.5h-11z"/>
+                <path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a.5.5 0 01-.5.5h-11A.5.5 0 011 13.5v-11zM2.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h11a.5.5 0 00.5-.5v-11a.5.5 0 00-.5-.5h-11z"/>
               </svg>
               Upcoming Sessions
             </Link>
@@ -65,7 +69,7 @@ const DashboardLayout: React.FC = () => {
               className={isActive('/dashboard/schedule') ? styles.active : ''}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13.5v-11zM2.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h11a.5.5 0 00.5-.5v-11a.5.5 0 00-.5-.5h-11z"/>
+                <path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a.5.5 0 01-.5.5h-11A.5.5 0 011 13.5v-11zM2.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h11a.5.5 0 00.5-.5v-11a.5.5 0 00-.5-.5h-11z"/>
               </svg>
               Learning Schedule
             </Link>
@@ -76,7 +80,7 @@ const DashboardLayout: React.FC = () => {
               className={isActive('/dashboard/payments') ? styles.active : ''}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 13.5v-11zM2.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h11a.5.5 0 00.5-.5v-11a.5.5 0 00-.5-.5h-11z"/>
+                <path d="M1 2.5A1.5 1.5 0 012.5 1h11A1.5 1.5 0 0115 2.5v11a.5.5 0 01-.5.5h-11A.5.5 0 011 13.5v-11zM2.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h11a.5.5 0 00.5-.5v-11a.5.5 0 00-.5-.5h-11z"/>
               </svg>
               Payment History
             </Link>
@@ -93,6 +97,12 @@ const DashboardLayout: React.FC = () => {
             </Link>
           </li>
         </ul>
+
+        <div className={styles.sidebarFooter}>
+          <Link to="/" className={styles.backLink}>
+            ← Back to main site
+          </Link>
+        </div>
       </div>
 
       {/* Main Content */}

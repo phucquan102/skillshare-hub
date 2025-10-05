@@ -10,6 +10,8 @@
   background: #f8f9fa;
   border-right: 1px solid #eaeaea;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebarHeader {
@@ -34,6 +36,7 @@
   list-style: none;
   padding: 0;
   margin: 0;
+  flex: 1;
   
   li {
     margin-bottom: 0;
@@ -65,6 +68,30 @@
       width: 16px;
       height: 16px;
     }
+  }
+}
+
+// Thêm style cho sidebar footer và back link
+.sidebarFooter {
+  margin-top: auto;
+  padding: 20px;
+  border-top: 1px solid #eaeaea;
+  text-align: center;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #6c757d;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    color: #3a0ca3;
+    text-decoration: underline;
   }
 }
 

@@ -10,7 +10,7 @@ export interface PaymentResponse {
 
 export interface ConfirmPaymentData {
   paymentId: string;
-  paymentIntentId: string;  // ✅ Đổi từ transactionId
+  paymentIntentId: string;
   status: 'completed' | 'failed';
 }
 
@@ -33,7 +33,21 @@ export const paymentService = {
     });
   },
 
-    confirmPayment: async (data: ConfirmPaymentData): Promise<{ success: boolean; message: string }> => {
+  createInstructorFee: async (paymentMethod: string): Promise<PaymentResponse> => {
+    const endpoint = `${API_BASE_URL}/api/payments/instructor-fee`;
+    console.log("👉 Sending createInstructorFee:", { paymentMethod });
+
+    return await apiRequest(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify({ paymentMethod }),
+    });
+  },
+
+  confirmPayment: async (data: ConfirmPaymentData): Promise<{ success: boolean; message: string }> => {
     const endpoint = `${API_BASE_URL}/api/payments/confirm`;
     return await apiRequest(endpoint, {
       method: 'POST',
@@ -55,4 +69,43 @@ export const paymentService = {
       },
     });
   },
+
+  refundPayment: async (paymentId: string, reason: string): Promise<{ success: boolean; message: string }> => {
+    const endpoint = `${API_BASE_URL}/api/payments/refund`;
+    return await apiRequest(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify({ paymentId, reason }),
+    });
+  },
+
+  getPaymentStats: async (startDate?: string, endDate?: string, groupBy?: string): Promise<any> => {
+    const endpoint = `${API_BASE_URL}/api/payments/stats`;
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (groupBy) params.append('groupBy', groupBy);
+
+    return await apiRequest(`${endpoint}?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+
+  getPaymentById: async (paymentId: string): Promise<any> => {
+    const endpoint = `${API_BASE_URL}/api/payments/${paymentId}`;
+    return await apiRequest(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  }
 };

@@ -36,29 +36,43 @@ router.get('/stats/overview', authMiddleware, adminMiddleware, userController.ge
 router.put('/:userId', authMiddleware, adminMiddleware, userController.updateUser);
 router.delete('/:userId', authMiddleware, adminMiddleware, userController.deleteUser);
 router.put('/:userId/make-admin', authMiddleware, adminMiddleware, userController.makeAdmin);
-
+router.patch('/upgrade-to-instructor', authMiddleware, userController.upgradeToInstructor);
 // Verify token (dùng cho các service khác)
 router.post('/verify-token', async (req, res) => {
   try {
+    console.log('🔐 Received verify-token request');
     const token = req.header('Authorization')?.replace('Bearer ', '');
+    
     if (!token) {
+      console.log('❌ No token provided');
       return res.status(401).json({ message: 'Không có token' });
     }
 
+    console.log('✅ Token received, verifying...');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('✅ Token decoded:', decoded);
 
     const user = await User.findById(decoded.userId);
-    if (!user || !user.isActive) {
+    if (!user) {
+      console.log('❌ User not found');
+      return res.status(403).json({ message: 'Người dùng không tồn tại' });
+    }
+
+    if (!user.isActive) {
+      console.log('❌ User not active');
       return res.status(403).json({ message: 'Tài khoản không hoạt động' });
     }
 
+    console.log('✅ Token verification successful for user:', user.email);
+    
     res.json({
       userId: decoded.userId,
       role: decoded.role,
-      isActive: user.isActive
+      isActive: user.isActive,
+      email: user.email
     });
   } catch (err) {
-    console.error('Verify token error:', err.message);
+    console.error('❌ Verify token error:', err.message);
     res.status(401).json({ message: 'Token không hợp lệ' });
   }
 });

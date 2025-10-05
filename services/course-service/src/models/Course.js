@@ -63,7 +63,7 @@ const courseSchema = new mongoose.Schema({
   materialsIncluded: [String],
   requirements: [String],
   tags: [String],
-  language: { type: String, enum: ['en', 'vi'], default: 'en' },
+  language: { type: String, enum: ['en'], default: 'en' },
   thumbnail: { type: String, default: '' },
   promoVideo: { type: String },
   gallery: [String],
@@ -89,7 +89,10 @@ const courseSchema = new mongoose.Schema({
 courseSchema.index({ instructor: 1 });
 courseSchema.index({ category: 1 });
 courseSchema.index({ status: 1 });
-courseSchema.index({ title: 'text', description: 'text' });
+courseSchema.index({ title: 'text', description: 'text' }, { 
+  default_language: 'english',
+  language_override: 'en'
+});
 
 courseSchema.index({ 'ratings.average': -1 });
 courseSchema.index({ createdAt: -1 });
