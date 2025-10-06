@@ -17,6 +17,7 @@ import DashboardPage from '../pages/Dashboard/DashboardPage';
 import InstructorDashboardPage from '../pages/instructor/InstructorDashboardPage';  
 import ProfilePage from '../pages/Auth/ProfilePage/ProfilePage';
 import CreateCoursePage from '../pages/Courses/CreateCoursePage/CreateCoursePage';
+import EditCoursePage from '../pages/instructor/EditCoursePage/EditCoursePage';
 import CoursesPage from '../pages/Courses/CoursesPage';
 import CourseDetailPage from '../pages/Courses/CourseDetailPage/CourseDetailPage';
 import CheckoutPage from '../pages/payment/CheckoutPage';
@@ -72,15 +73,16 @@ const AppRouter: React.FC = () => {
         }
       >
         <Route path="dashboard" element={<InstructorDashboardPage />} />
-        <Route path="courses" element={<ManageCoursesPage />} /> {/* ĐÃ SỬA */}
-        <Route path="courses/create" element={<CreateCoursePage />} /> {/* THÊM ROUTE TẠO COURSE */}
+        <Route path="courses" element={<ManageCoursesPage />} />
+        <Route path="courses/create" element={<CreateCoursePage />} />
+        <Route path="courses/edit/:courseId" element={<EditCoursePage />} />
         <Route path="sessions" element={<div>Session Management Page</div>} />
         <Route path="students" element={<div>Students List Page</div>} />
         <Route path="earnings" element={<div>Earnings & Payments Page</div>} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
-      {/* Admin Routes - CHỈ CÓ 1 ROUTE DUY NHẤT */}
+      {/* Admin Routes */}
       <Route
         path="/admin"
         element={
@@ -96,6 +98,7 @@ const AppRouter: React.FC = () => {
         <Route path="courses">
           <Route index element={<CoursesManagementPage />} />
           <Route path="create" element={<CreateCoursePage />} />
+          <Route path="edit/:courseId" element={<EditCoursePage />} />
         </Route>
       </Route>
 

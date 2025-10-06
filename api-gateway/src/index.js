@@ -85,6 +85,16 @@ const createProxy = (target, serviceName, pathRewrite = {}) => {
     logLevel: 'debug',
     onProxyReq: (proxyReq, req) => {
       console.log(`➡️ ${serviceName}: ${req.method} ${req.originalUrl}`);
+
+      // ✅ Giữ lại Authorization header nếu có
+      if (req.headers['authorization']) {
+        proxyReq.setHeader('authorization', req.headers['authorization']);
+      }
+
+      // ✅ Giữ lại cookie (nếu có đăng nhập bằng cookie)
+      if (req.headers['cookie']) {
+        proxyReq.setHeader('cookie', req.headers['cookie']);
+      }
     },
     onProxyRes: (proxyRes, req) => {
       console.log(`⬅️ ${serviceName}: ${proxyRes.statusCode}`);
@@ -95,6 +105,7 @@ const createProxy = (target, serviceName, pathRewrite = {}) => {
     }
   });
 };
+
 
 /**
  * =====================

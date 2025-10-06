@@ -1,113 +1,215 @@
 // src/layouts/InstructorLayout/InstructorLayout.module.scss
 .instructorDashboard {
-  display: grid;
-  grid-template-columns: 250px 1fr;
+  display: flex;
   min-height: 100vh;
-  background-color: #f5f7fb;
+  background: #f8fafc;
 }
 
 .sidebar {
-  background: #f8f9fa;
-  border-right: 1px solid #eaeaea;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  width: 280px;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
+.sidebarHeader {
+  padding: 2rem 1.5rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.logoImage {
+  width: 32px;
+  height: 32px;
+  filter: brightness(0) invert(1);
+}
+
+.logoText {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: white;
+}
+
+.dashboardSubtitle {
+  font-size: 0.875rem;
+  opacity: 0.8;
+  margin-bottom: 1rem;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+
+.userAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.avatarPlaceholder {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: white;
+}
+
+.userDetails {
   display: flex;
   flex-direction: column;
 }
 
-.sidebarHeader {
-  padding: 25px 20px;
-  background: #3a0ca3;
-  color: white;
-  
-  h2 {
-    font-size: 20px;
-    margin-bottom: 5px;
-    font-weight: bold;
-  }
-  
-  p {
-    font-size: 14px;
-    opacity: 0.9;
-    margin: 0;
-  }
+.userName {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.userRole {
+  font-size: 0.75rem;
+  opacity: 0.8;
 }
 
 .sidebarMenu {
-  list-style: none;
-  padding: 0;
-  margin: 0;
   flex: 1;
+  padding: 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  position: relative;
   
-  li {
-    margin-bottom: 0;
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    
+    .menuIcon {
+      transform: scale(1.1);
+    }
   }
   
-  a {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 15px 20px;
-    color: #495057;
-    text-decoration: none;
-    transition: all 0.3s;
-    border-left: 4px solid transparent;
+  &.active {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    font-weight: 500;
     
-    &:hover {
-      background-color: #e9ecef;
-      color: #3a0ca3;
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: white;
     }
     
-    &.active {
-      background-color: #e9ecef;
-      color: #3a0ca3;
-      border-left-color: #3a0ca3;
-      font-weight: 600;
-    }
-    
-    svg {
-      width: 16px;
-      height: 16px;
+    .menuIcon {
+      color: white;
     }
   }
 }
 
-// Thêm style cho sidebar footer và back link
+.menuIcon {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.2s ease;
+  opacity: 0.9;
+}
+
+.menuText {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
 .sidebarFooter {
-  margin-top: auto;
-  padding: 20px;
-  border-top: 1px solid #eaeaea;
-  text-align: center;
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .backLink {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  color: #6c757d;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.8);
   text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  font-size: 0.875rem;
+  transition: color 0.2s ease;
   
   &:hover {
-    color: #3a0ca3;
-    text-decoration: underline;
+    color: white;
+    
+    .backIcon {
+      transform: translateX(-2px);
+    }
   }
+}
+
+.backIcon {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
 }
 
 .mainContent {
-  padding: 0;
-  background-color: #f5f7fb;
+  flex: 1;
+  background: #f8fafc;
   overflow-y: auto;
+  padding: 2rem;
 }
 
-// Responsive
+// Responsive Design
 @media (max-width: 768px) {
   .instructorDashboard {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
   
   .sidebar {
-    display: none;
+    width: 100%;
+    height: auto;
   }
+  
+  .mainContent {
+    padding: 1rem;
+  }
+}
+
+// Loading spinner animation
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animateSpin {
+  animation: spin 1s linear infinite;
 }

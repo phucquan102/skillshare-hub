@@ -141,22 +141,40 @@ const CoursesManagementPage: React.FC = () => {
   };
 
   // Handle delete action
-  const handleDeleteCourse = async (courseId: string) => {
-    if (!window.confirm('Are you sure you want to delete this course?')) return;
-    const actionKey = `delete_${courseId}`;
-    setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
-    try {
-      await courseService.deleteCourse(courseId);
-      await fetchCourses();
-      setError(null);
-    } catch (error: any) {
-      console.error('Error deleting course:', error);
-      const errorMessage = error?.response?.data?.message || 'Unable to delete course.';
-      alert(errorMessage);
-    } finally {
-      setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
-    }
-  };
+
+const handleDeleteCourse = async (courseId: string) => {
+  const course = courses.find(c => c._id === courseId);
+  if (!course) return;
+
+  let confirmMessage = '';
+  
+  if (course.currentEnrollments > 0) {
+    alert('Không thể xóa khóa học đang có học viên đăng ký');
+    return;
+  }
+
+  if (course.status === 'archived') {
+    confirmMessage = 'Bạn có chắc muốn XÓA VĨNH VIỄN khóa học này? Hành động này không thể hoàn tác!';
+  } else {
+    confirmMessage = 'Bạn có chắc muốn xóa khóa học này?';
+  }
+
+  if (!window.confirm(confirmMessage)) return;
+
+  const actionKey = `delete_${courseId}`;
+  setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
+  try {
+    await courseService.deleteCourse(courseId);
+    await fetchCourses();
+    setError(null);
+  } catch (error: any) {
+    console.error('Error deleting course:', error);
+    const errorMessage = error?.response?.data?.message || 'Unable to delete course.';
+    alert(errorMessage);
+  } finally {
+    setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
+  }
+};
 
   // Handle view action
   const handleView = (courseId: string) => {
