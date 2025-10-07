@@ -3,6 +3,15 @@ import { apiRequest } from '../../utils/apiUtils';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
+// Định nghĩa interface cho Gallery Image
+export interface GalleryImage {
+  url: string;
+  alt?: string;
+  caption?: string;
+  order?: number;
+  isFeatured?: boolean;
+}
+
 // Định nghĩa interface cho Course
 export interface Course {
   _id: string;
@@ -26,9 +35,13 @@ export interface Course {
   currentEnrollments: number;
   maxStudents: number;
   status: string;
-  thumbnail?: string;
+  
+  // CÁC TRƯỜNG ẢNH ĐÃ CẬP NHẬT
+  thumbnail: string;
+  coverImage?: string;
+  gallery?: GalleryImage[];
+  
   promoVideo?: string;
-  gallery?: string[];
   createdAt: string;
   updatedAt: string;
   startDate: string;
@@ -65,7 +78,14 @@ export interface Course {
     reviewedBy?: string;
   };
   isActive: boolean;
+  
+  // Virtual fields (từ backend)
+  thumbnailUrl?: string;
+  coverImageUrl?: string;
+  galleryUrls?: GalleryImage[];
+  isFull?: boolean;
 }
+
 export interface Lesson {
   _id: string;
   courseId: string;
@@ -131,9 +151,13 @@ export interface CreateCourseData {
   requirements?: string[];
   tags?: string[];
   language?: string;
+  
+  // CÁC TRƯỜNG ẢNH ĐÃ CẬP NHẬT
   thumbnail?: string;
+  coverImage?: string;
+  gallery?: GalleryImage[];
+  
   promoVideo?: string;
-  gallery?: string[];
   discount?: {
     percentage: number;
     validUntil: string;
@@ -221,40 +245,39 @@ export const courseService = {
     }
   },
 
-getCourseById: async (courseId: string): Promise<{ course: Course }> => {
-  const endpoint = `${API_BASE_URL}/api/courses/${courseId}`;
-  const token = localStorage.getItem('token');
-  try {
-    return await apiRequest<{ course: Course }>(endpoint, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` })  
-      }
-    });
-  } catch (error) {
-    console.error(`Failed to fetch course ${courseId}:`, error);
-    throw error;
-  }
-},
+  getCourseById: async (courseId: string): Promise<{ course: Course }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}`;
+    const token = localStorage.getItem('token');
+    try {
+      return await apiRequest<{ course: Course }>(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })  
+        }
+      });
+    } catch (error) {
+      console.error(`Failed to fetch course ${courseId}:`, error);
+      throw error;
+    }
+  },
 
-getInstructorCourseById: async (courseId: string): Promise<{ course: Course }> => {
-  const endpoint = `${API_BASE_URL}/api/courses/instructor/${courseId}`;
-  const token = localStorage.getItem('token');
-  try {
-    return await apiRequest<{ course: Course }>(endpoint, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
-    });
-  } catch (error) {
-    console.error(`Failed to fetch instructor course ${courseId}:`, error);
-    throw error;
-  }
-},
-
+  getInstructorCourseById: async (courseId: string): Promise<{ course: Course }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/instructor/${courseId}`;
+    const token = localStorage.getItem('token');
+    try {
+      return await apiRequest<{ course: Course }>(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
+    } catch (error) {
+      console.error(`Failed to fetch instructor course ${courseId}:`, error);
+      throw error;
+    }
+  },
 
   createCourse: async (courseData: CreateCourseData): Promise<{ message: string; course: Course }> => {
     const endpoint = `${API_BASE_URL}/api/courses`;
@@ -662,5 +685,55 @@ getInstructorCourseById: async (courseId: string): Promise<{ course: Course }> =
       console.error(`Failed to fetch course history for ${courseId}:`, error);
       throw error;
     }
+  },
+
+  // METHOD MỚI: Upload course images
+  uploadCourseImage: async (courseId: string, imageFile: File, imageType: 'thumbnail' | 'cover' | 'gallery'): Promise<{ url: string }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/upload-image`;
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    formData.append('type', imageType);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Image upload error:', error);
+      throw error;
+    }
+  },
+
+  // METHOD MỚI: Manage gallery images
+  addGalleryImage: async (courseId: string, imageData: GalleryImage): Promise<{ message: string; gallery: GalleryImage[] }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/gallery`;
+    return await apiRequest<{ message: string; gallery: GalleryImage[] }>(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(imageData)
+    });
+  },
+
+  removeGalleryImage: async (courseId: string, imageIndex: number): Promise<{ message: string; gallery: GalleryImage[] }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/gallery/${imageIndex}`;
+    return await apiRequest<{ message: string; gallery: GalleryImage[] }>(endpoint, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
   }
 };

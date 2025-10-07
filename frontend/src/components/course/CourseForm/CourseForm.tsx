@@ -1,7 +1,8 @@
 // src/components/course/CourseForm/CourseForm.tsx
-import React, { useState, useEffect } from 'react';
-import { Course, CreateCourseData, EditCourseData } from './../../../services/api/courseService';
-import { FiSave, FiSend, FiX, FiPlus, FiTrash2 } from 'react-icons/fi';
+import React, { useState, useEffect, useRef } from 'react';
+import { Course, CreateCourseData, EditCourseData, GalleryImage } from './../../../services/api/courseService';
+import { uploadService } from '../../../services/api/uploadService';
+import { FiSave, FiSend, FiX, FiPlus, FiTrash2, FiImage, FiUpload, FiVideo } from 'react-icons/fi';
 
 interface CourseFormProps {
   course?: Course;
@@ -19,6 +20,20 @@ interface Schedule {
   _id?: string;
 }
 
+interface UploadProgress {
+  [key: string]: number;
+}
+
+// Interface cho kết quả upload
+interface UploadResult {
+  url: string;
+  public_id: string;
+  format: string;
+  resource_type: string;
+  bytes: number;
+  duration?: number;
+}
+
 const CourseForm: React.FC<CourseFormProps> = ({
   course,
   onSubmit,
@@ -28,6 +43,19 @@ const CourseForm: React.FC<CourseFormProps> = ({
 }) => {
   // State cho schedules
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  
+  // State cho gallery images
+  const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  
+  // State cho upload progress
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
+  const [uploading, setUploading] = useState(false);
+
+  // Refs cho file inputs
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+  const coverImageInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   // Hàm format date để xử lý cả ISO string và Date object
   const formatDateForInput = (dateValue: any): string => {
@@ -72,6 +100,8 @@ const CourseForm: React.FC<CourseFormProps> = ({
     tags: '',
     language: 'en',
     thumbnail: '',
+    coverImage: '',
+    promoVideo: '',
     certificate: false,
     featured: false,
   });
@@ -117,6 +147,8 @@ const CourseForm: React.FC<CourseFormProps> = ({
         tags: course.tags?.join(', ') || '',
         language: course.language || 'en',
         thumbnail: course.thumbnail || '',
+        coverImage: course.coverImage || '',
+        promoVideo: course.promoVideo || '',
         certificate: course?.certificate && typeof course.certificate === 'object' 
           ? (course.certificate.isEnabled || false) 
           : false,
@@ -138,8 +170,210 @@ const CourseForm: React.FC<CourseFormProps> = ({
       } else {
         setSchedules([]);
       }
+
+      // Đồng bộ gallery images
+      if (course.gallery && course.gallery.length > 0) {
+        console.log('🖼️ Initializing gallery from course:', course.gallery);
+        setGallery(course.gallery);
+      } else {
+        setGallery([]);
+      }
     }
   }, [course, isEdit]);
+
+  // Hàm upload file sử dụng uploadService
+  const uploadFile = async (file: File, type: 'image' | 'video'): Promise<UploadResult> => {
+    console.log('🔄 Starting upload:', { 
+      type, 
+      fileName: file.name, 
+      size: file.size,
+      mimeType: file.type 
+    });
+
+    try {
+      setUploading(true);
+      const fieldName = `uploading_${type}_${Date.now()}`;
+      
+      // Simulate progress for better UX
+      setUploadProgress(prev => ({ ...prev, [fieldName]: 10 }));
+      
+      let result: UploadResult;
+      
+      if (type === 'image') {
+        const response = await uploadService.uploadImage(file);
+        if (!response.image) {
+          throw new Error('Upload response does not contain image data');
+        }
+        result = response.image;
+      } else {
+        const response = await uploadService.uploadVideo(file);
+        if (!response.video) {
+          throw new Error('Upload response does not contain video data');
+        }
+        result = response.video;
+      }
+
+      // Complete progress
+      setUploadProgress(prev => ({ ...prev, [fieldName]: 100 }));
+
+      // Clear progress after delay
+      setTimeout(() => {
+        setUploadProgress(prev => {
+          const newProgress = { ...prev };
+          delete newProgress[fieldName];
+          return newProgress;
+        });
+      }, 1000);
+
+      console.log('✅ Upload successful:', result);
+      return result;
+
+    } catch (error: any) {
+      console.error('❌ Upload failed:', error);
+      
+      // Hiển thị thông báo lỗi chi tiết
+      let errorMessage = 'Upload thất bại';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      throw new Error(errorMessage);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Hàm xử lý upload thumbnail
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Kiểm tra định dạng ảnh
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn file ảnh (JPEG, PNG, etc.)');
+      return;
+    }
+
+    // Kiểm tra kích thước file (tối đa 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Kích thước file quá lớn. Vui lòng chọn file nhỏ hơn 10MB');
+      return;
+    }
+
+    try {
+      const result = await uploadFile(file, 'image');
+      setFormData(prev => ({ ...prev, thumbnail: result.url }));
+    } catch (error: any) {
+      alert(`Upload ảnh đại diện thất bại: ${error.message}`);
+    }
+  };
+
+  // Hàm xử lý upload cover image
+  const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn file ảnh');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Kích thước file quá lớn. Vui lòng chọn file nhỏ hơn 10MB');
+      return;
+    }
+
+    try {
+      const result = await uploadFile(file, 'image');
+      setFormData(prev => ({ ...prev, coverImage: result.url }));
+    } catch (error: any) {
+      alert(`Upload ảnh cover thất bại: ${error.message}`);
+    }
+  };
+
+  // Hàm xử lý upload gallery images
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    console.log('🖼️ Uploading gallery images:', files.length);
+
+    // Kiểm tra định dạng ảnh
+    const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
+    if (invalidFiles.length > 0) {
+      alert('Vui lòng chỉ chọn file ảnh (JPEG, PNG, etc.)');
+      return;
+    }
+
+    // Kiểm tra kích thước
+    const oversizedFiles = files.filter(file => file.size > 10 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      alert('Một số file có kích thước quá lớn. Vui lòng chọn file nhỏ hơn 10MB');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      
+      // Upload từng file một để có progress riêng
+      for (const file of files) {
+        console.log('📤 Uploading gallery image:', file.name);
+        
+        const result = await uploadFile(file, 'image');
+        
+        const newImage: GalleryImage = {
+          url: result.url,
+          alt: file.name.split('.')[0] || `Image ${gallery.length + 1}`,
+          caption: '',
+          order: gallery.length,
+          isFeatured: false
+        };
+        
+        setGallery(prev => [...prev, newImage]);
+      }
+      
+      console.log('✅ All gallery images uploaded successfully');
+    } catch (error: any) {
+      console.error('❌ Gallery upload failed:', error);
+      alert(`Upload ảnh gallery thất bại: ${error.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Hàm xử lý upload video
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Kiểm tra định dạng video
+    const videoFormats = ['mp4', 'mov', 'avi', 'webm'];
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    if (!fileExtension || !videoFormats.includes(fileExtension)) {
+      alert('Định dạng video không hợp lệ. Chấp nhận: MP4, MOV, AVI, WEBM');
+      return;
+    }
+
+    if (!file.type.startsWith('video/')) {
+      alert('Vui lòng chọn file video');
+      return;
+    }
+
+    // Kiểm tra kích thước video (tối đa 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Kích thước video quá lớn. Vui lòng chọn file nhỏ hơn 50MB');
+      return;
+    }
+
+    try {
+      const result = await uploadFile(file, 'video');
+      setFormData(prev => ({ ...prev, promoVideo: result.url }));
+    } catch (error: any) {
+      alert(`Upload video thất bại: ${error.message}`);
+    }
+  };
 
   // Thêm schedule mới
   const addSchedule = () => {
@@ -157,6 +391,19 @@ const CourseForm: React.FC<CourseFormProps> = ({
   // Xóa schedule
   const removeSchedule = (index: number) => {
     setSchedules(schedules.filter((_, i) => i !== index));
+  };
+
+  // Xóa ảnh khỏi gallery
+  const removeGalleryImage = (index: number) => {
+    setGallery(gallery.filter((_, i) => i !== index));
+  };
+
+  // Cập nhật gallery image
+  const updateGalleryImage = (index: number, field: keyof GalleryImage, value: string | boolean) => {
+    const updatedGallery = gallery.map((image, i) =>
+      i === index ? { ...image, [field]: value } : image
+    );
+    setGallery(updatedGallery);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -208,6 +455,11 @@ const CourseForm: React.FC<CourseFormProps> = ({
       newErrors.maxStudents = 'Số học viên tối đa phải ít nhất là 1';
     }
 
+    // Thêm validation cho thumbnail
+    if (!formData.thumbnail.trim()) {
+      newErrors.thumbnail = 'Ảnh đại diện là bắt buộc';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -231,6 +483,9 @@ const CourseForm: React.FC<CourseFormProps> = ({
       tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(t => t) : [],
       language: formData.language,
       thumbnail: formData.thumbnail || undefined,
+      coverImage: formData.coverImage || undefined,
+      promoVideo: formData.promoVideo || undefined,
+      gallery: gallery.length > 0 ? gallery : undefined,
       featured: formData.featured,
       // Chuyển boolean thành object certificate
       certificate: formData.certificate ? {
@@ -249,6 +504,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
       startDate: baseData.startDate,
       endDate: baseData.endDate
     });
+    console.log('🖼️ Prepared form data with gallery:', baseData.gallery);
     return baseData as CreateCourseData | EditCourseData;
   };
 
@@ -268,6 +524,24 @@ const CourseForm: React.FC<CourseFormProps> = ({
     const submitData = prepareFormData();
     console.log('📤 [CourseForm] Submitting for review:', submitData);
     onSubmit(submitData, 'submit');
+  };
+
+  // Hiển thị progress bar
+  const renderProgressBars = () => {
+    return Object.entries(uploadProgress).map(([key, progress]) => (
+      <div key={key} className="mb-2">
+        <div className="flex justify-between text-sm text-gray-600 mb-1">
+          <span>Đang upload...</span>
+          <span>{progress}%</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div 
+            className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
+      </div>
+    ));
   };
 
   return (
@@ -461,6 +735,327 @@ const CourseForm: React.FC<CourseFormProps> = ({
         </div>
       </div>
 
+      {/* ========== IMAGES SECTION ========== */}
+      <div className="border-t border-gray-200 pt-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <FiImage className="w-5 h-5" />
+          Hình ảnh khóa học
+        </h3>
+
+        {/* Progress bars */}
+        {Object.keys(uploadProgress).length > 0 && (
+          <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+            <h4 className="font-medium text-blue-700 mb-2">Đang upload...</h4>
+            {renderProgressBars()}
+          </div>
+        )}
+
+        {/* Thumbnail */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Ảnh đại diện (Thumbnail) *
+          </label>
+          
+          <div className="flex flex-col md:flex-row gap-4 items-start">
+            {/* Upload button */}
+            <div className="flex-shrink-0">
+              <input
+                type="file"
+                ref={thumbnailInputRef}
+                onChange={handleThumbnailUpload}
+                accept="image/*"
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => thumbnailInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <FiUpload className="w-4 h-4" />
+                {formData.thumbnail ? 'Thay đổi ảnh' : 'Chọn ảnh'}
+              </button>
+            </div>
+
+            {/* Preview và URL input */}
+            <div className="flex-1 w-full">
+              {formData.thumbnail ? (
+                <div className="flex flex-col md:flex-row gap-4 items-start">
+                  <div className="flex-shrink-0">
+                    <img 
+                      src={formData.thumbnail} 
+                      alt="Thumbnail preview" 
+                      className="h-20 w-32 object-cover rounded border"
+                      onError={(e) => {
+                        e.currentTarget.src = '/images/default-course-thumbnail.jpg';
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      name="thumbnail"
+                      value={formData.thumbnail}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all ${
+                        errors.thumbnail ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="URL ảnh đại diện"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      URL ảnh đại diện cho khóa học. Kích thước đề xuất: 400x300px
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4 border-2 border-dashed border-gray-300 rounded-xl">
+                  <FiImage className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">Chưa có ảnh đại diện</p>
+                  <p className="text-sm text-gray-400">Chọn ảnh từ máy tính của bạn</p>
+                </div>
+              )}
+            </div>
+          </div>
+          {errors.thumbnail && <p className="mt-1 text-red-500 text-sm">{errors.thumbnail}</p>}
+        </div>
+
+        {/* Cover Image */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Ảnh cover (Banner)
+          </label>
+          
+          <div className="flex flex-col md:flex-row gap-4 items-start">
+            {/* Upload button */}
+            <div className="flex-shrink-0">
+              <input
+                type="file"
+                ref={coverImageInputRef}
+                onChange={handleCoverImageUpload}
+                accept="image/*"
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => coverImageInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <FiUpload className="w-4 h-4" />
+                {formData.coverImage ? 'Thay đổi ảnh' : 'Chọn ảnh'}
+              </button>
+            </div>
+
+            {/* Preview và URL input */}
+            <div className="flex-1 w-full">
+              {formData.coverImage ? (
+                <div className="flex flex-col md:flex-row gap-4 items-start">
+                  <div className="flex-shrink-0">
+                    <img 
+                      src={formData.coverImage} 
+                      alt="Cover preview" 
+                      className="h-16 w-full md:w-48 object-cover rounded border"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      name="coverImage"
+                      value={formData.coverImage}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                      placeholder="URL ảnh cover"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Ảnh banner lớn cho trang chi tiết khóa học. Kích thước đề xuất: 1200x400px
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4 border-2 border-dashed border-gray-300 rounded-xl">
+                  <FiImage className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">Chưa có ảnh cover</p>
+                  <p className="text-sm text-gray-400">Chọn ảnh từ máy tính của bạn</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Gallery */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Bộ sưu tập hình ảnh
+          </label>
+          
+          {/* Upload multiple images */}
+          <div className="mb-4">
+            <input
+              type="file"
+              ref={galleryInputRef}
+              onChange={handleGalleryUpload}
+              accept="image/*"
+              multiple
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => galleryInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-2 px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <FiUpload className="w-4 h-4" />
+              Chọn nhiều ảnh
+            </button>
+            <p className="text-xs text-gray-500 mt-1">
+              Chọn nhiều ảnh để thêm vào bộ sưu tập khóa học (tối đa 10 ảnh, mỗi ảnh dưới 10MB)
+            </p>
+          </div>
+
+          {/* Gallery images list */}
+          {gallery.length > 0 ? (
+            <div className="space-y-3">
+              <h4 className="font-medium text-gray-700">Ảnh trong gallery ({gallery.length})</h4>
+              {gallery.map((image, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-3 bg-white">
+                  <div className="flex flex-col md:flex-row gap-4">
+                    {/* Image preview */}
+                    <div className="flex-shrink-0">
+                      <img
+                        src={image.url}
+                        alt={image.alt}
+                        className="h-20 w-32 object-cover rounded border"
+                        onError={(e) => {
+                          e.currentTarget.src = '/images/default-image.jpg';
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Image details */}
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">URL</label>
+                        <input
+                          type="text"
+                          value={image.url}
+                          onChange={(e) => updateGalleryImage(index, 'url', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Alt text</label>
+                        <input
+                          type="text"
+                          value={image.alt}
+                          onChange={(e) => updateGalleryImage(index, 'alt', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs text-gray-600 mb-1">Chú thích</label>
+                        <input
+                          type="text"
+                          value={image.caption}
+                          onChange={(e) => updateGalleryImage(index, 'caption', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Remove button */}
+                    <div className="flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => removeGalleryImage(index)}
+                        className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                        Xóa
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+              <FiImage className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-500">Chưa có ảnh nào trong gallery</p>
+              <p className="text-sm text-gray-400 mt-1">Thêm ảnh để hiển thị trong bộ sưu tập khóa học</p>
+            </div>
+          )}
+        </div>
+
+        {/* Promo Video */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Video giới thiệu
+          </label>
+          
+          <div className="flex flex-col md:flex-row gap-4 items-start">
+            {/* Upload button */}
+            <div className="flex-shrink-0">
+              <input
+                type="file"
+                ref={videoInputRef}
+                onChange={handleVideoUpload}
+                accept="video/*"
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => videoInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-2 px-4 py-3 bg-purple-500 text-white rounded-xl hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <FiVideo className="w-4 h-4" />
+                {formData.promoVideo ? 'Thay đổi video' : 'Chọn video'}
+              </button>
+            </div>
+
+            {/* Preview và URL input */}
+            <div className="flex-1 w-full">
+              {formData.promoVideo ? (
+                <div className="flex flex-col md:flex-row gap-4 items-start">
+                  <div className="flex-shrink-0">
+                    <video 
+                      src={formData.promoVideo} 
+                      controls 
+                      className="h-20 w-32 object-cover rounded border"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      name="promoVideo"
+                      value={formData.promoVideo}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                      placeholder="URL video giới thiệu"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      URL video giới thiệu khóa học
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4 border-2 border-dashed border-gray-300 rounded-xl">
+                  <FiVideo className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">Chưa có video giới thiệu</p>
+                  <p className="text-sm text-gray-400">Chọn video từ máy tính của bạn</p>
+                </div>
+              )}
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Định dạng hỗ trợ: MP4, MOV, AVI, WEBM. Kích thước tối đa: 50MB
+          </p>
+        </div>
+      </div>
+
       {/* Schedules Section */}
       <div className="border-t border-gray-200 pt-6">
         <div className="flex items-center justify-between mb-4">
@@ -537,106 +1132,114 @@ const CourseForm: React.FC<CourseFormProps> = ({
                 {/* Remove Button */}
                 <div className="flex items-end">
                   <button
-                    type="button"
-                    onClick={() => removeSchedule(index)}
-                    className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                  >
-                    <FiTrash2 className="w-4 h-4" />
-                    Xóa
-                  </button>
+                        type="button"
+                        onClick={() => removeSchedule(index)}
+                        className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                        Xóa
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {schedules.length === 0 && (
-          <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-            <p className="text-gray-500">Chưa có lịch học nào được thiết lập</p>
-            <p className="text-sm text-gray-400 mt-1">Nhấn "Thêm lịch học" để thiết lập lịch học cho khóa học</p>
+            {schedules.length === 0 && (
+              <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                <p className="text-gray-500">Chưa có lịch học nào được thiết lập</p>
+                <p className="text-sm text-gray-400 mt-1">Nhấn "Thêm lịch học" để thiết lập lịch học cho khóa học</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Certificate Checkbox */}
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          name="certificate"
-          checked={formData.certificate}
-          onChange={handleChange}
-          className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-        />
-        <label className="ml-2 block text-sm text-gray-900">
-          Cung cấp chứng chỉ hoàn thành khóa học
-        </label>
-      </div>
+          {/* Certificate Checkbox */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              name="certificate"
+              checked={formData.certificate}
+              onChange={handleChange}
+              className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+            />
+            <label className="ml-2 block text-sm text-gray-900">
+              Cung cấp chứng chỉ hoàn thành khóa học
+            </label>
+          </div>
 
-      {/* Additional Fields */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Điều kiện tiên quyết
-          </label>
-          <textarea
-            name="prerequisites"
-            value={formData.prerequisites}
-            onChange={handleChange}
-            rows={2}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-            placeholder="Nhập các điều kiện tiên quyết, phân cách bằng dấu phẩy"
-          />
-        </div>
+          {/* Additional Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Điều kiện tiên quyết
+              </label>
+              <textarea
+                name="prerequisites"
+                value={formData.prerequisites}
+                onChange={handleChange}
+                rows={2}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                placeholder="Nhập các điều kiện tiên quyết, phân cách bằng dấu phẩy"
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Kết quả học tập
-          </label>
-          <textarea
-            name="learningOutcomes"
-            value={formData.learningOutcomes}
-            onChange={handleChange}
-            rows={2}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-            placeholder="Nhập các kết quả học tập mong đợi, phân cách bằng dấu phẩy"
-          />
-        </div>
-      </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Kết quả học tập
+              </label>
+              <textarea
+                name="learningOutcomes"
+                value={formData.learningOutcomes}
+                onChange={handleChange}
+                rows={2}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                placeholder="Nhập các kết quả học tập mong đợi, phân cách bằng dấu phẩy"
+              />
+            </div>
+          </div>
 
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
-        <button
-          type="button"
-          onClick={handleSaveDraft}
-          disabled={submitting}
-          className="flex-1 px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-        >
-          <FiSave className="w-5 h-5" />
-          {submitting ? 'Đang lưu...' : 'Lưu bản nháp'}
-        </button>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={submitting || uploading}
+              className="flex-1 px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              <FiSave className="w-5 h-5" />
+              {submitting ? 'Đang lưu...' : 'Lưu bản nháp'}
+            </button>
 
-        <button
-          type="button"
-          onClick={handleSubmitForReview}
-          disabled={submitting}
-          className="flex-1 px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-        >
-          <FiSend className="w-5 h-5" />
-          {submitting ? 'Đang gửi...' : 'Gửi để phê duyệt'}
-        </button>
+            <button
+              type="button"
+              onClick={handleSubmitForReview}
+              disabled={submitting || uploading}
+              className="flex-1 px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              <FiSend className="w-5 h-5" />
+              {submitting ? 'Đang gửi...' : 'Gửi để phê duyệt'}
+            </button>
 
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={submitting}
-          className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-        >
-          <FiX className="w-5 h-5" />
-          Hủy
-        </button>
-      </div>
-    </form>
-  );
-};
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={submitting || uploading}
+              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              <FiX className="w-5 h-5" />
+              Hủy
+            </button>
+          </div>
 
-export default CourseForm;
+          {/* Uploading warning */}
+          {(uploading || Object.keys(uploadProgress).length > 0) && (
+            <div className="fixed bottom-4 right-4 bg-yellow-500 text-white p-4 rounded-lg shadow-lg">
+              <p className="font-medium">Đang upload file...</p>
+              <p className="text-sm">Vui lòng không đóng trang</p>
+            </div>
+          )}
+        </form>
+      );
+    };
+
+    export default CourseForm;

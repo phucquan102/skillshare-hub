@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@cloudinary/react": "^1.14.3",
+    "@cloudinary/url-gen": "^1.22.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hookform/resolvers": "^5.2.1",
@@ -21,7 +23,7 @@
     "@types/recharts": "^2.0.1",
     "@types/simple-peer": "^9.11.8",
     "@types/socket.io-client": "^3.0.0",
-    "axios": "^1.11.0",
+    "axios": "^1.12.2",
     "dayjs": "^1.11.18",
     "lodash": "^4.17.21",
     "lucide-react": "^0.544.0",

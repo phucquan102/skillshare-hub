@@ -30,7 +30,7 @@ const connectDB = async () => {
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const courseRoutes = require('./routes/courseRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-
+const uploadRoutes = require('./routes/uploadRoutes');
 
 // Health check
 app.get('/health', (req, res) => {
@@ -45,6 +45,7 @@ app.get('/health', (req, res) => {
 app.use('/enrollments', enrollmentRoutes);
 app.use('/admin', adminRoutes);
 app.use('/', courseRoutes); 
+app.use('/upload', uploadRoutes);
 
 console.log('✅ Mounted routes:');
 console.log('   - /enrollments -> enrollmentRoutes');

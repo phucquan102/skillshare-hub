@@ -63,7 +63,8 @@ app.get('/', (req, res) => {
       users: '/api/users',
       courses: '/api/courses',
       admin: '/api/admin',
-      payments: '/api/payments'
+      payments: '/api/payments',
+      upload: '/api/upload'
     }
   });
 });
@@ -112,6 +113,19 @@ const createProxy = (target, serviceName, pathRewrite = {}) => {
  *  ROUTES
  * =====================
  */
+ 
+app.use('/api/upload', (req, res, next) => {
+  console.log('🔍 [Upload Debug] Request received:', {
+    method: req.method,
+    url: req.originalUrl,
+    headers: req.headers,
+    contentType: req.headers['content-type'],
+    body: req.body
+  });
+  next();
+}, createProxy(COURSE_SERVICE_URL, 'upload-service', { 
+  '^/api/upload': '/upload' 
+}));
 
 app.use('/api/enrollments', createProxyMiddleware({
   target: COURSE_SERVICE_URL || 'http://course-service:3002',
