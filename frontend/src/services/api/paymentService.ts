@@ -18,10 +18,26 @@ export const paymentService = {
   createStudentPayment: async (
     courseId: string,
     amount: number,
-    paymentMethod: string
+    paymentMethod: string,
+    lessonId?: string
   ): Promise<PaymentResponse> => {
     const endpoint = `${API_BASE_URL}/api/payments/create-intent`;
-    console.log("👉 Sending createStudentPayment:", { courseId, amount, paymentMethod });
+    console.log("👉 Sending createStudentPayment:", { 
+      courseId, 
+      amount, 
+      paymentMethod, 
+      lessonId 
+    });
+
+    const requestBody: any = { 
+      courseId, 
+      amount, 
+      paymentMethod 
+    };
+
+    if (lessonId) {
+      requestBody.lessonId = lessonId;
+    }
 
     return await apiRequest(endpoint, {
       method: 'POST',
@@ -29,10 +45,11 @@ export const paymentService = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
-      body: JSON.stringify({ courseId, amount, paymentMethod }),
+      body: JSON.stringify(requestBody),
     });
   },
 
+  // ... rest of the paymentService methods remain the same
   createInstructorFee: async (paymentMethod: string): Promise<PaymentResponse> => {
     const endpoint = `${API_BASE_URL}/api/payments/instructor-fee`;
     console.log("👉 Sending createInstructorFee:", { paymentMethod });

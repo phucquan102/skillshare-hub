@@ -5,7 +5,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import { paymentService } from '../../../services/api/paymentService';
 import { courseService } from '../../../services/api/courseService';
 import PaymentForm from '../../../components/payment/PaymentForm/PaymentForm';
-import { FiArrowLeft, FiCreditCard, FiShield, FiCheck, FiAlertCircle } from 'react-icons/fi';
+import { FiArrowLeft, FiCreditCard, FiShield, FiCheck, FiAlertCircle, FiBook } from 'react-icons/fi';
 
 const TestCardInfo: React.FC = () => (
   <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-6 mb-8 backdrop-blur-sm">
@@ -63,11 +63,13 @@ const CheckoutPage: React.FC = () => {
   const [paymentId, setPaymentId] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [course, setCourse] = useState<any>(null);
+  const [lesson, setLesson] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const initRef = useRef(false);
 
   const query = new URLSearchParams(location.search);
   const courseId = query.get('courseId') || '';
+  const lessonId = query.get('lessonId') || '';
   const amount = parseInt(query.get('amount') || '0');
 
   useEffect(() => {
@@ -85,16 +87,42 @@ const CheckoutPage: React.FC = () => {
         setLoading(true);
         setError('');
         
-        const [courseRes, paymentRes] = await Promise.all([
-          courseService.getCourseById(courseId),
-          paymentService.createStudentPayment(courseId, amount, 'stripe')
-        ]);
+        // Fetch course details
+        const courseRes = await courseService.getCourseById(courseId);
+        setCourse(courseRes.course);
+
+        // If lessonId is provided, find the specific lesson
+        if (lessonId) {
+          const foundLesson = courseRes.course.lessons?.find((l: any) => l._id === lessonId);
+          setLesson(foundLesson);
+          
+          if (!foundLesson) {
+            throw new Error('Lesson not found');
+          }
+        }
+
+        // Create payment intent
+        const paymentData: any = { 
+          courseId, 
+          amount, 
+          paymentMethod: 'stripe' 
+        };
+
+        if (lessonId) {
+          paymentData.lessonId = lessonId;
+        }
+
+        const paymentRes = await paymentService.createStudentPayment(
+          paymentData.courseId,
+          paymentData.amount,
+          paymentData.paymentMethod,
+          paymentData.lessonId
+        );
 
         if (!paymentRes.clientSecret) {
           throw new Error('Failed to get client secret from server');
         }
 
-        setCourse(courseRes.course);
         setClientSecret(paymentRes.clientSecret);
         setPaymentId(paymentRes.paymentId);
       } catch (err: any) {
@@ -106,21 +134,28 @@ const CheckoutPage: React.FC = () => {
     };
 
     init();
-  }, [courseId, amount]);
+  }, [courseId, lessonId, amount]);
 
   const handleSuccess = () => {
     navigate('/payment/success', { 
       state: { 
         courseId, 
         courseName: course?.title, 
-        amount: amount / 100
+        amount: amount / 100,
+        lessonId: lessonId || null,
+        lessonName: lesson?.title || null
       },
       replace: true
     });
   };
 
   const handleCancel = () => {
-    navigate('/courses', { replace: true });
+    navigate(`/courses/${courseId}`, { replace: true });
+  };
+
+  // Helper function to determine payment type
+  const getPaymentType = () => {
+    return lessonId ? 'lesson_payment' : 'course_payment';
   };
 
   if (error) {
@@ -141,7 +176,7 @@ const CheckoutPage: React.FC = () => {
                 className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-2xl hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold flex items-center gap-3 mx-auto"
               >
                 <FiArrowLeft className="w-5 h-5" />
-                Back to Courses
+                Back to Course
               </button>
             </div>
           </div>
@@ -190,7 +225,7 @@ const CheckoutPage: React.FC = () => {
                 className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-2xl hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold flex items-center gap-3 mx-auto"
               >
                 <FiArrowLeft className="w-5 h-5" />
-                Back to Courses
+                Back to Course
               </button>
             </div>
           </div>
@@ -209,28 +244,41 @@ const CheckoutPage: React.FC = () => {
             className="inline-flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-medium mb-6 transition-colors duration-200"
           >
             <FiArrowLeft className="w-5 h-5" />
-            Back to Courses
+            Back to Course
           </button>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-emerald-700 bg-clip-text text-transparent mb-4">
-            Secure Checkout
+            {lessonId ? 'Purchase Lesson' : 'Enroll in Course'}
           </h1>
           <p className="text-gray-600 text-lg">Complete your purchase with confidence</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Course Summary */}
+          {/* Order Summary */}
           <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl flex items-center justify-center">
-                <FiCreditCard className="w-8 h-8 text-white" />
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
+                lessonId 
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-500' 
+                  : 'bg-gradient-to-r from-emerald-500 to-green-500'
+              }`}>
+                {lessonId ? (
+                  <FiBook className="w-8 h-8 text-white" />
+                ) : (
+                  <FiCreditCard className="w-8 h-8 text-white" />
+                )}
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Order Summary</h2>
-                <p className="text-gray-600">Review your purchase details</p>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {lessonId ? 'Lesson Purchase' : 'Course Enrollment'}
+                </h2>
+                <p className="text-gray-600">
+                  {lessonId ? 'Single lesson access' : 'Full course access'}
+                </p>
               </div>
             </div>
 
             <div className="space-y-6">
+              {/* Course/Lesson Info */}
               <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl border border-emerald-100">
                 <img
                   src={course.thumbnail || '/default-course.jpg'}
@@ -238,16 +286,34 @@ const CheckoutPage: React.FC = () => {
                   className="w-20 h-20 object-cover rounded-xl"
                 />
                 <div className="flex-1">
-                  <h3 className="font-bold text-gray-900 text-lg mb-1">{course.title}</h3>
+                  <h3 className="font-bold text-gray-900 text-lg mb-1">
+                    {lessonId ? lesson.title : course.title}
+                  </h3>
                   <p className="text-gray-600 text-sm line-clamp-2">
-                    {course.shortDescription || course.description}
+                    {lessonId 
+                      ? lesson.description || 'No description available'
+                      : course.shortDescription || course.description
+                    }
                   </p>
+                  {lessonId && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                        Single Lesson
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        From: {course.title}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
+              {/* Pricing Details */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center py-3 border-b border-gray-200">
-                  <span className="text-gray-600">Course Price</span>
+                  <span className="text-gray-600">
+                    {lessonId ? 'Lesson Price' : 'Course Price'}
+                  </span>
                   <span className="font-bold text-gray-900">${(amount / 100).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-200">
@@ -264,16 +330,30 @@ const CheckoutPage: React.FC = () => {
 
               <SecurityBadges />
 
+              {/* What's Included */}
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
                 <div className="flex items-start gap-3">
                   <FiCheck className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
                   <div>
-                    <h4 className="font-semibold text-blue-800 mb-1">What's included:</h4>
+                    <h4 className="font-semibold text-blue-800 mb-1">
+                      {lessonId ? "What you'll get:" : "What's included:"}
+                    </h4>
                     <ul className="text-sm text-blue-700 space-y-1">
-                      <li>• Lifetime access to course content</li>
-                      <li>• Certificate of completion</li>
-                      <li>• 30-day money-back guarantee</li>
-                      <li>• 24/7 customer support</li>
+                      {lessonId ? (
+                        <>
+                          <li>• Access to this specific lesson</li>
+                          <li>• Lifetime access to purchased content</li>
+                          <li>• Downloadable materials (if available)</li>
+                          <li>• 30-day money-back guarantee</li>
+                        </>
+                      ) : (
+                        <>
+                          <li>• Lifetime access to all course content</li>
+                          <li>• Certificate of completion</li>
+                          <li>• 30-day money-back guarantee</li>
+                          <li>• 24/7 customer support</li>
+                        </>
+                      )}
                     </ul>
                   </div>
                 </div>
@@ -317,10 +397,12 @@ const CheckoutPage: React.FC = () => {
                 clientSecret={clientSecret}
                 paymentId={paymentId}
                 courseId={courseId}
+                lessonId={lessonId}
                 amount={amount / 100}
                 onSuccess={handleSuccess}
                 onCancel={handleCancel}
                 isInstructorFee={false}
+                paymentType={getPaymentType()}
               />
             </Elements>
           </div>

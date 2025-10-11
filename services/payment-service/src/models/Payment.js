@@ -8,55 +8,88 @@ const paymentSchema = new mongoose.Schema({
   },
   courseId: {
     type: mongoose.Schema.Types.ObjectId,
-    required: function() { return this.type !== 'instructor_fee'; }
+    default: null
   },
   lessonId: {
     type: mongoose.Schema.Types.ObjectId,
-    required: false
+    default: null
   },
   amount: {
     type: Number,
-    required: true
+    required: true,
+    min: 0
   },
   currency: {
     type: String,
-    default: 'USD',
-    enum: ['USD']
+    default: 'usd',
+    enum: ['usd']
   },
   paymentMethod: {
     type: String,
-    required: true,
-    enum: ['stripe', 'paypal', 'momo']
+    default: 'stripe',
+    enum: ['stripe', 'momo', 'zalopay']
   },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'completed', 'failed', 'refunded'],
-    default: 'pending'
+    default: 'pending',
+    enum: ['pending', 'completed', 'failed', 'canceled', 'refunded']
   },
   type: {
     type: String,
-    enum: ['course_payment', 'lesson_payment', 'instructor_fee'],
-    required: true
+    required: true,
+    enum: ['course_payment', 'lesson_payment', 'instructor_fee']
   },
   transactionId: {
     type: String,
-    required: true,
-    unique: true
+    required: true
+  },
+  stripePaymentIntentId: {
+    type: String,
+    required: true
+  },
+  clientSecret: {
+    type: String,
+    required: true
   },
   adminShare: {
     type: Number,
-    required: true
+    default: 0
   },
   instructorShare: {
     type: Number,
-    required: true
+    default: 0
+  },
+  refundReason: {
+    type: String,
+    default: null
+  },
+  completedAt: {
+    type: Date,
+    default: null
+  },
+  failedAt: {
+    type: Date,
+    default: null
+  },
+  canceledAt: {
+    type: Date,
+    default: null
+  },
+  refundedAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true
 });
 
-paymentSchema.index({ userId: 1 });
-paymentSchema.index({ courseId: 1 });
+// Indexes for better performance
+paymentSchema.index({ userId: 1, createdAt: -1 });
 paymentSchema.index({ transactionId: 1 });
+paymentSchema.index({ paymentStatus: 1 });
+paymentSchema.index({ type: 1 });
+paymentSchema.index({ createdAt: 1 });
 
-module.exports = mongoose.model('Payment', paymentSchema);
+const Payment = mongoose.model('Payment', paymentSchema);
+
+module.exports = Payment;

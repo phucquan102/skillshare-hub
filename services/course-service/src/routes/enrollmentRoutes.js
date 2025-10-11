@@ -1,17 +1,31 @@
+// course-service/src/routes/enrollmentRoutes.js
 const express = require('express');
 const router = express.Router();
+
+// Import đúng tên từ middleware
+const { authMiddleware, instructorMiddleware, adminMiddleware } = require('../middleware/auth');
 const enrollmentController = require('../controllers/enrollmentController');
-const { authMiddleware, studentMiddleware } = require('../middleware/auth');
 
-// Debug logging
-router.use((req, res, next) => {
-  console.log(`🎯 EnrollmentRoutes: ${req.method} ${req.path}`);
-  next();
-});
+// Debug chi tiết hơn
+console.log('✅ Enrollment Routes loaded successfully');
+console.log('🔑 Auth Middleware:', typeof authMiddleware);
+console.log('👨‍🏫 Instructor Middleware:', typeof instructorMiddleware);
+console.log('🛠️ Enrollment Controller methods:', Object.keys(enrollmentController));
 
-// Enrollment routes
-router.post('/', authMiddleware, studentMiddleware, enrollmentController.createEnrollment);
-router.get('/my-enrollments', authMiddleware, studentMiddleware, enrollmentController.getMyEnrollments);
-router.delete('/:id', authMiddleware, studentMiddleware, enrollmentController.deleteEnrollment);
+// Student routes - sử dụng authMiddleware thay vì authenticate
+router.post('/', authMiddleware, enrollmentController.createEnrollment);
+router.post('/purchase-lesson', authMiddleware, enrollmentController.purchaseLesson);
+router.get('/my-enrollments', authMiddleware, enrollmentController.getMyEnrollments);
+router.get('/course/:courseId', authMiddleware, enrollmentController.getEnrollmentByCourse);
+router.get('/progress/:enrollmentId', authMiddleware, enrollmentController.getEnrollmentProgress);
+router.get('/check-access/:lessonId', authMiddleware, enrollmentController.checkLessonAccess);
+router.patch('/complete-lesson/:lessonId', authMiddleware, enrollmentController.markLessonCompleted);
+router.patch('/:enrollmentId/status', authMiddleware, enrollmentController.updateEnrollmentStatus);
+router.delete('/:id', authMiddleware, enrollmentController.deleteEnrollment);
+
+// Instructor routes - sử dụng authMiddleware và instructorMiddleware
+router.get('/course/:courseId/enrollments', authMiddleware, instructorMiddleware, enrollmentController.getCourseEnrollments);
+
+console.log('✅ All enrollment routes registered successfully');
 
 module.exports = router;

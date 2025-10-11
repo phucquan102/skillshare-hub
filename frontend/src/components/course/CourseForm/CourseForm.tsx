@@ -34,6 +34,37 @@ interface UploadResult {
   duration?: number;
 }
 
+// ✅ FIX: Map day names to numbers
+const dayOfWeekMap: { [key: string]: number } = {
+  'monday': 1,
+  'tuesday': 2, 
+  'wednesday': 3,
+  'thursday': 4,
+  'friday': 5,
+  'saturday': 6,
+  'sunday': 0
+};
+
+const dayOfWeekReverseMap: { [key: number]: string } = {
+  0: 'sunday',
+  1: 'monday',
+  2: 'tuesday',
+  3: 'wednesday',
+  4: 'thursday',
+  5: 'friday',
+  6: 'saturday'
+};
+
+const dayOfWeekOptions = [
+  { value: 'monday', label: 'Thứ 2' },
+  { value: 'tuesday', label: 'Thứ 3' },
+  { value: 'wednesday', label: 'Thứ 4' },
+  { value: 'thursday', label: 'Thứ 5' },
+  { value: 'friday', label: 'Thứ 6' },
+  { value: 'saturday', label: 'Thứ 7' },
+  { value: 'sunday', label: 'Chủ nhật' }
+];
+
 const CourseForm: React.FC<CourseFormProps> = ({
   course,
   onSubmit,
@@ -98,7 +129,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
     learningOutcomes: '',
     requirements: '',
     tags: '',
-    language: 'en',
+    language: 'vi',
     thumbnail: '',
     coverImage: '',
     promoVideo: '',
@@ -108,7 +139,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // ✅ QUAN TRỌNG: useEffect để đồng bộ dữ liệu khi course thay đổi
+  // ✅ FIX: useEffect để đồng bộ dữ liệu khi course thay đổi
   useEffect(() => {
     if (isEdit && course) {
       console.log("🪄 Updating form when course changes:", course);
@@ -145,7 +176,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
         learningOutcomes: course.learningOutcomes?.join(', ') || '',
         requirements: course.requirements?.join(', ') || '',
         tags: course.tags?.join(', ') || '',
-        language: course.language || 'en',
+        language: course.language || 'vi',
         thumbnail: course.thumbnail || '',
         coverImage: course.coverImage || '',
         promoVideo: course.promoVideo || '',
@@ -155,18 +186,18 @@ const CourseForm: React.FC<CourseFormProps> = ({
         featured: course.featured || false,
       });
 
-      // Đồng bộ luôn schedules khi edit
+      // ✅ FIX QUAN TRỌNG: Convert schedules từ number sang string cho form
       if (course.schedules && course.schedules.length > 0) {
         console.log('📅 Initializing schedules from course:', course.schedules);
-        setSchedules(
-          course.schedules.map(schedule => ({
-            dayOfWeek: schedule.dayOfWeek || '',
-            startTime: schedule.startTime || '',
-            endTime: schedule.endTime || '',
-            date: schedule.date || '',
-            _id: schedule._id
-          }))
-        );
+        const formattedSchedules = course.schedules.map(schedule => ({
+          dayOfWeek: dayOfWeekReverseMap[schedule.dayOfWeek] || '',
+          startTime: schedule.startTime || '',
+          endTime: schedule.endTime || '',
+          date: schedule.date || '',
+          _id: schedule._id
+        }));
+        console.log('📅 Formatted schedules for form:', formattedSchedules);
+        setSchedules(formattedSchedules);
       } else {
         setSchedules([]);
       }
@@ -460,11 +491,53 @@ const CourseForm: React.FC<CourseFormProps> = ({
       newErrors.thumbnail = 'Ảnh đại diện là bắt buộc';
     }
 
+    // ✅ FIX: Validation cho schedules
+    if (schedules.length > 0) {
+      schedules.forEach((schedule, index) => {
+        if (!schedule.dayOfWeek) {
+          newErrors[`schedule_${index}_day`] = `Lịch học ${index + 1}: Chọn ngày trong tuần`;
+        }
+        if (!schedule.startTime) {
+          newErrors[`schedule_${index}_start`] = `Lịch học ${index + 1}: Chọn giờ bắt đầu`;
+        }
+        if (!schedule.endTime) {
+          newErrors[`schedule_${index}_end`] = `Lịch học ${index + 1}: Chọn giờ kết thúc`;
+        }
+        if (schedule.startTime && schedule.endTime && schedule.startTime >= schedule.endTime) {
+          newErrors[`schedule_${index}_time`] = `Lịch học ${index + 1}: Giờ kết thúc phải sau giờ bắt đầu`;
+        }
+      });
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // ✅ FIX QUAN TRỌNG: Chuẩn bị dữ liệu gửi đi - convert string -> number cho dayOfWeek
   const prepareFormData = (): CreateCourseData | EditCourseData => {
+    // ✅ FIX: Convert schedules từ string sang number trước khi gửi
+    const processedSchedules = schedules
+      .filter(schedule => schedule.dayOfWeek && schedule.startTime && schedule.endTime)
+      .map(schedule => {
+        const dayNumber = dayOfWeekMap[schedule.dayOfWeek];
+        console.log(`📅 Converting schedule: ${schedule.dayOfWeek} -> ${dayNumber}`);
+        
+        return {
+          dayOfWeek: dayNumber,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          timezone: 'Asia/Ho_Chi_Minh',
+          meetingPlatform: 'zoom' as const,
+          meetingUrl: '',
+          meetingId: '',
+          meetingPassword: '',
+          isActive: true,
+          notes: ''
+        };
+      });
+
+    console.log('📅 Processed schedules for submission:', processedSchedules);
+
     const baseData = {
       title: formData.title,
       description: formData.description,
@@ -493,13 +566,11 @@ const CourseForm: React.FC<CourseFormProps> = ({
         template: 'default',
         issuedBy: 'SkillShare Hub'
       } : undefined,
-      // Thêm schedules vào dữ liệu gửi đi
-      schedules: schedules.filter(schedule => 
-        schedule.dayOfWeek && schedule.startTime && schedule.endTime
-      ),
+      // ✅ SỬA QUAN TRỌNG: Sử dụng schedules đã được convert
+      schedules: processedSchedules.length > 0 ? processedSchedules : undefined,
     };
 
-    console.log('📅 Prepared form data with schedules:', baseData.schedules);
+    console.log('📤 Prepared form data with schedules:', baseData.schedules);
     console.log('📅 Prepared form data with dates:', {
       startDate: baseData.startDate,
       endDate: baseData.endDate
@@ -510,7 +581,10 @@ const CourseForm: React.FC<CourseFormProps> = ({
 
   const handleSaveDraft = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      console.log('❌ Form validation failed:', errors);
+      return;
+    }
 
     const submitData = prepareFormData();
     console.log('📝 [CourseForm] Saving draft:', submitData);
@@ -519,7 +593,10 @@ const CourseForm: React.FC<CourseFormProps> = ({
 
   const handleSubmitForReview = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      console.log('❌ Form validation failed:', errors);
+      return;
+    }
 
     const submitData = prepareFormData();
     console.log('📤 [CourseForm] Submitting for review:', submitData);
@@ -665,7 +742,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Giá khóa học ($) *
+            Giá khóa học (VND) *
           </label>
           <input
             type="number"
@@ -673,7 +750,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
             value={formData.fullCoursePrice}
             onChange={handleChange}
             min="0"
-            step="0.01"
+            step="1000"
             className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all ${
               errors.fullCoursePrice ? 'border-red-500' : 'border-gray-300'
             }`}
@@ -1056,7 +1133,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
         </div>
       </div>
 
-      {/* Schedules Section */}
+      {/* ========== SCHEDULES SECTION ========== */}
       <div className="border-t border-gray-200 pt-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">Lịch học</h3>
@@ -1073,7 +1150,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
         {schedules.length > 0 && (
           <div className="mb-4 p-4 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-700">
-              📅 Hiện có {schedules.length} lịch học. Bạn có thể chỉnh sửa hoặc thêm mới.
+              📅 Hiện có {schedules.length} lịch học. Các lịch học sẽ được chuyển đổi sang số (0-6) khi lưu.
             </p>
           </div>
         )}
@@ -1090,17 +1167,20 @@ const CourseForm: React.FC<CourseFormProps> = ({
                   <select
                     value={schedule.dayOfWeek}
                     onChange={(e) => updateSchedule(index, 'dayOfWeek', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      errors[`schedule_${index}_day`] ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   >
                     <option value="">Chọn ngày</option>
-                    <option value="monday">Thứ 2</option>
-                    <option value="tuesday">Thứ 3</option>
-                    <option value="wednesday">Thứ 4</option>
-                    <option value="thursday">Thứ 5</option>
-                    <option value="friday">Thứ 6</option>
-                    <option value="saturday">Thứ 7</option>
-                    <option value="sunday">Chủ nhật</option>
+                    {dayOfWeekOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
+                  {errors[`schedule_${index}_day`] && (
+                    <p className="mt-1 text-red-500 text-xs">{errors[`schedule_${index}_day`]}</p>
+                  )}
                 </div>
 
                 {/* Start Time */}
@@ -1112,8 +1192,13 @@ const CourseForm: React.FC<CourseFormProps> = ({
                     type="time"
                     value={schedule.startTime}
                     onChange={(e) => updateSchedule(index, 'startTime', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      errors[`schedule_${index}_start`] ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   />
+                  {errors[`schedule_${index}_start`] && (
+                    <p className="mt-1 text-red-500 text-xs">{errors[`schedule_${index}_start`]}</p>
+                  )}
                 </div>
 
                 {/* End Time */}
@@ -1125,121 +1210,136 @@ const CourseForm: React.FC<CourseFormProps> = ({
                     type="time"
                     value={schedule.endTime}
                     onChange={(e) => updateSchedule(index, 'endTime', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      errors[`schedule_${index}_end`] || errors[`schedule_${index}_time`] ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   />
+                  {errors[`schedule_${index}_end`] && (
+                    <p className="mt-1 text-red-500 text-xs">{errors[`schedule_${index}_end`]}</p>
+                  )}
+                  {errors[`schedule_${index}_time`] && (
+                    <p className="mt-1 text-red-500 text-xs">{errors[`schedule_${index}_time`]}</p>
+                  )}
                 </div>
 
                 {/* Remove Button */}
                 <div className="flex items-end">
                   <button
-                        type="button"
-                        onClick={() => removeSchedule(index)}
-                        className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                      >
-                        <FiTrash2 className="w-4 h-4" />
-                        Xóa
-                      </button>
-                    </div>
-                  </div>
+                    type="button"
+                    onClick={() => removeSchedule(index)}
+                    className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                  >
+                    <FiTrash2 className="w-4 h-4" />
+                    Xóa
+                  </button>
                 </div>
-              ))}
-            </div>
-
-            {schedules.length === 0 && (
-              <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                <p className="text-gray-500">Chưa có lịch học nào được thiết lập</p>
-                <p className="text-sm text-gray-400 mt-1">Nhấn "Thêm lịch học" để thiết lập lịch học cho khóa học</p>
               </div>
-            )}
-          </div>
-
-          {/* Certificate Checkbox */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              name="certificate"
-              checked={formData.certificate}
-              onChange={handleChange}
-              className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-            />
-            <label className="ml-2 block text-sm text-gray-900">
-              Cung cấp chứng chỉ hoàn thành khóa học
-            </label>
-          </div>
-
-          {/* Additional Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Điều kiện tiên quyết
-              </label>
-              <textarea
-                name="prerequisites"
-                value={formData.prerequisites}
-                onChange={handleChange}
-                rows={2}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-                placeholder="Nhập các điều kiện tiên quyết, phân cách bằng dấu phẩy"
-              />
+              
+              {/* Debug info - chỉ hiển thị trong development */}
+              {process.env.NODE_ENV === 'development' && schedule.dayOfWeek && (
+                <div className="mt-2 p-2 bg-yellow-100 rounded text-xs">
+                  <span className="font-medium">Debug:</span> {schedule.dayOfWeek} → {dayOfWeekMap[schedule.dayOfWeek]}
+                </div>
+              )}
             </div>
+          ))}
+        </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Kết quả học tập
-              </label>
-              <textarea
-                name="learningOutcomes"
-                value={formData.learningOutcomes}
-                onChange={handleChange}
-                rows={2}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-                placeholder="Nhập các kết quả học tập mong đợi, phân cách bằng dấu phẩy"
-              />
-            </div>
+        {schedules.length === 0 && (
+          <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+            <p className="text-gray-500">Chưa có lịch học nào được thiết lập</p>
+            <p className="text-sm text-gray-400 mt-1">Nhấn "Thêm lịch học" để thiết lập lịch học cho khóa học</p>
           </div>
+        )}
+      </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              disabled={submitting || uploading}
-              className="flex-1 px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-              <FiSave className="w-5 h-5" />
-              {submitting ? 'Đang lưu...' : 'Lưu bản nháp'}
-            </button>
+      {/* Additional Fields */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Điều kiện tiên quyết
+          </label>
+          <textarea
+            name="prerequisites"
+            value={formData.prerequisites}
+            onChange={handleChange}
+            rows={2}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+            placeholder="Nhập các điều kiện tiên quyết, phân cách bằng dấu phẩy"
+          />
+        </div>
 
-            <button
-              type="button"
-              onClick={handleSubmitForReview}
-              disabled={submitting || uploading}
-              className="flex-1 px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-              <FiSend className="w-5 h-5" />
-              {submitting ? 'Đang gửi...' : 'Gửi để phê duyệt'}
-            </button>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Kết quả học tập
+          </label>
+          <textarea
+            name="learningOutcomes"
+            value={formData.learningOutcomes}
+            onChange={handleChange}
+            rows={2}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+            placeholder="Nhập các kết quả học tập mong đợi, phân cách bằng dấu phẩy"
+          />
+        </div>
+      </div>
 
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={submitting || uploading}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-              <FiX className="w-5 h-5" />
-              Hủy
-            </button>
-          </div>
+      {/* Certificate Checkbox */}
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          name="certificate"
+          checked={formData.certificate}
+          onChange={handleChange}
+          className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+        />
+        <label className="ml-2 block text-sm text-gray-900">
+          Cung cấp chứng chỉ hoàn thành khóa học
+        </label>
+      </div>
 
-          {/* Uploading warning */}
-          {(uploading || Object.keys(uploadProgress).length > 0) && (
-            <div className="fixed bottom-4 right-4 bg-yellow-500 text-white p-4 rounded-lg shadow-lg">
-              <p className="font-medium">Đang upload file...</p>
-              <p className="text-sm">Vui lòng không đóng trang</p>
-            </div>
-          )}
-        </form>
-      );
-    };
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
+        <button
+          type="button"
+          onClick={handleSaveDraft}
+          disabled={submitting || uploading}
+          className="flex-1 px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        >
+          <FiSave className="w-5 h-5" />
+          {submitting ? 'Đang lưu...' : 'Lưu bản nháp'}
+        </button>
 
-    export default CourseForm;
+        <button
+          type="button"
+          onClick={handleSubmitForReview}
+          disabled={submitting || uploading}
+          className="flex-1 px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        >
+          <FiSend className="w-5 h-5" />
+          {submitting ? 'Đang gửi...' : 'Gửi để phê duyệt'}
+        </button>
+
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={submitting || uploading}
+          className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        >
+          <FiX className="w-5 h-5" />
+          Hủy
+        </button>
+      </div>
+
+      {/* Uploading warning */}
+      {(uploading || Object.keys(uploadProgress).length > 0) && (
+        <div className="fixed bottom-4 right-4 bg-yellow-500 text-white p-4 rounded-lg shadow-lg">
+          <p className="font-medium">Đang upload file...</p>
+          <p className="text-sm">Vui lòng không đóng trang</p>
+        </div>
+      )}
+    </form>
+  );
+};
+
+export default CourseForm;
