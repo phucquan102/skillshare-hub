@@ -16,7 +16,6 @@ interface Schedule {
   dayOfWeek: string;
   startTime: string;
   endTime: string;
-  date?: string;
   _id?: string;
 }
 
@@ -193,7 +192,6 @@ const CourseForm: React.FC<CourseFormProps> = ({
           dayOfWeek: dayOfWeekReverseMap[schedule.dayOfWeek] || '',
           startTime: schedule.startTime || '',
           endTime: schedule.endTime || '',
-          date: schedule.date || '',
           _id: schedule._id
         }));
         console.log('📅 Formatted schedules for form:', formattedSchedules);
@@ -492,7 +490,9 @@ const CourseForm: React.FC<CourseFormProps> = ({
     }
 
     // ✅ FIX: Validation cho schedules
-    if (schedules.length > 0) {
+    if (schedules.length === 0) {
+      newErrors.schedules = 'Cần ít nhất một lịch học';
+    } else {
       schedules.forEach((schedule, index) => {
         if (!schedule.dayOfWeek) {
           newErrors[`schedule_${index}_day`] = `Lịch học ${index + 1}: Chọn ngày trong tuần`;
@@ -1152,6 +1152,13 @@ const CourseForm: React.FC<CourseFormProps> = ({
             <p className="text-sm text-blue-700">
               📅 Hiện có {schedules.length} lịch học. Các lịch học sẽ được chuyển đổi sang số (0-6) khi lưu.
             </p>
+          </div>
+        )}
+
+        {/* Hiển thị lỗi schedules tổng */}
+        {schedules.length === 0 && errors.schedules && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <p className="text-red-700 text-sm">{errors.schedules}</p>
           </div>
         )}
 

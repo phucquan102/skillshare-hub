@@ -18,7 +18,7 @@ const CreateCoursePage: React.FC = () => {
     try {
       console.log('🎯 [CreateCoursePage] Submitting course:', { data, submitType });
 
-     // Chuẩn bị dữ liệu để gửi lên server - ĐÚNG VỚI MODEL
+      // ✅ FIX: Chuẩn bị dữ liệu với schedules
       const createData: CreateCourseData = {
         title: data.title || '',
         description: data.description || '',
@@ -43,14 +43,25 @@ const CreateCoursePage: React.FC = () => {
         tags: Array.isArray(data.tags) 
           ? data.tags 
           : (data.tags ? [data.tags] : []),
-        language: data.language || 'en',
+        language: data.language || 'vi',
         thumbnail: data.thumbnail || '',
+        // ✅ THÊM: Các trường mới từ interface
+        schedules: (data as any).schedules || [], // Lấy schedules từ form data
+        gallery: (data as any).gallery || [],
+        coverImage: (data as any).coverImage || '',
+        promoVideo: (data as any).promoVideo || '',
         // Certificate đã được xử lý đúng từ CourseForm
         certificate: data.certificate,
         featured: data.featured || false,
+        // ✅ THÊM: Các trường optional khác
+        coInstructors: (data as any).coInstructors || [],
+        discount: (data as any).discount,
+        courseType: (data as any).courseType || 'live_online',
+        settings: (data as any).settings
       };
 
       console.log('📤 [CreateCoursePage] Final data to send:', createData);
+      console.log('📅 Schedules in create data:', createData.schedules);
 
       // Validate dữ liệu bắt buộc
       if (!createData.title.trim()) {
@@ -67,6 +78,11 @@ const CreateCoursePage: React.FC = () => {
       }
       if (!createData.endDate) {
         throw new Error('Ngày kết thúc là bắt buộc');
+      }
+
+      // ✅ FIX: Validate schedules - BẮT BUỘC có ít nhất 1 schedule
+      if (!createData.schedules || createData.schedules.length === 0) {
+        throw new Error('Cần ít nhất một lịch học cho khóa học');
       }
 
       // Validate dates
@@ -159,6 +175,7 @@ const CreateCoursePage: React.FC = () => {
             <li>• <strong>Lưu bản nháp:</strong> Khóa học sẽ được lưu dưới dạng nháp và bạn có thể chỉnh sửa sau</li>
             <li>• <strong>Gửi để phê duyệt:</strong> Khóa học sẽ được gửi cho admin xem xét và phê duyệt</li>
             <li>• Các trường có dấu * là bắt buộc</li>
+            <li>• <strong>Lịch học:</strong> Bắt buộc phải có ít nhất một lịch học</li>
             <li>• Đảm bảo thông tin mô tả rõ ràng và hấp dẫn</li>
             <li>• Ngày kết thúc phải sau ngày bắt đầu</li>
             <li>• Giá khóa học phải lớn hơn 0 khi chọn thanh toán trọn khóa</li>

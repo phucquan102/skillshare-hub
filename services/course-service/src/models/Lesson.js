@@ -104,6 +104,16 @@ const lessonSchema = new mongoose.Schema({
   meetingId: { type: String },
   meetingPassword: { type: String },
   
+  // ========== CÁC TRƯỜNG MỚI CHO JITSI MEETING ==========
+  meetingData: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  isMeetingActive: {
+    type: Boolean,
+    default: false
+  },
+  
   // Thời gian thực tế của buổi học (có thể khác với schedule)
   actualStartTime: { type: Date },
   actualEndTime: { type: Date },
@@ -209,6 +219,7 @@ lessonSchema.index({ isPreview: 1 });
 lessonSchema.index({ isFree: 1 });
 lessonSchema.index({ lessonType: 1 });
 lessonSchema.index({ 'actualStartTime': 1 });
+lessonSchema.index({ isMeetingActive: 1 }); // Thêm index cho trường mới
 
 // Virtuals
 lessonSchema.virtual('totalDuration').get(function() {
@@ -287,23 +298,62 @@ lessonSchema.virtual('canRegister').get(function() {
   return now < deadline;
 });
 
+// ========== VIRTUAL MỚI CHO MEETING ==========
+lessonSchema.virtual('canStartMeeting').get(function() {
+  // Instructor có thể bắt đầu meeting nếu lesson là live_online và chưa active
+  return this.lessonType === 'live_online' && !this.isMeetingActive;
+});
+
+lessonSchema.virtual('canJoinMeeting').get(function() {
+  // Có thể join meeting nếu meeting đang active
+  return this.lessonType === 'live_online' && this.isMeetingActive;
+});
+
+lessonSchema.virtual('meetingStatus').get(function() {
+  if (this.lessonType !== 'live_online') return 'not_live';
+  if (this.isMeetingActive) return 'active';
+  if (this.actualStartTime && new Date() < new Date(this.actualStartTime)) return 'scheduled';
+  if (this.actualEndTime && new Date() > new Date(this.actualEndTime)) return 'ended';
+  return 'ready';
+});
+
 // Pre-save middleware
 lessonSchema.pre('save', function(next) {
   // Auto-calculate estimatedStudyTime from contents
   if (this.isModified('contents')) {
     this.estimatedStudyTime = this.totalDuration;
   }
-  
-  // Validate actual time nếu có
+
+  // 🎯 FIX: Chỉ validate khi cả start và end time đều có giá trị VÀ end time phải sau start time
   if (this.actualStartTime && this.actualEndTime) {
-    const startTime = new Date(this.actualStartTime);
-    const endTime = new Date(this.actualEndTime);
+    const start = new Date(this.actualStartTime);
+    const end = new Date(this.actualEndTime);
     
-    if (startTime >= endTime) {
+    if (end <= start) {
       return next(new Error('End time must be after start time for lessons'));
     }
+
+    // Auto-calculate duration if not provided (tính bằng phút)
+    if (!this.duration) {
+      this.duration = Math.round((end - start) / (1000 * 60));
+    }
   }
-  
+
+  // Ensure estimatedStudyTime has a value
+  if (!this.estimatedStudyTime) {
+    this.estimatedStudyTime = this.duration || 60;
+  }
+
+  // Set default price based on course pricing
+  if (this.price === undefined || this.price === null) {
+    this.price = 0;
+  }
+
+  // Set default status
+  if (!this.status) {
+    this.status = 'draft';
+  }
+
   // Đảm bảo scheduleIndex không âm
   if (this.scheduleIndex < 0) {
     return next(new Error('Schedule index cannot be negative'));
@@ -311,7 +361,6 @@ lessonSchema.pre('save', function(next) {
   
   next();
 });
-
 // Post-save hook để đồng bộ với course
 lessonSchema.post('save', async function(doc, next) {
   try {
@@ -368,6 +417,22 @@ lessonSchema.statics.findUpcomingLessons = function() {
   }).sort({ actualStartTime: 1 });
 };
 
+// ========== STATIC METHODS MỚI CHO MEETING ==========
+lessonSchema.statics.findActiveMeetings = function() {
+  return this.find({
+    lessonType: 'live_online',
+    isMeetingActive: true,
+    isActive: true
+  });
+};
+
+lessonSchema.statics.findByMeetingId = function(meetingId) {
+  return this.findOne({
+    meetingId: meetingId,
+    isMeetingActive: true
+  });
+};
+
 // Instance methods
 lessonSchema.methods.incrementViewCount = function() {
   this.viewCount += 1;
@@ -401,16 +466,52 @@ lessonSchema.methods.decrementParticipants = function() {
 };
 
 lessonSchema.methods.updateMeetingInfo = function(meetingData) {
-  const { meetingUrl, meetingId, meetingPassword } = meetingData;
+  const { meetingUrl, meetingId, meetingPassword, meetingData: mData } = meetingData;
   if (meetingUrl) this.meetingUrl = meetingUrl;
   if (meetingId) this.meetingId = meetingId;
   if (meetingPassword) this.meetingPassword = meetingPassword;
+  if (mData) this.meetingData = mData;
   return this.save();
+};
+
+// ========== INSTANCE METHODS MỚI CHO MEETING ==========
+lessonSchema.methods.startMeeting = function(meetingInfo = {}) {
+  this.isMeetingActive = true;
+  this.actualStartTime = new Date();
+  
+  // Cập nhật thông tin meeting nếu có
+  if (meetingInfo.meetingUrl) this.meetingUrl = meetingInfo.meetingUrl;
+  if (meetingInfo.meetingId) this.meetingId = meetingInfo.meetingId;
+  if (meetingInfo.meetingData) this.meetingData = meetingInfo.meetingData;
+  
+  return this.save();
+};
+
+lessonSchema.methods.endMeeting = function(recordingUrl = null) {
+  this.isMeetingActive = false;
+  this.actualEndTime = new Date();
+  if (recordingUrl) {
+    this.recordingUrl = recordingUrl;
+  }
+  return this.save();
+};
+
+lessonSchema.methods.getMeetingInfo = function() {
+  return {
+    meetingUrl: this.meetingUrl,
+    meetingId: this.meetingId,
+    meetingPassword: this.meetingPassword,
+    meetingData: this.meetingData,
+    isMeetingActive: this.isMeetingActive,
+    actualStartTime: this.actualStartTime,
+    actualEndTime: this.actualEndTime
+  };
 };
 
 lessonSchema.methods.completeLesson = function(recordingUrl = null) {
   this.status = 'completed';
   this.actualEndTime = new Date();
+  this.isMeetingActive = false;
   if (recordingUrl) {
     this.recordingUrl = recordingUrl;
   }
@@ -419,6 +520,7 @@ lessonSchema.methods.completeLesson = function(recordingUrl = null) {
 
 lessonSchema.methods.cancelLesson = function() {
   this.status = 'cancelled';
+  this.isMeetingActive = false;
   return this.save();
 };
 

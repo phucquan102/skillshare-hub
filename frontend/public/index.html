@@ -7,25 +7,18 @@
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
-      content="Web site created using create-react-app"
+      content="SkillShare Hub - Learn and Share Skills"
     />
-    
-    <!-- ✅ CSP cho development - mở hoàn toàn -->
-    <meta http-equiv="Content-Security-Policy"
-content="default-src * 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' data: blob:;
- script-src * 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' data: blob:;
- style-src * 'unsafe-inline' data: blob:;
- connect-src * data: blob:;
- font-src * data: blob:;
- frame-src * data: blob:;
- img-src * data: blob:;">
-    
+    <!-- ❌ Đảm bảo KHÔNG có meta CSP ngăn nhúng iframe -->
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <title>React App</title>
+    <title>SkillShare Hub</title>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+
+    <!-- ✅ Thêm script Jitsi ở đây -->
+    <script src="https://meet.jit.si/external_api.js"></script>
   </body>
 </html>

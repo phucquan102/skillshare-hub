@@ -18,8 +18,6 @@ const purchaseLesson = async (req, res) => {
     console.log("➡️ StudentId:", studentId.toString());
     console.log("➡️ CourseId:", courseId);
     console.log("➡️ LessonId:", lessonId);
-    console.log("➡️ PaymentId:", paymentId);
-    console.log("➡️ Price:", price);
 
     // Validate input
     if (!courseId || !lessonId || !paymentId || !price) {
@@ -46,11 +44,18 @@ const purchaseLesson = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy bài học' });
     }
 
-    // Tìm hoặc tạo enrollment
+    // Tìm enrollment
     let enrollment = await Enrollment.findOne({
       studentId,
       courseId: new mongoose.Types.ObjectId(courseId)
     });
+
+    // 🔥 QUAN TRỌNG: Kiểm tra xem user đã có full access chưa
+    if (enrollment && enrollment.hasFullAccess) {
+      return res.status(400).json({ 
+        message: 'Bạn đã mua toàn bộ khóa học, không cần mua bài học riêng lẻ' 
+      });
+    }
 
     if (enrollment) {
       // Kiểm tra xem đã mua lesson này chưa
@@ -108,7 +113,6 @@ const purchaseLesson = async (req, res) => {
     });
   }
 };
-
 /**
  * =====================
  *  CHECK LESSON ACCESS
@@ -659,7 +663,93 @@ const deleteEnrollment = async (req, res) => {
     res.status(500).json({ message: 'Lỗi server khi xoá enrollment', error: error.message });
   }
 };
+const checkEnrollment = async (req, res) => {
+  try {
+    const { userId, courseId, lessonId } = req.query;
 
+    console.log("🔍 [checkEnrollment]");
+    console.log("➡️ UserId:", userId);
+    console.log("➡️ CourseId:", courseId);
+    console.log("➡️ LessonId:", lessonId);
+
+    // Validate input
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'userId là bắt buộc' 
+      });
+    }
+
+    if (!courseId && !lessonId) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Phải cung cấp courseId hoặc lessonId' 
+      });
+    }
+
+    try {
+      const userObjectId = new mongoose.Types.ObjectId(userId);
+
+      // Tìm enrollment của user cho course này
+      const enrollment = await Enrollment.findOne({
+        studentId: userObjectId,
+        courseId: courseId ? new mongoose.Types.ObjectId(courseId) : undefined
+      });
+
+      let isEnrolled = false;
+      let enrollmentType = 'none';
+
+      if (enrollment) {
+        // Nếu lessonId được cung cấp, kiểm tra xem user có mua lesson này không
+        if (lessonId) {
+          if (enrollment.hasFullAccess) {
+            isEnrolled = true;
+            enrollmentType = 'full_course';
+          } else if (enrollment.hasAccessToLesson(lessonId)) {
+            isEnrolled = true;
+            enrollmentType = 'single_lesson';
+          }
+        } else {
+          // Chỉ kiểm tra full course access
+          isEnrolled = true;
+          enrollmentType = enrollment.hasFullAccess ? 'full_course' : 'partial_course';
+        }
+      }
+
+      console.log(`✅ Enrollment check result: ${isEnrolled} (${enrollmentType})`);
+
+      res.json({
+        success: true,
+        isEnrolled,
+        enrollmentType, // 'none', 'full_course', 'single_lesson', 'partial_course'
+        enrollment: isEnrolled ? {
+          _id: enrollment._id.toString(),
+          status: enrollment.status,
+          enrolledAt: enrollment.enrolledAt,
+          hasFullAccess: enrollment.hasFullAccess,
+          purchasedLessonsCount: enrollment.purchasedLessons.length
+        } : null
+      });
+
+    } catch (error) {
+      if (error.kind === 'ObjectId') {
+        return res.status(400).json({ 
+          success: false,
+          message: 'userId hoặc courseId không hợp lệ' 
+        });
+      }
+      throw error;
+    }
+
+  } catch (error) {
+    console.error("❌ Error in checkEnrollment:", error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi server khi kiểm tra enrollment',
+      error: error.message 
+    });
+  }
+};
 // Cập nhật export để bao gồm tất cả các hàm
 module.exports = {
   // Các hàm mới
@@ -673,5 +763,6 @@ module.exports = {
   // Các hàm cũ
   createEnrollment,
   getMyEnrollments,
-  deleteEnrollment
+  deleteEnrollment,
+  checkEnrollment
 };

@@ -11,18 +11,21 @@ import {
   FiBarChart2,
   FiUsers,
   FiDollarSign,
-  FiAlertCircle, // Thêm import này
-  FiX // Thêm import này
+  FiAlertCircle,
+  FiX
 } from 'react-icons/fi';
 
+// CẬP NHẬT: Xóa onCreateLesson khỏi interface
 interface InstructorCourseListProps {
   onEditCourse?: (course: Course) => void;
   onViewStats?: (course: Course) => void;
+  onManageLessons?: (course: Course) => void; // CHỈ GIỮ LẠI manage lessons
 }
 
 const InstructorCourseList: React.FC<InstructorCourseListProps> = ({ 
   onEditCourse, 
-  onViewStats 
+  onViewStats,
+  onManageLessons // CHỈ GIỮ LẠI manage lessons
 }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -32,36 +35,37 @@ const InstructorCourseList: React.FC<InstructorCourseListProps> = ({
   const navigate = useNavigate();
   const { user } = useAuth();
 
- const fetchCourses = useCallback(async () => {
-  setLoading(true);
-  setError(null);
-  try {
-    console.log('🎯 Fetching instructor courses with filters:', {
-      page: 1,
-      limit: 50,
-      status: statusFilter === 'all' ? undefined : statusFilter
-    });
-    
-    const response = await courseService.getMyCourses({
-      page: 1,
-      limit: 50,
-      status: statusFilter === 'all' ? undefined : statusFilter
-    });
-    
-    console.log('✅ Courses fetched successfully:', response);
-    setCourses(response.courses || []);
-  } catch (error: any) {
-    console.error('❌ Error fetching instructor courses:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status
-    });
-    setError(error.response?.data?.message || 'Unable to load your courses');
-    setCourses([]);
-  } finally {
-    setLoading(false);
-  }
-}, [statusFilter]);
+  const fetchCourses = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('🎯 Fetching instructor courses with filters:', {
+        page: 1,
+        limit: 50,
+        status: statusFilter === 'all' ? undefined : statusFilter
+      });
+      
+      const response = await courseService.getMyCourses({
+        page: 1,
+        limit: 50,
+        status: statusFilter === 'all' ? undefined : statusFilter
+      });
+      
+      console.log('✅ Courses fetched successfully:', response);
+      setCourses(response.courses || []);
+    } catch (error: any) {
+      console.error('❌ Error fetching instructor courses:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      setError(error.response?.data?.message || 'Unable to load your courses');
+      setCourses([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
+
   useEffect(() => {
     fetchCourses();
   }, [fetchCourses]);
@@ -80,7 +84,7 @@ const InstructorCourseList: React.FC<InstructorCourseListProps> = ({
     const totalRevenue = courses.reduce((sum, course) => {
       const price = course.fullCoursePrice || 0;
       const students = course.currentEnrollments || 0;
-      return sum + (price * students * 0.7); // Assuming 70% revenue share
+      return sum + (price * students * 0.7);
     }, 0);
 
     return { total, published, draft, pending, totalStudents, totalRevenue };
@@ -267,6 +271,7 @@ const InstructorCourseList: React.FC<InstructorCourseListProps> = ({
               course={course}
               onEdit={onEditCourse}
               onViewStats={onViewStats}
+              onManageLessons={onManageLessons} // CHỈ TRUYỀN manage lessons
               onDelete={async (courseId) => {
                 try {
                   await courseService.deleteCourse(courseId);

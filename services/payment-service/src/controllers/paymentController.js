@@ -3,9 +3,86 @@ const Payment = require('../models/Payment');
 const axios = require('axios');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
+/**
+ * Helper: Kiểm tra user đã mua course/lesson này chưa - PHIÊN BẢN ĐÃ SỬA
+ */
+const checkUserEnrollment = async (userId, courseId, lessonId) => {
+  try {
+    console.log('🔍 [KIỂM TRA ENROLLMENT CHẶT CHẼ]:', { userId, courseId, lessonId });
+    
+    // Gọi course service để kiểm tra enrollment
+    const params = new URLSearchParams();
+    params.append('userId', userId.toString());
+    if (courseId) params.append('courseId', courseId.toString());
+    if (lessonId) params.append('lessonId', lessonId.toString());
+
+    const response = await axios.get(
+      `${process.env.COURSE_SERVICE_URL || 'http://course-service:3002'}/enrollments/public/check?${params}`,
+      {
+        headers: {
+          'X-Service-Auth': process.env.SERVICE_TOKEN || 'internal-service-call',
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000
+      }
+    );
+    
+    console.log('✅ Enrollment check result:', response.data);
+    
+    // 🔥 QUAN TRỌNG: Kiểm tra kỹ hơn
+    const { isEnrolled, enrollmentType, hasAccessToRequestedLesson } = response.data;
+    
+    // Nếu đã enrolled với full_course, không cho mua bất cứ gì trong course đó
+    if (isEnrolled && enrollmentType === 'full_course') {
+      return {
+        isEnrolled: true,
+        enrollmentType: 'full_course',
+        blockPayment: true, // 🔥 Thêm cờ block
+        message: 'Bạn đã mua toàn bộ khóa học này. Không cần mua bài học riêng lẻ.'
+      };
+    }
+    
+    // Nếu đã mua lesson riêng, không cho mua lại
+    if (isEnrolled && enrollmentType === 'single_lesson' && lessonId && hasAccessToRequestedLesson) {
+      return {
+        isEnrolled: true,
+        enrollmentType: 'single_lesson',
+        blockPayment: true, // 🔥 Thêm cờ block
+        message: 'Bạn đã mua bài học này rồi. Không thể mua lại.'
+      };
+    }
+    
+    // Nếu đã có partial course access và đang cố mua full course, cũng chặn
+    if (isEnrolled && enrollmentType === 'partial_course' && !lessonId) {
+      return {
+        isEnrolled: true,
+        enrollmentType: 'partial_course',
+        blockPayment: true,
+        message: 'Bạn đã mua một số bài học trong khóa học này. Vui lòng liên hệ hỗ trợ để nâng cấp lên full course.'
+      };
+    }
+    
+    return {
+      isEnrolled,
+      enrollmentType,
+      blockPayment: false
+    };
+    
+  } catch (error) {
+    console.warn('⚠️ Could not verify enrollment:', error.message);
+    // 🔥 QUAN TRỌNG: Fail safe - nếu không kết nối được, KHÔNG cho thanh toán để tránh mua trùng
+    return {
+      isEnrolled: true,
+      enrollmentType: 'unknown',
+      blockPayment: true,
+      message: 'Không thể xác minh trạng thái đăng ký. Vui lòng thử lại sau.'
+    };
+  }
+};
+
 const paymentController = {
   /**
-   * Student thanh toán khóa học - Tạo Stripe Payment Intent
+   * Student thanh toán khóa học - Tạo Stripe Payment Intent - PHIÊN BẢN ĐÃ SỬA
    */
   createStudentPayment: async (req, res) => {
     try {
@@ -34,22 +111,34 @@ const paymentController = {
         });
       }
 
-      console.log('🚨 TEMPORARY: Bypassing course service validation for testing Stripe');
-      console.log('📝 Course ID:', courseId, 'Amount:', amount);
+      // 🔥 KIỂM TRA CHẶT CHẼ: Kiểm tra xem user đã mua course/lesson này chưa
+      console.log('🔐 [KIỂM TRA NGHIÊM NGẶT] Checking if user already enrolled...');
+      
+      const enrollmentCheck = await checkUserEnrollment(req.userId, courseId, lessonId);
+      
+      // 🔥 QUAN TRỌNG: Sử dụng cờ blockPayment mới
+      if (enrollmentCheck.blockPayment) {
+        console.log('❌ [BLOCKED] Payment blocked - user already enrolled:', enrollmentCheck.enrollmentType);
+        
+        return res.status(403).json({ 
+          success: false,
+          message: enrollmentCheck.message || 'Bạn đã mua khóa học/bài học này rồi. Không thể thanh toán lại.',
+          enrollmentType: enrollmentCheck.enrollmentType
+        });
+      }
+
+      console.log('✅ [PASSED] User is not enrolled, proceeding with payment');
 
       // Tạo Stripe Payment Intent
       let paymentIntent;
       try {
         console.log('💳 Creating Stripe payment intent...');
         
-        // 🚨 QUAN TRỌNG: Sửa lỗi currency - Stripe yêu cầu amount tính bằng cents
-        const stripeAmount = Math.round(amount * 100); // Chuyển đổi USD sang cents
+        const stripeAmount = Math.round(amount * 100);
         
-        // 🚨 SỬA LỖI: Không thể dùng cả automatic_payment_methods và payment_method_types cùng lúc
         paymentIntent = await stripe.paymentIntents.create({
           amount: stripeAmount,
           currency: 'usd',
-          // 🚨 CHỈ DÙNG MỘT TRONG HAI: automatic_payment_methods HOẶC payment_method_types
           automatic_payment_methods: {
             enabled: true,
           },
@@ -96,7 +185,6 @@ const paymentController = {
       await payment.save();
       console.log('✅ Payment record created:', payment._id);
 
-      // Trả về client secret cho frontend
       res.status(201).json({
         success: true,
         message: 'Payment intent created successfully',
@@ -123,7 +211,7 @@ const paymentController = {
   },
 
   /**
-   * Xác nhận thanh toán thành công từ frontend
+   * Xác nhận thanh toán thành công từ frontend - PHIÊN BẢN ĐÃ SỬA
    */
   confirmPayment: async (req, res) => {
     try {
@@ -148,6 +236,25 @@ const paymentController = {
         });
       }
 
+      // 🔥 QUAN TRỌNG: Kiểm tra lại enrollment trước khi xác nhận
+      console.log('🔐 [KIỂM TRA LẦN CUỐI] Double-checking enrollment before confirmation...');
+      const enrollmentCheck = await checkUserEnrollment(req.userId, payment.courseId, payment.lessonId);
+      
+      if (enrollmentCheck.blockPayment) {
+        console.log('❌ [BLOCKED CONFIRMATION] User already enrolled, cancelling payment');
+        
+        // Cập nhật trạng thái payment thành failed
+        payment.paymentStatus = 'failed';
+        payment.failedAt = new Date();
+        await payment.save();
+        
+        return res.status(403).json({ 
+          success: false,
+          message: enrollmentCheck.message || 'Không thể xác nhận thanh toán vì bạn đã mua khóa học/bài học này.',
+          enrollmentType: enrollmentCheck.enrollmentType
+        });
+      }
+
       // Xác minh với Stripe rằng payment intent đã thành công
       let stripePaymentIntent;
       try {
@@ -155,13 +262,11 @@ const paymentController = {
         console.log('✅ Stripe payment intent status:', stripePaymentIntent.status);
       } catch (stripeError) {
         console.error('❌ Error retrieving payment intent:', stripeError);
-        // Không return error ngay, có thể frontend đã xác nhận thành công
       }
 
       // Kiểm tra trạng thái của payment intent từ Stripe
       if (stripePaymentIntent && stripePaymentIntent.status !== 'succeeded') {
         console.warn('⚠️ Payment intent status not succeeded:', stripePaymentIntent.status);
-        // Vẫn tiếp tục xử lý vì frontend có thể đã nhận được confirmation
       }
 
       // Cập nhật trạng thái thanh toán
@@ -174,9 +279,6 @@ const paymentController = {
       await payment.save();
 
       console.log('✅ Payment status updated to:', payment.paymentStatus);
-
-      console.log('🚨 TEMPORARY: Bypassing automatic enrollment');
-      console.log('📝 Payment completed for course:', payment.courseId);
 
       res.json({
         success: true,
@@ -207,7 +309,7 @@ const paymentController = {
   createInstructorFee: async (req, res) => {
     try {
       const { courseId, paymentMethod } = req.body;
-      const fee = 10; // $10 USD
+      const fee = 10;
 
       console.log('👉 Instructor fee request:', { 
         courseId, 
@@ -215,18 +317,15 @@ const paymentController = {
         userId: req.userId 
       });
 
-      // Tạo Stripe Payment Intent cho instructor fee
       let paymentIntent;
       try {
         console.log('💳 Creating Stripe payment intent for instructor fee...');
         
-        const stripeAmount = Math.round(fee * 100); // $10 = 1000 cents
+        const stripeAmount = Math.round(fee * 100);
         
-        // 🚨 SỬA LỖI: Không thể dùng cả automatic_payment_methods và payment_method_types cùng lúc
         paymentIntent = await stripe.paymentIntents.create({
           amount: stripeAmount,
           currency: 'usd',
-          // 🚨 CHỈ DÙNG MỘT TRONG HAI: automatic_payment_methods HOẶC payment_method_types
           automatic_payment_methods: {
             enabled: true,
           },
@@ -247,7 +346,6 @@ const paymentController = {
         });
       }
 
-      // Tạo payment record với status 'pending'
       const payment = new Payment({
         userId: req.userId,
         courseId: courseId || null,
@@ -259,7 +357,7 @@ const paymentController = {
         transactionId: paymentIntent.id,
         stripePaymentIntentId: paymentIntent.id,
         clientSecret: paymentIntent.client_secret,
-        adminShare: fee, // Toàn bộ phí thuộc về admin
+        adminShare: fee,
         instructorShare: 0
       });
 
@@ -307,7 +405,6 @@ const paymentController = {
         status
       });
 
-      // Build query
       const query = { userId: req.userId };
       if (type && ['course_payment', 'lesson_payment', 'instructor_fee'].includes(type)) {
         query.type = type;
@@ -316,7 +413,6 @@ const paymentController = {
         query.paymentStatus = status;
       }
 
-      // Lấy payments với pagination
       const payments = await Payment.find(query)
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -324,13 +420,11 @@ const paymentController = {
         .select('-__v -clientSecret')
         .lean();
 
-      // Đếm tổng số payments
       const total = await Payment.countDocuments(query);
       const totalPages = Math.ceil(total / limit);
 
       console.log(`✅ Found ${payments.length} payments for user ${req.userId}`);
 
-      // Tính tổng số tiền đã thanh toán
       const totalAmount = await Payment.aggregate([
         { $match: { ...query, paymentStatus: 'completed' } },
         { $group: { _id: null, total: { $sum: '$amount' } } }
@@ -583,7 +677,7 @@ const paymentController = {
   },
 
   /**
-   * Webhook endpoint để xử lý sự kiện từ Stripe
+   * Webhook endpoint để xử lý sự kiện từ Stripe - PHIÊN BẢN ĐÃ SỬA
    */
   handleStripeWebhook: async (req, res) => {
     const sig = req.headers['stripe-signature'];
@@ -700,7 +794,7 @@ const paymentController = {
 };
 
 /**
- * Helper functions for webhook handling
+ * Helper functions for webhook handling - PHIÊN BẢN ĐÃ SỬA
  */
 async function handlePaymentIntentSucceeded(paymentIntent) {
   try {
@@ -709,6 +803,33 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
     // Tìm payment record trong database
     const payment = await Payment.findOne({ transactionId: paymentIntent.id });
     if (payment) {
+      // 🔥 QUAN TRỌNG: Kiểm tra enrollment trước khi cập nhật
+      const enrollmentCheck = await checkUserEnrollment(
+        payment.userId, 
+        payment.courseId, 
+        payment.lessonId
+      );
+      
+      if (enrollmentCheck.blockPayment) {
+        console.log('❌ [WEBHOOK BLOCKED] User already enrolled, marking payment as failed');
+        payment.paymentStatus = 'failed';
+        payment.failedAt = new Date();
+        await payment.save();
+        
+        // 🔥 HOÀN TIỀN TỰ ĐỘNG nếu đã mua rồi
+        try {
+          await stripe.refunds.create({
+            payment_intent: paymentIntent.id,
+            reason: 'duplicate'
+          });
+          console.log('✅ Automatic refund processed for duplicate purchase');
+        } catch (refundError) {
+          console.error('❌ Automatic refund failed:', refundError);
+        }
+        
+        return;
+      }
+      
       payment.paymentStatus = 'completed';
       payment.completedAt = new Date();
       await payment.save();

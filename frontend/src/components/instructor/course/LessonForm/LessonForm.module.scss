@@ -1,0 +1,181 @@
+.lesson-form {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  h2 {
+    margin: 0 0 24px 0;
+    color: #2d3748;
+    font-size: 24px;
+    font-weight: 600;
+  }
+}
+
+.form-group {
+  margin-bottom: 20px;
+
+  label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: #4a5568;
+  }
+
+  input, textarea, select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: #4299e1;
+      box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.char-count {
+  text-align: right;
+  font-size: 12px;
+  color: #718096;
+  margin-top: 4px;
+}
+
+.array-input {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+
+  input {
+    flex: 1;
+  }
+
+  button {
+    padding: 8px 16px;
+    background: #4299e1;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+
+    &:hover {
+      background: #3182ce;
+    }
+  }
+}
+
+.array-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.array-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+
+  span {
+    flex: 1;
+  }
+
+  button {
+    background: none;
+    border: none;
+    color: #e53e3e;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0 4px;
+
+    &:hover {
+      color: #c53030;
+    }
+  }
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  input[type="checkbox"] {
+    width: auto;
+  }
+
+  label {
+    margin: 0;
+    font-weight: normal;
+  }
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+
+  button {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: #4299e1;
+    color: white;
+
+    &:hover {
+      background: #3182ce;
+    }
+  }
+
+  .btn-secondary {
+    background: #e2e8f0;
+    color: #4a5568;
+
+    &:hover {
+      background: #cbd5e0;
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .lesson-form {
+    padding: 16px;
+    margin: 0 -16px;
+    border-radius: 0;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}

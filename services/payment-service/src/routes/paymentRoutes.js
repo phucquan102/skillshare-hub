@@ -9,7 +9,7 @@ router.post('/webhook',
   express.raw({ type: 'application/json' }), 
   paymentController.handleStripeWebhook
 );
-
+ 
 // Student routes
 router.post('/create-intent', authMiddleware, paymentController.createStudentPayment);
 router.post('/confirm', authMiddleware, paymentController.confirmPayment);

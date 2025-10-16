@@ -1,4 +1,3 @@
-// course-service/src/index.js
 const express = require('express');
 const mongoose = require('mongoose');
 require('dotenv').config();
@@ -6,9 +5,19 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3002;
 
+/**
+ * ✅ CSP Header cho phép Jitsi & WebAssembly
+ */
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://meet.jit.si; frame-src https://meet.jit.si; connect-src *; style-src 'self' 'unsafe-inline'; img-src * data: blob:;"
+  );
+  next();
+});
+
 // Middleware parse JSON
 app.use(express.json({ limit: '10mb' }));
-
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // MongoDB connect
@@ -31,7 +40,7 @@ const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const courseRoutes = require('./routes/courseRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
-
+const jitsiRoutes = require('./routes/jitsiRoutes');
 // Health check
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -44,13 +53,14 @@ app.get('/health', (req, res) => {
 // Mount routes
 app.use('/enrollments', enrollmentRoutes);
 app.use('/admin', adminRoutes);
-app.use('/', courseRoutes); 
+app.use('/', courseRoutes);
 app.use('/upload', uploadRoutes);
-
+app.use('/jitsi', jitsiRoutes);
 console.log('✅ Mounted routes:');
 console.log('   - /enrollments -> enrollmentRoutes');
-console.log('   - /admin -> adminRoutes'); 
+console.log('   - /admin -> adminRoutes');
 console.log('   - / -> courseRoutes');
+
 // Error handler
 app.use((error, req, res, next) => {
   console.error(`❌ Error at ${req.method} ${req.url}:`, error);

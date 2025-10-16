@@ -110,106 +110,104 @@ const EditCoursePage: React.FC = () => {
     fetchCourse();
   }, [courseId, user]);
 
-  const handleSubmit = async (
-    formData: CreateCourseData | EditCourseData,
-    submitType: 'save' | 'submit'
-  ) => {
-    if (!courseId || !course) {
-      setError('Không tìm thấy khóa học để cập nhật');
-      return;
-    }
+ const handleSubmit = async (
+  formData: CreateCourseData | EditCourseData,
+  submitType: 'save' | 'submit'
+) => {
+  if (!courseId || !course) {
+    setError('Không tìm thấy khóa học để cập nhật');
+    return;
+  }
 
-    try {
-      setSubmitting(true);
-      setError(null);
+  try {
+    setSubmitting(true);
+    setError(null);
 
-      console.log('🎯 [EditCoursePage] Submitting:', { formData, submitType });
-      console.log('📅 Current course schedules:', course.schedules);
-      console.log('📅 Form data schedules:', (formData as any).schedules);
+    console.log('🎯 [EditCoursePage] Submitting:', { formData, submitType });
 
-      // ✅ FIX: Chuẩn bị dữ liệu update đúng định dạng
-      const updateData: EditCourseData = {
-        title: formData.title,
-        description: formData.description,
-        shortDescription: formData.shortDescription,
-        category: formData.category,
-        subcategory: formData.subcategory,
-        level: formData.level,
-        pricingType: formData.pricingType,
-        fullCoursePrice: formData.fullCoursePrice,
-        maxStudents: formData.maxStudents,
-        prerequisites: formData.prerequisites,
-        learningOutcomes: formData.learningOutcomes,
-        requirements: formData.requirements,
-        tags: formData.tags,
-        language: formData.language,
-        thumbnail: formData.thumbnail,
-        coverImage: formData.coverImage,
-        promoVideo: formData.promoVideo,
-        gallery: formData.gallery,
-        featured: formData.featured,
-        certificate: formData.certificate,
-        // ✅ QUAN TRỌNG: Xử lý schedules - giữ nguyên nếu không có thay đổi
-        schedules: (formData as any).schedules && (formData as any).schedules.length > 0 
-          ? (formData as any).schedules 
-          : course.schedules || []
-      };
-
-      // ✅ FIX: Loại bỏ các trường undefined để tránh lỗi server
-      Object.keys(updateData).forEach(key => {
-        if (updateData[key as keyof EditCourseData] === undefined) {
-          delete updateData[key as keyof EditCourseData];
-        }
-      });
-
-      console.log('📤 Final update data:', updateData);
-      console.log('📅 Schedules in update data:', updateData.schedules);
-
-      let response;
+    // ✅ FIX QUAN TRỌNG: Chuẩn bị dữ liệu update
+    const updateData: EditCourseData = {
+      title: formData.title,
+      description: formData.description,
+      shortDescription: formData.shortDescription,
+      category: formData.category,
+      subcategory: formData.subcategory,
+      level: formData.level,
+      pricingType: formData.pricingType,
+      fullCoursePrice: formData.fullCoursePrice,
+      maxStudents: formData.maxStudents,
+      prerequisites: formData.prerequisites,
+      learningOutcomes: formData.learningOutcomes,
+      requirements: formData.requirements,
+      tags: formData.tags,
+      language: formData.language,
+      thumbnail: formData.thumbnail,
+      coverImage: formData.coverImage,
+      promoVideo: formData.promoVideo,
+      gallery: formData.gallery,
+      featured: formData.featured,
+      certificate: formData.certificate,
       
-      if (submitType === 'save') {
-        response = await courseService.updateCourse(courseId, updateData);
-        console.log('✅ Course saved as draft:', response);
-        alert('Đã lưu thay đổi thành công!');
+      // ✅ QUAN TRỌNG: Chỉ gửi schedules nếu có thay đổi, không gửi nếu không có
+      schedules: (formData as any).schedules && (formData as any).schedules.length > 0 
+        ? (formData as any).schedules 
+        : undefined // Không gửi trường này nếu không thay đổi
+    };
+
+    // ✅ FIX: Loại bỏ các trường undefined để tránh lỗi server
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key as keyof EditCourseData] === undefined) {
+        delete updateData[key as keyof EditCourseData];
+      }
+    });
+
+    console.log('📤 Final update data:', updateData);
+    console.log('📅 Schedules in update data:', updateData.schedules);
+
+    let response;
+    
+    if (submitType === 'save') {
+      response = await courseService.updateCourse(courseId, updateData);
+      console.log('✅ Course saved as draft:', response);
+      alert('Đã lưu thay đổi thành công!');
+    } else {
+      response = await courseService.updateCourse(courseId, updateData);
+      console.log('✅ Course updated, submitting for approval:', response);
+      
+      // Chỉ submit for approval nếu course chưa được approved
+      if (course.approvalStatus?.status !== 'approved') {
+        await courseService.submitForApproval(courseId);
+        alert('Khóa học đã được cập nhật và gửi để admin phê duyệt!');
       } else {
-        response = await courseService.updateCourse(courseId, updateData);
-        console.log('✅ Course updated, submitting for approval:', response);
-        
-        // Chỉ submit for approval nếu course chưa được approved
-        if (course.approvalStatus?.status !== 'approved') {
-          await courseService.submitForApproval(courseId);
-          alert('Khóa học đã được cập nhật và gửi để admin phê duyệt!');
-        } else {
-          alert('Khóa học đã được cập nhật thành công!');
-        }
+        alert('Khóa học đã được cập nhật thành công!');
       }
-
-      // Quay lại trang quản lý khóa học
-      navigate('/instructor/courses');
-    } catch (error: any) {
-      console.error('❌ Error updating course:', error);
-      
-      // ✅ FIX: Hiển thị thông báo lỗi chi tiết hơn
-      let errorMessage = 'Có lỗi xảy ra khi cập nhật khóa học';
-      
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      // Hiển thị thông báo lỗi chi tiết từ server nếu có
-      if (error.response?.data?.details) {
-        console.error('📋 Server error details:', error.response.data.details);
-        errorMessage += `\nChi tiết: ${JSON.stringify(error.response.data.details)}`;
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setSubmitting(false);
     }
-  };
 
+    // Quay lại trang quản lý khóa học
+    navigate('/instructor/courses');
+  } catch (error: any) {
+    console.error('❌ Error updating course:', error);
+    
+    // ✅ FIX: Hiển thị thông báo lỗi chi tiết hơn
+    let errorMessage = 'Có lỗi xảy ra khi cập nhật khóa học';
+    
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    // Hiển thị thông báo lỗi chi tiết từ server nếu có
+    if (error.response?.data?.details) {
+      console.error('📋 Server error details:', error.response.data.details);
+      errorMessage += `\nChi tiết: ${JSON.stringify(error.response.data.details)}`;
+    }
+    
+    setError(errorMessage);
+  } finally {
+    setSubmitting(false);
+  }
+};
   const handleCancel = () => {
     if (window.confirm('Bạn có chắc muốn hủy? Các thay đổi chưa lưu sẽ bị mất.')) {
       navigate('/instructor/courses');

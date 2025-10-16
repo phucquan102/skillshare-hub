@@ -126,7 +126,11 @@ app.use('/api/upload', (req, res, next) => {
 }, createProxy(COURSE_SERVICE_URL, 'upload-service', { 
   '^/api/upload': '/upload' 
 }));
-
+app.use('/api/enrollments/check', createProxyMiddleware({
+  target: COURSE_SERVICE_URL || 'http://course-service:3002',
+  changeOrigin: true,
+  pathRewrite: { '^/api/enrollments/check': '/enrollments/public/check' }
+}));
 app.use('/api/enrollments', createProxyMiddleware({
   target: COURSE_SERVICE_URL || 'http://course-service:3002',
   changeOrigin: true,

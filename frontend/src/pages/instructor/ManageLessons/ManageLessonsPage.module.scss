@@ -1,0 +1,653 @@
+// Biến màu sắc cho light và dark mode
+:root {
+  --primary-color: #667eea;
+  --primary-dark: #5a6fd8;
+  --secondary-color: #764ba2;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --background-color: #f8fafc;
+  --surface-color: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --glass-bg: rgba(255, 255, 255, 0.25);
+  --glass-border: rgba(255, 255, 255, 0.18);
+}
+
+[data-theme="dark"] {
+  --background-color: #0f172a;
+  --surface-color: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border-color: #334155;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  --glass-bg: rgba(30, 41, 59, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+.manage-lessons-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: var(--background-color);
+  min-height: 100vh;
+  transition: all 0.3s ease;
+  
+  &.meeting-view {
+    background: var(--background-color);
+  }
+  
+  &.form-view {
+    background: var(--background-color);
+  }
+}
+
+// Header Styles với glassmorphism
+.page-header {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  color: white;
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    z-index: 1;
+  }
+  
+  .header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    position: relative;
+    z-index: 2;
+    
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+  
+  .back-button {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateX(-2px);
+    }
+  }
+  
+  .header-info {
+    flex: 1;
+    
+    h1 {
+      margin: 0 0 4px 0;
+      font-size: 28px;
+      font-weight: 700;
+    }
+    
+    .course-title {
+      margin: 0;
+      opacity: 0.9;
+      font-size: 16px;
+    }
+  }
+  
+  .create-lesson-button {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+    }
+  }
+}
+
+// Course Info Card với glassmorphism
+.course-info-card {
+  background: var(--glass-bg);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 32px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+  
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .info-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+  
+  .info-value {
+    color: var(--text-primary);
+    font-size: 15px;
+    
+    &.highlight {
+      color: var(--primary-color);
+      font-weight: 600;
+    }
+  }
+}
+
+// Lessons Section
+.lessons-section {
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    
+    @media (max-width: 768px) {
+      flex-direction: column;
+      gap: 16px;
+      align-items: stretch;
+    }
+    
+    h2 {
+      margin: 0;
+      color: var(--text-primary);
+      font-size: 24px;
+    }
+  }
+  
+  .add-button {
+    background: var(--success-color);
+    border: none;
+    color: white;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: #0da271;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
+    }
+  }
+}
+
+// Empty State
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: var(--surface-color);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-color);
+  
+  .empty-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+  }
+  
+  h3 {
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+  }
+  
+  p {
+    margin: 0 0 24px 0;
+    color: var(--text-secondary);
+  }
+  
+  .create-first-lesson-button {
+    background: var(--primary-color);
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+  }
+}
+
+// Lessons Grid
+.lessons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Lesson Card với hiệu ứng 3D nhẹ
+.lesson-card {
+  background: var(--surface-color);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  &.live {
+    border-left: 4px solid var(--error-color);
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--error-color), #ff6b6b);
+    }
+  }
+  
+  .live-indicator {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--error-color);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    animation: pulse 2s infinite;
+    z-index: 2;
+  }
+  
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+  }
+}
+
+.lesson-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  
+  .lesson-order {
+    background: var(--primary-color);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  
+  .lesson-title {
+    margin: 0;
+    flex: 1;
+    color: var(--text-primary);
+    font-size: 18px;
+    line-height: 1.4;
+  }
+  
+  .lesson-status {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    
+    &.published {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    
+    &.draft {
+      background: #fef3c7;
+      color: #92400e;
+    }
+  }
+}
+
+.lesson-info {
+  margin-bottom: 20px;
+  
+  .info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    
+    .info-icon {
+      width: 20px;
+      text-align: center;
+    }
+    
+    .info-text {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+  }
+}
+
+.lesson-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  .action-group {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .action-button {
+    border: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    &.edit {
+      background: var(--warning-color);
+      color: white;
+      
+      &:hover {
+        background: #e58e0b;
+        transform: scale(1.05);
+      }
+    }
+    
+    &.join {
+      background: var(--success-color);
+      color: white;
+      
+      &:hover {
+        background: #0da271;
+        transform: scale(1.05);
+      }
+    }
+    
+    &.start {
+      background: var(--primary-color);
+      color: white;
+      
+      &:hover {
+        background: var(--primary-dark);
+        transform: scale(1.05);
+      }
+    }
+    
+    &.end {
+      background: var(--error-color);
+      color: white;
+      
+      &:hover {
+        background: #dc2626;
+        transform: scale(1.05);
+      }
+    }
+    
+    &.delete {
+      background: var(--surface-color);
+      color: var(--error-color);
+      border: 1px solid var(--border-color);
+      
+      &:hover {
+        background: var(--error-color);
+        color: white;
+        transform: scale(1.05);
+      }
+    }
+  }
+}
+
+// Meeting View Styles
+.meeting-header {
+  background: var(--surface-color);
+  padding: 20px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  
+  .meeting-title {
+    flex: 1;
+    
+    h1 {
+      margin: 0 0 8px 0;
+      color: var(--text-primary);
+    }
+    
+    .room-info {
+      margin: 0;
+      color: var(--text-secondary);
+      font-family: monospace;
+      background: var(--background-color);
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+  }
+}
+
+.meeting-container {
+  background: var(--surface-color);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+// Loading and Error States
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+}
+
+.error-container {
+  text-align: center;
+  padding: 60px 20px;
+  
+  .error-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+  
+  h3 {
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+  }
+  
+  p {
+    margin: 0 0 24px 0;
+    color: var(--text-secondary);
+  }
+  
+  .retry-button {
+    background: var(--primary-color);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: var(--primary-dark);
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: 768px) {
+  .manage-lessons-page {
+    padding: 16px;
+  }
+  
+  .page-header {
+    padding: 20px 16px;
+    
+    .header-info {
+      h1 {
+        font-size: 24px;
+      }
+    }
+  }
+  
+  .lessons-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .lesson-card {
+    padding: 16px;
+  }
+  
+  .lesson-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    
+    .lesson-order {
+      align-self: flex-start;
+    }
+  }
+  
+  .lesson-actions {
+    flex-direction: column;
+    gap: 12px;
+    
+    .action-group {
+      width: 100%;
+      justify-content: space-between;
+    }
+    
+    .action-button {
+      flex: 1;
+      justify-content: center;
+    }
+  }
+}
+
+// Toggle Dark Mode Button (optional)
+.theme-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--primary-color);
+  border: none;
+  color: white;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+  z-index: 1000;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: scale(1.1);
+  }
+}

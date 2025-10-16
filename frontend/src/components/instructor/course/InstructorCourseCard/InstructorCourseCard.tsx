@@ -6,13 +6,14 @@ import {
   FiBarChart2,
   FiUsers,
   FiDollarSign,
-  FiClock
+  FiBook
 } from 'react-icons/fi';
 
 interface InstructorCourseCardProps {
   course: Course;
   onEdit?: (course: Course) => void;
   onViewStats?: (course: Course) => void;
+  onManageLessons?: (course: Course) => void;
   onDelete?: (courseId: string) => void;
   onUpdateStatus?: (courseId: string, status: string) => void;
 }
@@ -21,6 +22,7 @@ const InstructorCourseCard: React.FC<InstructorCourseCardProps> = ({
   course,
   onEdit,
   onViewStats,
+  onManageLessons,
   onDelete,
   onUpdateStatus
 }) => {
@@ -102,6 +104,17 @@ const InstructorCourseCard: React.FC<InstructorCourseCardProps> = ({
             <p className="text-xs text-gray-500">Price</p>
           </div>
         </div>
+
+        {/* Manage Lessons Button */}
+        {onManageLessons && (
+          <button
+            onClick={() => onManageLessons(course)}
+            className="w-full mb-3 px-4 py-3 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-all duration-300 font-medium flex items-center justify-center gap-2"
+          >
+            <FiBook className="w-4 h-4" />
+            Manage Lessons
+          </button>
+        )}
 
         {/* Action Buttons */}
         <div className="flex gap-2">

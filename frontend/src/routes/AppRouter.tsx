@@ -1,23 +1,23 @@
-// src/AppRouter.tsx
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminRoute from '../routes/AdminRoute';
 import PrivateRoute from '../components/common/PrivateRoute/PrivateRoute';
+
+// Layouts
 import MainLayout from '../layouts/MainLayout/MainLayout';
 import AdminLayout from '../layouts/AdminLayout/AdminLayout';
 import DashboardLayout from './../layouts/DashboardLayout/DashboardLayout';
 import InstructorLayout from '../layouts/InstructorLayout/InstructorLayout';  
+
+// Admin Pages
 import AdminDashboard from '../pages/admin/AdminDashboard/AdminDashboardPage';  
 import UsersManagementPage from '../pages/admin/UsersManagement/UsersManagementPage';
 import CoursesManagementPage from '../pages/admin/CoursesManagement/CoursesManagementPage';
+
+// Public Pages
 import HomePage from '../pages/Home/HomePage';
 import LoginPage from '../pages/Auth/LoginPage/LoginPage';
 import RegisterPage from '../pages/Auth/RegisterPage/RegisterPage';
-import DashboardPage from '../pages/Dashboard/DashboardPage';
-import InstructorDashboardPage from '../pages/instructor/InstructorDashboardPage';  
-import ProfilePage from '../pages/Auth/ProfilePage/ProfilePage';
-import CreateCoursePage from '../pages/Courses/CreateCoursePage/CreateCoursePage';
-import EditCoursePage from '../pages/instructor/EditCoursePage/EditCoursePage';
 import CoursesPage from '../pages/Courses/CoursesPage';
 import CourseDetailPage from '../pages/Courses/CourseDetailPage/CourseDetailPage';
 import CheckoutPage from '../pages/payment/CheckoutPage';
@@ -26,12 +26,26 @@ import ForgotPasswordPage from '../pages/Auth/ForgotPasswordPage/ForgotPasswordP
 import ResetPasswordPage from '../pages/Auth/ResetPasswordPage/ResetPasswordPage';
 import EmailVerificationPage from '../pages/Auth/EmailVerificationPage/EmailVerificationPage';
 import BecomeInstructorPage from '../pages/become-instructor/BecomeInstructorPage'; 
+
+// Student Pages
+import DashboardPage from '../pages/Dashboard/DashboardPage';
+import ProfilePage from '../pages/Auth/ProfilePage/ProfilePage';
+import LessonLivePage from '../pages/student/LessonLivePage/LessonLivePage';
+import StudentLessonMeeting from '../pages/student/StudentLessonMeeting/StudentLessonMeeting';
+
+// Instructor Pages
+import InstructorDashboardPage from '../pages/instructor/InstructorDashboardPage';  
+import CreateCoursePage from '../pages/Courses/CreateCoursePage/CreateCoursePage';
+import EditCoursePage from '../pages/instructor/EditCoursePage/EditCoursePage';
 import ManageCoursesPage from '../pages/instructor/ManageCourses/ManageCoursesPage';
- 
+import ManageLessonsPage from '../pages/instructor/ManageLessons/ManageLessonsPage';
+import LessonDetailPage from '../pages/instructor/ManageLessons/LessonDetailPage';
+import InstructorLessonStartPage from '../pages/instructor/InstructorLessonStartPage/InstructorLessonStartPage';  // 🆕
+
 const AppRouter: React.FC = () => {
   return (
     <Routes>
-      {/* Public Routes */}
+      {/* 🌐 Public Routes */}
       <Route element={<MainLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/courses" element={<CoursesPage />} />
@@ -46,7 +60,7 @@ const AppRouter: React.FC = () => {
         <Route path="/verify-email" element={<EmailVerificationPage />} />
       </Route>
 
-      {/* Student Dashboard Routes */}
+      {/* 👨‍🎓 Student Dashboard */}
       <Route
         path="/dashboard"
         element={
@@ -63,7 +77,7 @@ const AppRouter: React.FC = () => {
         <Route path="payments" element={<div>Payment History Page</div>} />
       </Route>
 
-      {/* Instructor Dashboard Routes */}
+      {/* 👨‍🏫 Instructor Dashboard */}
       <Route
         path="/instructor"
         element={
@@ -76,13 +90,47 @@ const AppRouter: React.FC = () => {
         <Route path="courses" element={<ManageCoursesPage />} />
         <Route path="courses/create" element={<CreateCoursePage />} />
         <Route path="courses/edit/:courseId" element={<EditCoursePage />} />
+        <Route path="courses/:courseId/lessons" element={<ManageLessonsPage />} />
+        <Route path="courses/:courseId/lessons/create" element={<div>Create Lesson Page</div>} />
+        <Route path="courses/:courseId/lessons/:lessonId" element={<LessonDetailPage />} />
+        <Route path="courses/:courseId/lessons/:lessonId/edit" element={<div>Edit Lesson Page</div>} />
+
+        {/* 🆕 Route mở buổi học */}
+        <Route
+          path="course/:courseId/lesson/:lessonId/start"
+          element={
+            <PrivateRoute>
+              <InstructorLessonStartPage />
+            </PrivateRoute>
+          }
+        />
+
         <Route path="sessions" element={<div>Session Management Page</div>} />
         <Route path="students" element={<div>Students List Page</div>} />
         <Route path="earnings" element={<div>Earnings & Payments Page</div>} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
-      {/* Admin Routes */}
+      {/* 🆕 ONLINE LEARNING ROUTES - KHÔNG DÙNG LAYOUT */}
+      <Route
+        path="/course/:courseId/lesson/:lessonId/live"
+        element={
+          <PrivateRoute>
+            <LessonLivePage />
+          </PrivateRoute>
+        }
+      />
+      
+      <Route
+        path="/student/course/:courseId/lesson/:lessonId/meeting"
+        element={
+          <PrivateRoute>
+            <StudentLessonMeeting />
+          </PrivateRoute>
+        }
+      />
+
+      {/* 🛠 Admin */}
       <Route
         path="/admin"
         element={
@@ -102,6 +150,7 @@ const AppRouter: React.FC = () => {
         </Route>
       </Route>
 
+      {/* 404 fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

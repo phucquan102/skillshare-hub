@@ -1,7 +1,7 @@
 // course-service/src/models/Course.js
 const mongoose = require('mongoose');
 
-// CẬP NHẬT: Schedule schema với thông tin meeting online
+// CẬP NHẬT: Schedule schema với thông tin meeting online và tracking lesson
 const scheduleSchema = new mongoose.Schema({
   dayOfWeek: { 
     type: Number, 
@@ -56,7 +56,17 @@ const scheduleSchema = new mongoose.Schema({
     default: true
   },
   // THÊM: Ghi chú cho schedule
-  notes: String
+  notes: String,
+  // 🆕 THÊM: Trường để theo dõi lesson đã được tạo cho schedule này
+  hasLesson: {
+    type: Boolean,
+    default: false
+  },
+  lessonId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Lesson',
+    default: null
+  }
 }, { _id: true }); // THÊM: _id để có thể reference
 
 const discountSchema = new mongoose.Schema({
@@ -99,7 +109,7 @@ const courseSettingsSchema = new mongoose.Schema({
   },
   autoCreateLessonsFromSchedules: {
     type: Boolean,
-    default: true
+    default: false // 🆕 ĐỔI: Mặc định false để manual tạo lesson
   },
   maxStudentsPerLesson: {
     type: Number,
@@ -160,7 +170,7 @@ const courseSchema = new mongoose.Schema({
   discount: discountSchema,
   lessons: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Lesson' }],
   
-  // CẬP NHẬT: Schedules với thông tin đầy đủ
+  // CẬP NHẬT: Schedules với thông tin đầy đủ và tracking lesson
   schedules: [scheduleSchema],
   
   duration: { type: Number, default: 0 },
@@ -171,7 +181,7 @@ const courseSchema = new mongoose.Schema({
   materialsIncluded: [String],
   requirements: [String],
   tags: [String],
-  language: { type: String, enum: ['en', 'vi'], default: 'vi' },
+  language: { type: String, default: 'vi' }, // 🆕 ĐỔI: Mặc định tiếng Việt
   
   // THÊM: Course settings
   settings: {
@@ -272,7 +282,20 @@ const courseSchema = new mongoose.Schema({
       }
     },
     averageRating: { type: Number, default: 0 },
-    totalReviews: { type: Number, default: 0 }
+    totalReviews: { type: Number, default: 0 },
+    // 🆕 THÊM: Thống kê về schedules và lessons
+    totalSchedules: {
+      type: Number,
+      default: 0
+    },
+    schedulesWithLessons: {
+      type: Number,
+      default: 0
+    },
+    completionRate: {
+      type: Number,
+      default: 0
+    }
   }
 
 }, { 
@@ -280,6 +303,21 @@ const courseSchema = new mongoose.Schema({
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
+
+// ========== FIX: SỬA LỖI TEXT INDEX ==========
+// THÊM: Text index với ngôn ngữ được hỗ trợ (đặt trước các index khác)
+courseSchema.index(
+  { 
+    title: 'text', 
+    description: 'text', 
+    shortDescription: 'text',
+    tags: 'text'
+  }, 
+  {
+    default_language: 'none', // Sử dụng 'none' thay vì language override
+    name: 'course_text_search'
+  }
+);
 
 courseSchema.index({ instructor: 1 });
 courseSchema.index({ category: 1 });
@@ -290,17 +328,13 @@ courseSchema.index({ featured: -1 });
 courseSchema.index({ 'schedules.dayOfWeek': 1 });
 courseSchema.index({ 'schedules.startTime': 1 });
 courseSchema.index({ courseType: 1 });
+courseSchema.index({ title: 1 });
+courseSchema.index({ description: 1 });
+courseSchema.index({ tags: 1 });
 
-// Text search index
-courseSchema.index({ title: 'text', description: 'text', tags: 'text' }, { 
-  default_language: 'english',
-  language_override: 'en',
-  weights: {
-    title: 10,
-    tags: 5,
-    description: 1
-  }
-});
+// 🆕 THÊM: Index cho schedule tracking
+courseSchema.index({ 'schedules.hasLesson': 1 });
+courseSchema.index({ 'schedules.lessonId': 1 });
 
 // Virtuals
 courseSchema.virtual('availableSpots').get(function() {
@@ -337,6 +371,18 @@ courseSchema.virtual('upcomingSchedules').get(function() {
   });
 });
 
+// 🆕 THÊM: Virtual để lấy schedules có sẵn (chưa có lesson)
+courseSchema.virtual('availableSchedules').get(function() {
+  if (!this.schedules) return [];
+  return this.schedules.filter(schedule => schedule.isActive && !schedule.hasLesson);
+});
+
+// 🆕 THÊM: Virtual để lấy schedules đã có lesson
+courseSchema.virtual('occupiedSchedules').get(function() {
+  if (!this.schedules) return [];
+  return this.schedules.filter(schedule => schedule.isActive && schedule.hasLesson);
+});
+
 courseSchema.virtual('thumbnailUrl').get(function() {
   if (!this.thumbnail) return '/images/default-course-thumbnail.jpg';
   if (this.thumbnail.startsWith('http')) return this.thumbnail;
@@ -368,6 +414,13 @@ courseSchema.virtual('averageLessonPrice').get(function() {
   return Math.round(this.fullCoursePrice / this.schedules.length);
 });
 
+// 🆕 THÊM: Virtual để tính tỷ lệ schedule đã có lesson
+courseSchema.virtual('scheduleCompletionRate').get(function() {
+  if (!this.schedules || this.schedules.length === 0) return 0;
+  const occupied = this.schedules.filter(s => s.hasLesson).length;
+  return Math.round((occupied / this.schedules.length) * 100);
+});
+
 // Pre-save hooks
 courseSchema.pre('save', async function(next) {
   // Tính tổng duration từ lessons
@@ -383,6 +436,16 @@ courseSchema.pre('save', async function(next) {
   // Cập nhật totalSessions từ schedules
   if (this.isModified('schedules')) {
     this.totalSessions = this.schedules ? this.schedules.length : 0;
+    // 🆕 CẬP NHẬT: Tính thống kê schedules
+    this.metadata.totalSchedules = this.schedules.length;
+    this.metadata.schedulesWithLessons = this.schedules.filter(s => s.hasLesson).length;
+    this.metadata.completionRate = this.scheduleCompletionRate;
+  }
+
+  // 🆕 CẬP NHẬT: Cập nhật thống kê khi schedules thay đổi trạng thái lesson
+  if (this.isModified('schedules.hasLesson') || this.isModified('schedules.lessonId')) {
+    this.metadata.schedulesWithLessons = this.schedules.filter(s => s.hasLesson).length;
+    this.metadata.completionRate = this.scheduleCompletionRate;
   }
 
   // Cập nhật metadata
@@ -421,18 +484,49 @@ courseSchema.pre('save', async function(next) {
   next();
 });
 
-// THÊM: Method để thêm schedule
+// 🆕 THÊM: Method để thêm schedule với validation
 courseSchema.methods.addSchedule = function(scheduleData) {
-  this.schedules.push(scheduleData);
+  // Kiểm tra trùng lặp schedule
+  const isDuplicate = this.schedules.some(s => 
+    s.dayOfWeek === scheduleData.dayOfWeek && 
+    s.startTime === scheduleData.startTime && 
+    s.endTime === scheduleData.endTime
+  );
+
+  if (isDuplicate) {
+    throw new Error('Schedule với cùng ngày và giờ đã tồn tại');
+  }
+
+  this.schedules.push({
+    ...scheduleData,
+    hasLesson: false,
+    lessonId: null
+  });
   this.totalSessions = this.schedules.length;
+  this.metadata.totalSchedules = this.schedules.length;
   return this.save();
 };
 
-// THÊM: Method để xóa schedule
-courseSchema.methods.removeSchedule = function(scheduleIndex) {
+// 🆕 THÊM: Method để xóa schedule và cả lesson liên quan nếu có
+courseSchema.methods.removeSchedule = async function(scheduleIndex) {
   if (this.schedules[scheduleIndex]) {
+    const schedule = this.schedules[scheduleIndex];
+    
+    // Nếu schedule có lesson, xóa lesson trước
+    if (schedule.hasLesson && schedule.lessonId) {
+      const Lesson = mongoose.model('Lesson');
+      await Lesson.findByIdAndDelete(schedule.lessonId);
+      
+      // Xóa lesson khỏi mảng lessons của course
+      this.lessons.pull(schedule.lessonId);
+    }
+
     this.schedules.splice(scheduleIndex, 1);
     this.totalSessions = this.schedules.length;
+    this.metadata.totalSchedules = this.schedules.length;
+    this.metadata.schedulesWithLessons = this.schedules.filter(s => s.hasLesson).length;
+    this.metadata.completionRate = this.scheduleCompletionRate;
+    
     return this.save();
   }
   return Promise.resolve(this);
@@ -441,10 +535,43 @@ courseSchema.methods.removeSchedule = function(scheduleIndex) {
 // THÊM: Method để cập nhật schedule
 courseSchema.methods.updateSchedule = function(scheduleIndex, updateData) {
   if (this.schedules[scheduleIndex]) {
+    // Không cho phép cập nhật các trường liên quan đến lesson
+    const { hasLesson, lessonId, ...allowedUpdates } = updateData;
+    
     this.schedules[scheduleIndex] = {
       ...this.schedules[scheduleIndex].toObject(),
-      ...updateData
+      ...allowedUpdates
     };
+    return this.save();
+  }
+  return Promise.resolve(this);
+};
+
+// 🆕 THÊM: Method để gán lesson cho schedule
+courseSchema.methods.assignLessonToSchedule = function(scheduleIndex, lessonId) {
+  if (this.schedules[scheduleIndex]) {
+    if (this.schedules[scheduleIndex].hasLesson) {
+      throw new Error('Schedule này đã có bài học');
+    }
+
+    this.schedules[scheduleIndex].hasLesson = true;
+    this.schedules[scheduleIndex].lessonId = lessonId;
+    this.metadata.schedulesWithLessons = this.schedules.filter(s => s.hasLesson).length;
+    this.metadata.completionRate = this.scheduleCompletionRate;
+    
+    return this.save();
+  }
+  throw new Error('Schedule không tồn tại');
+};
+
+// 🆕 THÊM: Method để xóa lesson khỏi schedule
+courseSchema.methods.removeLessonFromSchedule = function(scheduleIndex) {
+  if (this.schedules[scheduleIndex]) {
+    this.schedules[scheduleIndex].hasLesson = false;
+    this.schedules[scheduleIndex].lessonId = null;
+    this.metadata.schedulesWithLessons = this.schedules.filter(s => s.hasLesson).length;
+    this.metadata.completionRate = this.scheduleCompletionRate;
+    
     return this.save();
   }
   return Promise.resolve(this);
@@ -455,9 +582,24 @@ courseSchema.methods.getSchedulesByDay = function(dayOfWeek) {
   return this.schedules.filter(schedule => schedule.dayOfWeek === dayOfWeek && schedule.isActive);
 };
 
+// 🆕 THÊM: Method để lấy available schedules (chưa có lesson)
+courseSchema.methods.getAvailableSchedules = function() {
+  return this.schedules.filter(schedule => schedule.isActive && !schedule.hasLesson);
+};
+
+// 🆕 THÊM: Method để lấy occupied schedules (đã có lesson)
+courseSchema.methods.getOccupiedSchedules = function() {
+  return this.schedules.filter(schedule => schedule.isActive && schedule.hasLesson);
+};
+
 // THÊM: Method để kiểm tra xem course có schedule không
 courseSchema.methods.hasSchedules = function() {
   return this.schedules && this.schedules.length > 0;
+};
+
+// 🆕 THÊM: Method để kiểm tra xem course có available schedules không
+courseSchema.methods.hasAvailableSchedules = function() {
+  return this.getAvailableSchedules().length > 0;
 };
 
 // THÊM: Method để lấy schedule sắp tới
@@ -484,6 +626,24 @@ courseSchema.methods.getNextSchedule = function() {
   
   // Nếu không tìm thấy trong tuần này, trả về schedule đầu tiên của tuần sau
   return sortedSchedules[0] || null;
+};
+
+// 🆕 THÊM: Method để lấy schedule by index với validation
+courseSchema.methods.getScheduleByIndex = function(scheduleIndex) {
+  if (scheduleIndex < 0 || scheduleIndex >= this.schedules.length) {
+    throw new Error('Schedule index không hợp lệ');
+  }
+  return this.schedules[scheduleIndex];
+};
+
+// 🆕 THÊM: Method để kiểm tra schedule có available không
+courseSchema.methods.isScheduleAvailable = function(scheduleIndex) {
+  try {
+    const schedule = this.getScheduleByIndex(scheduleIndex);
+    return schedule.isActive && !schedule.hasLesson;
+  } catch (error) {
+    return false;
+  }
 };
 
 // Post-save hook để update related data
@@ -528,6 +688,16 @@ courseSchema.statics.findOnlineCourses = function() {
   });
 };
 
+// 🆕 THÊM: Static method để tìm courses có available schedules
+courseSchema.statics.findWithAvailableSchedules = function() {
+  return this.find({
+    status: 'published',
+    isActive: true,
+    'schedules.isActive': true,
+    'schedules.hasLesson': false
+  });
+};
+
 // Instance methods
 courseSchema.methods.incrementEnrollments = function() {
   this.currentEnrollments += 1;
@@ -551,5 +721,34 @@ courseSchema.methods.removeFromGallery = function(imageIndex) {
   }
   return Promise.resolve(this);
 };
+courseSchema.methods.isScheduleAvailable = function(scheduleIndex) {
+  if (!this.schedules || scheduleIndex < 0 || scheduleIndex >= this.schedules.length) {
+    return false;
+  }
+  
+  const schedule = this.schedules[scheduleIndex];
+  return schedule.isActive && !schedule.hasLesson;
+};
 
+// 🆕 Method để lấy schedule info
+courseSchema.methods.getScheduleInfo = function(scheduleIndex) {
+  if (!this.schedules || scheduleIndex < 0 || scheduleIndex >= this.schedules.length) {
+    return null;
+  }
+  
+  const schedule = this.schedules[scheduleIndex];
+  const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+  
+  return {
+    index: scheduleIndex,
+    dayOfWeek: schedule.dayOfWeek,
+    dayName: dayNames[schedule.dayOfWeek],
+    startTime: schedule.startTime,
+    endTime: schedule.endTime,
+    timezone: schedule.timezone,
+    meetingPlatform: schedule.meetingPlatform,
+    hasLesson: schedule.hasLesson,
+    isActive: schedule.isActive
+  };
+};
 module.exports = mongoose.model('Course', courseSchema);

@@ -23,6 +23,8 @@ router.patch('/complete-lesson/:lessonId', authMiddleware, enrollmentController.
 router.patch('/:enrollmentId/status', authMiddleware, enrollmentController.updateEnrollmentStatus);
 router.delete('/:id', authMiddleware, enrollmentController.deleteEnrollment);
 
+router.get('/public/check', enrollmentController.checkEnrollment);
+
 // Instructor routes - sử dụng authMiddleware và instructorMiddleware
 router.get('/course/:courseId/enrollments', authMiddleware, instructorMiddleware, enrollmentController.getCourseEnrollments);
 
