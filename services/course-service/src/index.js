@@ -41,6 +41,8 @@ const courseRoutes = require('./routes/courseRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const jitsiRoutes = require('./routes/jitsiRoutes');
+const studentRoutes = require('./routes/studentRoutes');
+
 // Health check
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -56,6 +58,8 @@ app.use('/admin', adminRoutes);
 app.use('/', courseRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/jitsi', jitsiRoutes);
+app.use('/students', studentRoutes);
+
 console.log('✅ Mounted routes:');
 console.log('   - /enrollments -> enrollmentRoutes');
 console.log('   - /admin -> adminRoutes');

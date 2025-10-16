@@ -148,7 +148,16 @@ app.use('/api/admin', createProxy(COURSE_SERVICE_URL, 'course-service', (path, r
 app.use('/api/courses', createProxy(COURSE_SERVICE_URL, 'course-service', { '^/api/courses': '/' }));
 
 app.use('/api/payments', createProxy(PAYMENT_SERVICE_URL, 'payment-service', { '^/api/payments': '/' }));
-
+app.use('/api/students', createProxyMiddleware({
+  target: COURSE_SERVICE_URL,
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api/students': '/students'
+  },
+  onProxyReq: (proxyReq, req) => {
+    console.log(`➡️ Student Service: ${req.method} ${req.originalUrl}`);
+  }
+}));
 /**
  * =====================
  *  START SERVER

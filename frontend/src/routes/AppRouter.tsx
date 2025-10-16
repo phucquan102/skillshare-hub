@@ -1,3 +1,4 @@
+// frontend/src/routes/AppRouter.tsx
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminRoute from '../routes/AdminRoute';
@@ -32,6 +33,9 @@ import DashboardPage from '../pages/Dashboard/DashboardPage';
 import ProfilePage from '../pages/Auth/ProfilePage/ProfilePage';
 import LessonLivePage from '../pages/student/LessonLivePage/LessonLivePage';
 import StudentLessonMeeting from '../pages/student/StudentLessonMeeting/StudentLessonMeeting';
+import MyCoursesPage from '../pages/student/MyCoursesPage/MyCoursesPage';
+import StudentLessonList from '../pages/student/StudentLessonList/StudentLessonList';
+import StudentLessonDetail from '../pages/student/StudentLessonDetail/StudentLessonDetail'; // 🆕 Thêm import này
 
 // Instructor Pages
 import InstructorDashboardPage from '../pages/instructor/InstructorDashboardPage';  
@@ -40,7 +44,7 @@ import EditCoursePage from '../pages/instructor/EditCoursePage/EditCoursePage';
 import ManageCoursesPage from '../pages/instructor/ManageCourses/ManageCoursesPage';
 import ManageLessonsPage from '../pages/instructor/ManageLessons/ManageLessonsPage';
 import LessonDetailPage from '../pages/instructor/ManageLessons/LessonDetailPage';
-import InstructorLessonStartPage from '../pages/instructor/InstructorLessonStartPage/InstructorLessonStartPage';  // 🆕
+import InstructorLessonStartPage from '../pages/instructor/InstructorLessonStartPage/InstructorLessonStartPage';
 
 const AppRouter: React.FC = () => {
   return (
@@ -71,7 +75,11 @@ const AppRouter: React.FC = () => {
       >
         <Route index element={<DashboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="courses" element={<div>My Courses Page</div>} />
+        {/* 🆕 My Courses Routes */}
+        <Route path="courses">
+          <Route index element={<MyCoursesPage />} />
+          <Route path=":courseId" element={<StudentLessonList />} />
+        </Route>
         <Route path="sessions" element={<div>Upcoming Sessions Page</div>} />
         <Route path="schedule" element={<div>Learning Schedule Page</div>} />
         <Route path="payments" element={<div>Payment History Page</div>} />
@@ -126,6 +134,16 @@ const AppRouter: React.FC = () => {
         element={
           <PrivateRoute>
             <StudentLessonMeeting />
+          </PrivateRoute>
+        }
+      />
+
+      {/* 🆕 THÊM ROUTE CHO LESSON DETAIL */}
+      <Route
+        path="/student/lessons/:lessonId"
+        element={
+          <PrivateRoute>
+            <StudentLessonDetail />
           </PrivateRoute>
         }
       />

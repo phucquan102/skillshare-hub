@@ -16,7 +16,7 @@ const enrollmentSchema = new mongoose.Schema({
   purchasedLessons: [{
     lessonId: {
       type: mongoose.Schema.Types.ObjectId,
-    ref: 'Lesson'
+      ref: 'Lesson'
     },
     purchasedAt: {
       type: Date,
@@ -105,14 +105,14 @@ enrollmentSchema.methods.hasAccessToLesson = function(lessonId) {
   
   // Check if lesson was individually purchased
   return this.purchasedLessons.some(purchase => 
-    purchase.lessonId.toString() === lessonId.toString()
+    purchase.lessonId && purchase.lessonId.toString() === lessonId.toString()
   );
 };
 
 // Method to mark lesson as completed
 enrollmentSchema.methods.markLessonCompleted = function(lessonId, progress = 100) {
   const existingIndex = this.progress.completedLessons.findIndex(
-    item => item.lessonId.toString() === lessonId.toString()
+    item => item.lessonId && item.lessonId.toString() === lessonId.toString()
   );
   
   if (existingIndex >= 0) {

@@ -75,23 +75,31 @@ const courseController = {
         });
       }
 
-      // 🎯 THÊM: Validate schedules
+      // 🎯 SỬA: Validate schedules với date
       if (!schedules || !Array.isArray(schedules) || schedules.length === 0) {
         return res.status(400).json({ 
           message: 'Danh sách lịch học là bắt buộc',
-          required: 'schedules (array of {dayOfWeek, startTime, endTime})'
+          required: 'schedules (array of {date, startTime, endTime})'
         });
       }
 
       // Validate từng schedule
       for (let i = 0; i < schedules.length; i++) {
         const schedule = schedules[i];
-        if (schedule.dayOfWeek === undefined || !schedule.startTime || !schedule.endTime) {
+        if (!schedule.date || !schedule.startTime || !schedule.endTime) {
           return res.status(400).json({ 
-            message: `Schedule ${i+1} thiếu thông tin bắt buộc: dayOfWeek, startTime, endTime`
+            message: `Schedule ${i+1} thiếu thông tin bắt buộc: date, startTime, endTime`
           });
         }
         
+        // Validate date format
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(schedule.date)) {
+          return res.status(400).json({ 
+            message: `Schedule ${i+1} có định dạng ngày không hợp lệ (YYYY-MM-DD)`
+          });
+        }
+
         // Validate time format
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
         if (!timeRegex.test(schedule.startTime) || !timeRegex.test(schedule.endTime)) {
@@ -100,13 +108,43 @@ const courseController = {
           });
         }
 
+        // Validate date không được trong quá khứ
+        const scheduleDate = new Date(schedule.date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (scheduleDate < today) {
+          return res.status(400).json({ 
+            message: `Schedule ${i+1} có ngày trong quá khứ`
+          });
+        }
+
+        // Validate date nằm trong khoảng startDate và endDate của khóa học
+        const courseStartDate = new Date(startDate);
+        const courseEndDate = new Date(endDate);
+        if (scheduleDate < courseStartDate || scheduleDate > courseEndDate) {
+          return res.status(400).json({ 
+            message: `Schedule ${i+1} có ngày không nằm trong thời gian khóa học (${startDate} đến ${endDate})`
+          });
+        }
+
         // Validate time logic
-        const start = new Date(`2000-01-01T${schedule.startTime}`);
-        const end = new Date(`2000-01-01T${schedule.endTime}`);
+        const start = new Date(`${schedule.date}T${schedule.startTime}`);
+        const end = new Date(`${schedule.date}T${schedule.endTime}`);
         if (isNaN(start) || isNaN(end) || start >= end) {
           return res.status(400).json({ 
             message: `Schedule ${i+1} có thời gian không hợp lệ (endTime phải sau startTime)`
           });
+        }
+
+        // Kiểm tra trùng lịch
+        for (let j = 0; j < i; j++) {
+          const otherSchedule = schedules[j];
+          if (schedule.date === otherSchedule.date && 
+              schedule.startTime === otherSchedule.startTime) {
+            return res.status(400).json({ 
+              message: `Schedule ${i+1} bị trùng lịch với schedule ${j+1}`
+            });
+          }
         }
       }
 
@@ -128,19 +166,31 @@ const courseController = {
 
       console.log('✅ Validation passed, creating course...');
 
+      // 🎯 SỬA: Chuẩn bị schedules với date và dayOfWeek
+      const processedSchedules = schedules.map(schedule => {
+        const scheduleDate = new Date(schedule.date);
+        const dayOfWeek = scheduleDate.getDay(); // 0 = Chủ nhật, 1 = Thứ 2, ...
+        
+        return {
+          date: schedule.date,
+          dayOfWeek: dayOfWeek,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          timezone: schedule.timezone || 'Asia/Ho_Chi_Minh',
+          meetingPlatform: schedule.meetingPlatform || 'zoom',
+          isActive: true,
+          hasLesson: false
+        };
+      });
+
       const course = new Course({
         title, description, shortDescription, category, subcategory, level,
         pricingType, fullCoursePrice, coInstructors: coInstructors || [],
-        schedules: schedules.map((s, index) => ({
-          ...s,
-          timezone: s.timezone || 'Asia/Ho_Chi_Minh',
-          meetingPlatform: s.meetingPlatform || 'zoom',
-          isActive: true
-        })),
+        schedules: processedSchedules,
         maxStudents, prerequisites: prerequisites || [],
         learningOutcomes: learningOutcomes || [], materialsIncluded: materialsIncluded || [],
         requirements: requirements || [], tags: tags || [], 
-        language: language || 'en',  
+        language: language || 'vi',  
         thumbnail, promoVideo, gallery: gallery || [], discount, certificate, featured,
         startDate, endDate,
         instructor: req.userId, 
@@ -231,158 +281,154 @@ const courseController = {
   },
 
   createLesson: async (req, res) => {
-  try {
-    const { courseId } = req.params;
-    const {
-      title, description, shortDescription, order, duration,
-      scheduleIndex, lessonType, meetingPlatform, price, isPreview, isFree,
-      objectives, prerequisites, difficulty, estimatedStudyTime,
-      actualStartTime, actualEndTime, maxParticipants, registrationDeadline
-    } = req.body;
+    try {
+      const { courseId } = req.params;
+      const {
+        title, description, shortDescription, order, duration,
+        scheduleId, lessonType, meetingPlatform, price, isPreview, isFree,
+        objectives, prerequisites, difficulty, estimatedStudyTime,
+        actualStartTime, actualEndTime, maxParticipants, registrationDeadline
+      } = req.body;
 
-    console.log('📚 [createLesson] Creating lesson for course:', courseId);
-    console.log('📦 [createLesson] Lesson data:', req.body);
+      console.log('📚 [createLesson] Creating lesson for course:', courseId);
+      console.log('📦 [createLesson] Lesson data:', req.body);
 
-    if (!mongoose.Types.ObjectId.isValid(courseId)) {
-      return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
-    }
-
-    const course = await Course.findById(courseId);
-    if (!course) {
-      return res.status(404).json({ message: 'Không tìm thấy khóa học' });
-    }
-
-    if (req.userRole !== 'admin' && course.instructor.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Bạn không có quyền thêm bài học' });
-    }
-
-    // 🎯 VALIDATION QUAN TRỌNG: Kiểm tra scheduleIndex
-    if (scheduleIndex === undefined || scheduleIndex < 0) {
-      return res.status(400).json({ 
-        message: 'ScheduleIndex là bắt buộc và không được âm'
-      });
-    }
-
-    // 🎯 KIỂM TRA: Schedule có tồn tại không
-    if (scheduleIndex >= course.schedules.length) {
-      return res.status(400).json({ 
-        message: 'ScheduleIndex không hợp lệ',
-        availableSchedules: course.schedules.map((s, idx) => ({
-          index: idx,
-          dayOfWeek: s.dayOfWeek,
-          dayName: ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][s.dayOfWeek],
-          startTime: s.startTime,
-          endTime: s.endTime,
-          hasLesson: s.hasLesson,
-          isActive: s.isActive
-        }))
-      });
-    }
-
-    // 🎯 KIỂM TRA: Schedule đã có lesson chưa
-    const targetSchedule = course.schedules[scheduleIndex];
-    if (targetSchedule.hasLesson) {
-      return res.status(400).json({ 
-        message: 'Schedule này đã có bài học. Mỗi schedule chỉ được có một bài học.',
-        existingLessonId: targetSchedule.lessonId
-      });
-    }
-
-    // 🎯 KIỂM TRA: Schedule có active không
-    if (!targetSchedule.isActive) {
-      return res.status(400).json({ 
-        message: 'Schedule này không active. Không thể tạo bài học.'
-      });
-    }
-
-    // VALIDATION: Kiểm tra required fields
-    if (!title || !description || order === undefined || !duration || !lessonType) {
-      return res.status(400).json({ 
-        message: 'Thiếu thông tin bắt buộc',
-        required: ['title', 'description', 'order', 'duration', 'lessonType']
-      });
-    }
-
-    // 🎯 CHO PHÉP THÊM BÀI HỌC VÀO KHÓA HỌC ĐANG CHỜ DUYỆT
-    if (course.status === 'rejected') {
-      return res.status(400).json({ message: 'Không thể thêm bài học vào khóa học đã bị từ chối' });
-    }
-
-    console.log('✅ Validation passed, creating lesson...');
-
-    const lesson = new Lesson({
-      courseId,
-      title,
-      description,
-      shortDescription,
-      order,
-      duration,
-      scheduleIndex: scheduleIndex,
-      lessonType,
-      meetingPlatform: meetingPlatform || targetSchedule.meetingPlatform || 'none',
-      price: price || 0,
-      isPreview: isPreview || false,
-      isFree: isFree || false,
-      objectives: objectives || [],
-      prerequisites: prerequisites || [],
-      difficulty: difficulty || 'medium',
-      estimatedStudyTime: estimatedStudyTime || duration,
-      maxParticipants: maxParticipants || course.maxStudents,
-      registrationDeadline,
-      status: 'draft'
-    });
-
-    await lesson.save();
-    console.log('✅ Lesson created successfully:', lesson._id);
-
-    // 🎯 QUAN TRỌNG: Cập nhật schedule với lesson info
-    targetSchedule.hasLesson = true;
-    targetSchedule.lessonId = lesson._id;
-    
-    // Cập nhật course lessons array
-    if (!course.lessons) {
-      course.lessons = [];
-    }
-    course.lessons.push(lesson._id);
-    
-    // Cập nhật metadata
-    course.metadata.schedulesWithLessons = course.schedules.filter(s => s.hasLesson).length;
-    course.metadata.completionRate = course.scheduleCompletionRate;
-    
-    await course.save();
-
-    res.status(201).json({ 
-      success: true,
-      message: 'Tạo bài học thành công', 
-      lesson,
-      schedule: {
-        index: scheduleIndex,
-        dayOfWeek: targetSchedule.dayOfWeek,
-        dayName: ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][targetSchedule.dayOfWeek],
-        startTime: targetSchedule.startTime,
-        endTime: targetSchedule.endTime,
-        timezone: targetSchedule.timezone
+      if (!mongoose.Types.ObjectId.isValid(courseId)) {
+        return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
       }
-    });
 
-  } catch (error) {
-    console.error('❌ [createLesson] Error:', error);
-    
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({ 
+      const course = await Course.findById(courseId);
+      if (!course) {
+        return res.status(404).json({ message: 'Không tìm thấy khóa học' });
+      }
+
+      if (req.userRole !== 'admin' && course.instructor.toString() !== req.userId) {
+        return res.status(403).json({ message: 'Bạn không có quyền thêm bài học' });
+      }
+
+      // 🎯 SỬA: Tìm schedule bằng scheduleId thay vì scheduleIndex
+      const targetSchedule = course.schedules.id(scheduleId);
+      if (!targetSchedule) {
+        return res.status(400).json({ 
+          message: 'Schedule không tồn tại',
+          availableSchedules: course.schedules.map(s => ({
+            _id: s._id,
+            date: s.date,
+            dayOfWeek: s.dayOfWeek,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            hasLesson: s.hasLesson,
+            isActive: s.isActive
+          }))
+        });
+      }
+
+      // 🎯 KIỂM TRA: Schedule đã có lesson chưa
+      if (targetSchedule.hasLesson) {
+        return res.status(400).json({ 
+          message: 'Schedule này đã có bài học. Mỗi schedule chỉ được có một bài học.',
+          existingLessonId: targetSchedule.lessonId
+        });
+      }
+
+      // 🎯 KIỂM TRA: Schedule có active không
+      if (!targetSchedule.isActive) {
+        return res.status(400).json({ 
+          message: 'Schedule này không active. Không thể tạo bài học.'
+        });
+      }
+
+      // VALIDATION: Kiểm tra required fields
+      if (!title || !description || order === undefined || !duration || !lessonType) {
+        return res.status(400).json({ 
+          message: 'Thiếu thông tin bắt buộc',
+          required: ['title', 'description', 'order', 'duration', 'lessonType']
+        });
+      }
+
+      // 🎯 CHO PHÉP THÊM BÀI HỌC VÀO KHÓA HỌC ĐANG CHỜ DUYỆT
+      if (course.status === 'rejected') {
+        return res.status(400).json({ message: 'Không thể thêm bài học vào khóa học đã bị từ chối' });
+      }
+
+      console.log('✅ Validation passed, creating lesson...');
+
+      const lesson = new Lesson({
+        courseId,
+        title,
+        description,
+        shortDescription,
+        order,
+        duration,
+        scheduleId: scheduleId,
+        lessonType,
+        meetingPlatform: meetingPlatform || targetSchedule.meetingPlatform || 'none',
+        price: price || 0,
+        isPreview: isPreview || false,
+        isFree: isFree || false,
+        objectives: objectives || [],
+        prerequisites: prerequisites || [],
+        difficulty: difficulty || 'medium',
+        estimatedStudyTime: estimatedStudyTime || duration,
+        maxParticipants: maxParticipants || course.maxStudents,
+        registrationDeadline,
+        status: 'draft'
+      });
+
+      await lesson.save();
+      console.log('✅ Lesson created successfully:', lesson._id);
+
+      // 🎯 QUAN TRỌNG: Cập nhật schedule với lesson info
+      targetSchedule.hasLesson = true;
+      targetSchedule.lessonId = lesson._id;
+      
+      // Cập nhật course lessons array
+      if (!course.lessons) {
+        course.lessons = [];
+      }
+      course.lessons.push(lesson._id);
+      
+      // Cập nhật metadata
+      course.metadata.schedulesWithLessons = course.schedules.filter(s => s.hasLesson).length;
+      course.metadata.completionRate = course.scheduleCompletionRate;
+      
+      await course.save();
+
+      const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+      res.status(201).json({ 
+        success: true,
+        message: 'Tạo bài học thành công', 
+        lesson,
+        schedule: {
+          _id: targetSchedule._id,
+          date: targetSchedule.date,
+          dayOfWeek: targetSchedule.dayOfWeek,
+          dayName: dayNames[targetSchedule.dayOfWeek],
+          startTime: targetSchedule.startTime,
+          endTime: targetSchedule.endTime,
+          timezone: targetSchedule.timezone
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ [createLesson] Error:', error);
+      
+      if (error.name === 'ValidationError') {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Dữ liệu không hợp lệ',
+          errors: Object.values(error.errors).map(e => e.message)
+        });
+      }
+      
+      res.status(500).json({ 
         success: false,
-        message: 'Dữ liệu không hợp lệ',
-        errors: Object.values(error.errors).map(e => e.message)
+        message: 'Lỗi server khi tạo bài học',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-    
-    res.status(500).json({ 
-      success: false,
-      message: 'Lỗi server khi tạo bài học',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-},
+  },
 
   updateLesson: async (req, res) => {
     try {
@@ -407,8 +453,8 @@ const courseController = {
         return res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa bài học' });
       }
 
-      // 🎯 CHẶN: Không cho phép thay đổi scheduleIndex sau khi đã tạo
-      if (updateData.scheduleIndex !== undefined && updateData.scheduleIndex !== lesson.scheduleIndex) {
+      // 🎯 CHẶN: Không cho phép thay đổi scheduleId sau khi đã tạo
+      if (updateData.scheduleId !== undefined && updateData.scheduleId !== lesson.scheduleId) {
         return res.status(400).json({ 
           message: 'Không thể thay đổi schedule của bài học. Vui lòng xóa và tạo lại bài học với schedule mới.' 
         });
@@ -440,59 +486,59 @@ const courseController = {
     }
   },
 
- deleteLesson: async (req, res) => {
-  try {
-    const { lessonId } = req.params;
+  deleteLesson: async (req, res) => {
+    try {
+      const { lessonId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(lessonId)) {
-      return res.status(400).json({ message: 'ID bài học không hợp lệ' });
+      if (!mongoose.Types.ObjectId.isValid(lessonId)) {
+        return res.status(400).json({ message: 'ID bài học không hợp lệ' });
+      }
+
+      const lesson = await Lesson.findById(lessonId);
+      if (!lesson) {
+        return res.status(404).json({ message: 'Không tìm thấy bài học' });
+      }
+
+      const course = await Course.findById(lesson.courseId);
+      if (!course) {
+        return res.status(404).json({ message: 'Không tìm thấy khóa học' });
+      }
+
+      if (req.userRole !== 'admin' && course.instructor.toString() !== req.userId) {
+        return res.status(403).json({ message: 'Bạn không có quyền xóa bài học' });
+      }
+
+      // 🎯 QUAN TRỌNG: Cập nhật schedule trước khi xóa lesson
+      const targetSchedule = course.schedules.id(lesson.scheduleId);
+      if (targetSchedule) {
+        targetSchedule.hasLesson = false;
+        targetSchedule.lessonId = null;
+        
+        // Cập nhật metadata
+        course.metadata.schedulesWithLessons = course.schedules.filter(s => s.hasLesson).length;
+        course.metadata.completionRate = course.scheduleCompletionRate;
+      }
+
+      await Lesson.findByIdAndDelete(lessonId);
+      course.lessons.pull(lessonId);
+      await course.save();
+
+      res.json({ 
+        success: true,
+        message: 'Xóa bài học thành công', 
+        lessonId 
+      });
+    } catch (error) {
+      console.error('Delete lesson error:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Lỗi server', 
+        error: error.message 
+      });
     }
+  },
 
-    const lesson = await Lesson.findById(lessonId);
-    if (!lesson) {
-      return res.status(404).json({ message: 'Không tìm thấy bài học' });
-    }
-
-    const course = await Course.findById(lesson.courseId);
-    if (!course) {
-      return res.status(404).json({ message: 'Không tìm thấy khóa học' });
-    }
-
-    if (req.userRole !== 'admin' && course.instructor.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Bạn không có quyền xóa bài học' });
-    }
-
-    // 🎯 QUAN TRỌNG: Cập nhật schedule trước khi xóa lesson
-    const scheduleIndex = lesson.scheduleIndex;
-    if (course.schedules[scheduleIndex]) {
-      course.schedules[scheduleIndex].hasLesson = false;
-      course.schedules[scheduleIndex].lessonId = null;
-      
-      // Cập nhật metadata
-      course.metadata.schedulesWithLessons = course.schedules.filter(s => s.hasLesson).length;
-      course.metadata.completionRate = course.scheduleCompletionRate;
-    }
-
-    await Lesson.findByIdAndDelete(lessonId);
-    course.lessons.pull(lessonId);
-    await course.save();
-
-    res.json({ 
-      success: true,
-      message: 'Xóa bài học thành công', 
-      lessonId 
-    });
-  } catch (error) {
-    console.error('Delete lesson error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Lỗi server', 
-      error: error.message 
-    });
-  }
-},
-
-  // 🎯 THÊM: API để lấy danh sách schedules available
+  // 🎯 SỬA: API để lấy danh sách schedules available
   getAvailableSchedules: async (req, res) => {
     try {
       const { courseId } = req.params;
@@ -511,26 +557,37 @@ const courseController = {
         return res.status(403).json({ message: 'Bạn không có quyền xem schedules' });
       }
 
-      // Lấy tất cả lessons để kiểm tra schedule nào đã có lesson
-      const lessons = await Lesson.find({ courseId }).select('scheduleIndex');
+      const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
-      const scheduleStatusMap = {};
-      lessons.forEach(lesson => {
-        scheduleStatusMap[lesson.scheduleIndex] = true;
-      });
+      const availableSchedules = course.schedules.map(schedule => {
+        // Tính thời lượng
+        let duration = '';
+        if (schedule.startTime && schedule.endTime) {
+          const start = new Date(`2000-01-01T${schedule.startTime}`);
+          const end = new Date(`2000-01-01T${schedule.endTime}`);
+          const diffMs = end.getTime() - start.getTime();
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          
+          if (diffHours > 0) {
+            duration = `${diffHours} giờ ${diffMinutes > 0 ? `${diffMinutes} phút` : ''}`;
+          } else {
+            duration = `${diffMinutes} phút`;
+          }
+        }
 
-      const availableSchedules = course.schedules.map((schedule, index) => {
-        const hasLesson = scheduleStatusMap[index] || false;
         return {
-          index: index,
+          _id: schedule._id,
+          date: schedule.date,
           dayOfWeek: schedule.dayOfWeek,
-          dayName: ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][schedule.dayOfWeek],
+          dayName: dayNames[schedule.dayOfWeek],
           startTime: schedule.startTime,
           endTime: schedule.endTime,
+          duration: duration,
           timezone: schedule.timezone,
           meetingPlatform: schedule.meetingPlatform,
-          hasLesson: hasLesson,
-          isAvailable: !hasLesson // Schedule còn trống để tạo lesson
+          hasLesson: schedule.hasLesson,
+          isAvailable: !schedule.hasLesson && schedule.isActive
         };
       });
 
@@ -654,7 +711,24 @@ const courseController = {
         return res.status(403).json({ message: 'Bạn không có quyền xem bài học này' });
       }
 
-      res.json({ lesson });
+      // 🎯 THÊM: Lấy thông tin schedule
+      const schedule = course.schedules.id(lesson.scheduleId);
+      const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+      
+      const lessonWithSchedule = {
+        ...lesson,
+        schedule: schedule ? {
+          _id: schedule._id,
+          date: schedule.date,
+          dayOfWeek: schedule.dayOfWeek,
+          dayName: dayNames[schedule.dayOfWeek],
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          timezone: schedule.timezone
+        } : null
+      };
+
+      res.json({ lesson: lessonWithSchedule });
     } catch (error) {
       console.error('Get lesson by ID error:', error);
       res.status(500).json({ message: 'Lỗi server', error: error.message });
@@ -689,14 +763,18 @@ const courseController = {
         .skip((Number(page) - 1) * Number(limit))
         .lean();
 
+      const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
       // 🎯 THÊM: Lấy thông tin schedule cho mỗi lesson
       const lessonsWithSchedule = lessons.map(lesson => {
-        const schedule = course.schedules[lesson.scheduleIndex];
+        const schedule = course.schedules.id(lesson.scheduleId);
         return {
           ...lesson,
           schedule: schedule ? {
+            _id: schedule._id,
+            date: schedule.date,
             dayOfWeek: schedule.dayOfWeek,
-            dayName: ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][schedule.dayOfWeek],
+            dayName: dayNames[schedule.dayOfWeek],
             startTime: schedule.startTime,
             endTime: schedule.endTime,
             timezone: schedule.timezone
@@ -904,6 +982,23 @@ const courseController = {
         }
       }
 
+      // 🎯 SỬA: Xử lý schedules nếu có
+      if (updateData.schedules && Array.isArray(updateData.schedules)) {
+        updateData.schedules = updateData.schedules.map(schedule => {
+          const scheduleDate = new Date(schedule.date);
+          const dayOfWeek = scheduleDate.getDay();
+          
+          return {
+            ...schedule,
+            dayOfWeek: dayOfWeek,
+            timezone: schedule.timezone || 'Asia/Ho_Chi_Minh',
+            meetingPlatform: schedule.meetingPlatform || 'zoom',
+            isActive: true,
+            hasLesson: false
+          };
+        });
+      }
+
       delete updateData.instructor;
       delete updateData.currentEnrollments;
       delete updateData.ratings;
@@ -958,7 +1053,7 @@ const courseController = {
         });
       }
 
-      // ✅ ADMIN: CÓ THỂ XOÁ HOÀN TOÀN BẤT KỲ COURSE NÀO KHÔNG CÓ HỌC VIÊN
+      // ✅ ADMIN: CÓ THỂ XOÁ HOÀN TOÀN BẤT KỲ COURSE NÀY KHÔNG CÓ HỌC VIÊN
       if (req.userRole === 'admin') {
         if (course.currentEnrollments > 0) {
           return res.status(400).json({ 
@@ -1072,6 +1167,23 @@ const courseController = {
             message: 'Không thể thay đổi schedules khi đã có bài học. Vui lòng xóa tất cả bài học trước.' 
           });
         }
+      }
+
+      // 🎯 SỬA: Xử lý schedules nếu có
+      if (updateData.schedules && Array.isArray(updateData.schedules)) {
+        updateData.schedules = updateData.schedules.map(schedule => {
+          const scheduleDate = new Date(schedule.date);
+          const dayOfWeek = scheduleDate.getDay();
+          
+          return {
+            ...schedule,
+            dayOfWeek: dayOfWeek,
+            timezone: schedule.timezone || 'Asia/Ho_Chi_Minh',
+            meetingPlatform: schedule.meetingPlatform || 'zoom',
+            isActive: schedule.isActive !== undefined ? schedule.isActive : true,
+            hasLesson: schedule.hasLesson || false
+          };
+        });
       }
 
       // Nếu instructor edit course đã published, chuyển về pending_review
@@ -1235,9 +1347,22 @@ const courseController = {
         return res.status(404).json({ message: 'Không tìm thấy khóa học' });
       }
 
+      // 🎯 SỬA LỖI: Đổi userId thành studentId
       const enrollment = await Enrollment.findOne({ 
-        userId: req.userId, 
+        studentId: req.userId,  // Sửa từ userId thành studentId
         courseId: lesson.courseId 
+      });
+
+      console.log('🔍 Enrollment check:', {
+        studentId: req.userId,
+        courseId: lesson.courseId,
+        enrollmentFound: !!enrollment,
+        enrollmentDetails: enrollment ? {
+          _id: enrollment._id,
+          hasFullAccess: enrollment.hasFullAccess,
+          purchasedLessonsCount: enrollment.purchasedLessons?.length,
+          status: enrollment.status
+        } : null
       });
 
       const isAdmin = req.userRole === 'admin';
@@ -1245,15 +1370,52 @@ const courseController = {
       
       if (!isAdmin && !isInstructor) {
         if (!enrollment) {
+          console.log('❌ No enrollment found for user:', req.userId);
           return res.status(403).json({ message: 'Bạn chưa đăng ký khóa học này' });
         }
         
-        const hasLessonAccess = enrollment.hasFullAccess || 
-                               (enrollment.purchasedLessons && 
-                                enrollment.purchasedLessons.some(p => p.lessonId.toString() === lessonId));
+        // 🎯 THÊM: Kiểm tra enrollment status
+        if (enrollment.status !== 'active') {
+          console.log('❌ Enrollment not active:', enrollment.status);
+          return res.status(403).json({ 
+            message: `Enrollment không active (status: ${enrollment.status})` 
+          });
+        }
+        
+        // 🎯 CẢI THIỆN: Logic kiểm tra lesson access
+        let hasLessonAccess = false;
+        
+        if (enrollment.hasFullAccess) {
+          hasLessonAccess = true;
+          console.log('✅ User has full access to course');
+        } else if (enrollment.purchasedLessons && enrollment.purchasedLessons.length > 0) {
+          // Kiểm tra xem lessonId có trong purchasedLessons không
+          const purchasedLesson = enrollment.purchasedLessons.find(
+            p => p.lessonId && p.lessonId.toString() === lessonId
+          );
+          hasLessonAccess = !!purchasedLesson;
+          console.log('🔍 Checking purchased lessons:', {
+            purchasedLessonsCount: enrollment.purchasedLessons.length,
+            lookingForLessonId: lessonId,
+            found: !!purchasedLesson
+          });
+        }
         
         if (!hasLessonAccess && !lesson.isPreview && !lesson.isFree) {
-          return res.status(403).json({ message: 'Bạn không có quyền tham gia buổi học này' });
+          console.log('❌ No lesson access:', {
+            hasLessonAccess,
+            isPreview: lesson.isPreview,
+            isFree: lesson.isFree
+          });
+          return res.status(403).json({ 
+            message: 'Bạn không có quyền tham gia buổi học này',
+            details: {
+              hasFullAccess: enrollment.hasFullAccess,
+              purchasedThisLesson: hasLessonAccess,
+              lessonIsPreview: lesson.isPreview,
+              lessonIsFree: lesson.isFree
+            }
+          });
         }
       }
 
@@ -1287,6 +1449,13 @@ const courseController = {
         displayName = req.userFullName || 'Student';
       }
 
+      console.log('✅ User can join meeting:', {
+        userId: req.userId,
+        displayName,
+        userRole: isInstructor ? 'teacher' : 'student',
+        currentParticipants: lesson.currentParticipants
+      });
+
       res.json({
         success: true,
         meetingUrl: lesson.meetingUrl,
@@ -1307,7 +1476,6 @@ const courseController = {
       });
     }
   },
-
 
   // ========== LESSON CONTENT & RESOURCES ==========
   addLessonContent: async (req, res) => {
@@ -1619,21 +1787,29 @@ const courseController = {
         return res.status(403).json({ message: 'Bạn không có quyền thêm lịch học' });
       }
 
+      // 🎯 SỬA: Xử lý date và dayOfWeek
+      const scheduleDate = new Date(scheduleData.date);
+      const dayOfWeek = scheduleDate.getDay();
+
+      const newSchedule = {
+        ...scheduleData,
+        dayOfWeek: dayOfWeek,
+        timezone: scheduleData.timezone || 'Asia/Ho_Chi_Minh',
+        meetingPlatform: scheduleData.meetingPlatform || 'zoom',
+        isActive: true,
+        hasLesson: false
+      };
+
       if (!course.schedules) {
         course.schedules = [];
       }
 
-      course.schedules.push({
-        ...scheduleData,
-        addedAt: new Date(),
-        addedBy: req.userId
-      });
-
+      course.schedules.push(newSchedule);
       await course.save();
 
       res.json({
         message: 'Thêm lịch học thành công',
-        course
+        schedule: newSchedule
       });
     } catch (error) {
       console.error('Add course schedule error:', error);
@@ -1643,7 +1819,7 @@ const courseController = {
 
   updateCourseSchedule: async (req, res) => {
     try {
-      const { courseId, scheduleIndex } = req.params;
+      const { courseId, scheduleId } = req.params;
       const scheduleData = req.body;
 
       if (!mongoose.Types.ObjectId.isValid(courseId)) {
@@ -1659,22 +1835,23 @@ const courseController = {
         return res.status(403).json({ message: 'Bạn không có quyền cập nhật lịch học' });
       }
 
-      if (!course.schedules || course.schedules.length <= scheduleIndex) {
+      const schedule = course.schedules.id(scheduleId);
+      if (!schedule) {
         return res.status(404).json({ message: 'Không tìm thấy lịch học' });
       }
 
-      course.schedules[scheduleIndex] = {
-        ...course.schedules[scheduleIndex],
-        ...scheduleData,
-        updatedAt: new Date(),
-        updatedBy: req.userId
-      };
+      // 🎯 SỬA: Cập nhật date và dayOfWeek nếu date thay đổi
+      if (scheduleData.date && scheduleData.date !== schedule.date) {
+        const scheduleDate = new Date(scheduleData.date);
+        scheduleData.dayOfWeek = scheduleDate.getDay();
+      }
 
+      Object.assign(schedule, scheduleData);
       await course.save();
 
       res.json({
         message: 'Cập nhật lịch học thành công',
-        course
+        schedule
       });
     } catch (error) {
       console.error('Update course schedule error:', error);
@@ -1684,7 +1861,7 @@ const courseController = {
 
   removeCourseSchedule: async (req, res) => {
     try {
-      const { courseId, scheduleIndex } = req.params;
+      const { courseId, scheduleId } = req.params;
 
       if (!mongoose.Types.ObjectId.isValid(courseId)) {
         return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
@@ -1699,16 +1876,23 @@ const courseController = {
         return res.status(403).json({ message: 'Bạn không có quyền xóa lịch học' });
       }
 
-      if (!course.schedules || course.schedules.length <= scheduleIndex) {
+      const schedule = course.schedules.id(scheduleId);
+      if (!schedule) {
         return res.status(404).json({ message: 'Không tìm thấy lịch học' });
       }
 
-      course.schedules.splice(scheduleIndex, 1);
+      // Kiểm tra nếu schedule đã có lesson thì không cho xóa
+      if (schedule.hasLesson) {
+        return res.status(400).json({ 
+          message: 'Không thể xóa lịch học đã có bài học. Vui lòng xóa bài học trước.' 
+        });
+      }
+
+      course.schedules.pull(scheduleId);
       await course.save();
 
       res.json({
-        message: 'Xóa lịch học thành công',
-        course
+        message: 'Xóa lịch học thành công'
       });
     } catch (error) {
       console.error('Remove course schedule error:', error);
@@ -1810,83 +1994,106 @@ const courseController = {
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
   },
-  // 🆕 API để lấy chi tiết schedules với trạng thái lesson
-getCourseSchedules: async (req, res) => {
-  try {
-    const { courseId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(courseId)) {
-      return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
-    }
+  // 🎯 SỬA: API để lấy chi tiết schedules với trạng thái lesson
+  getCourseSchedules: async (req, res) => {
+    try {
+      const { courseId } = req.params;
 
-    const course = await Course.findById(courseId).select('schedules title instructor');
-    if (!course) {
-      return res.status(404).json({ message: 'Không tìm thấy khóa học' });
-    }
+      if (!mongoose.Types.ObjectId.isValid(courseId)) {
+        return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
+      }
 
-    // Chỉ instructor và admin mới được xem
-    if (req.userRole !== 'admin' && course.instructor.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Bạn không có quyền xem schedules' });
-    }
+      const course = await Course.findById(courseId).select('schedules title instructor');
+      if (!course) {
+        return res.status(404).json({ message: 'Không tìm thấy khóa học' });
+      }
 
-    // Lấy tất cả lessons để có thông tin chi tiết
-    const lessons = await Lesson.find({ courseId }).select('scheduleIndex title order status');
+      // Chỉ instructor và admin mới được xem
+      if (req.userRole !== 'admin' && course.instructor.toString() !== req.userId) {
+        return res.status(403).json({ message: 'Bạn không có quyền xem schedules' });
+      }
 
-    const scheduleDetails = course.schedules.map((schedule, index) => {
-      const lesson = lessons.find(l => l.scheduleIndex === index);
+      // Lấy tất cả lessons để có thông tin chi tiết
+      const lessons = await Lesson.find({ courseId }).select('scheduleId title order status');
+
       const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-      
-      return {
-        index: index,
-        dayOfWeek: schedule.dayOfWeek,
-        dayName: dayNames[schedule.dayOfWeek],
-        startTime: schedule.startTime,
-        endTime: schedule.endTime,
-        timezone: schedule.timezone,
-        meetingPlatform: schedule.meetingPlatform,
-        isActive: schedule.isActive,
-        hasLesson: schedule.hasLesson,
-        lessonId: schedule.lessonId,
-        lessonInfo: lesson ? {
-          _id: lesson._id,
-          title: lesson.title,
-          order: lesson.order,
-          status: lesson.status
-        } : null,
-        isAvailable: !schedule.hasLesson && schedule.isActive
-      };
-    });
 
-    // Nhóm theo ngày để dễ visualize
-    const schedulesByDay = {};
-    scheduleDetails.forEach(schedule => {
-      if (!schedulesByDay[schedule.dayOfWeek]) {
-        schedulesByDay[schedule.dayOfWeek] = [];
-      }
-      schedulesByDay[schedule.dayOfWeek].push(schedule);
-    });
+      const scheduleDetails = course.schedules.map(schedule => {
+        const lesson = lessons.find(l => l.scheduleId && l.scheduleId.toString() === schedule._id.toString());
+        
+        // Tính thời lượng
+        let duration = '';
+        if (schedule.startTime && schedule.endTime) {
+          const start = new Date(`2000-01-01T${schedule.startTime}`);
+          const end = new Date(`2000-01-01T${schedule.endTime}`);
+          const diffMs = end.getTime() - start.getTime();
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          
+          if (diffHours > 0) {
+            duration = `${diffHours} giờ ${diffMinutes > 0 ? `${diffMinutes} phút` : ''}`;
+          } else {
+            duration = `${diffMinutes} phút`;
+          }
+        }
 
-    res.json({
-      success: true,
-      course: { _id: course._id, title: course.title },
-      schedules: scheduleDetails,
-      schedulesByDay,
-      summary: {
-        totalSchedules: scheduleDetails.length,
-        availableSchedules: scheduleDetails.filter(s => s.isAvailable).length,
-        occupiedSchedules: scheduleDetails.filter(s => s.hasLesson).length,
-        inactiveSchedules: scheduleDetails.filter(s => !s.isActive).length
-      }
-    });
-  } catch (error) {
-    console.error('Get course schedules error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Lỗi server', 
-      error: error.message 
-    });
-  }
-},
+        return {
+          _id: schedule._id,
+          date: schedule.date,
+          dayOfWeek: schedule.dayOfWeek,
+          dayName: dayNames[schedule.dayOfWeek],
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          duration: duration,
+          timezone: schedule.timezone,
+          meetingPlatform: schedule.meetingPlatform,
+          isActive: schedule.isActive,
+          hasLesson: schedule.hasLesson,
+          lessonId: schedule.lessonId,
+          lessonInfo: lesson ? {
+            _id: lesson._id,
+            title: lesson.title,
+            order: lesson.order,
+            status: lesson.status
+          } : null,
+          isAvailable: !schedule.hasLesson && schedule.isActive
+        };
+      });
+
+      // Sắp xếp theo date
+      scheduleDetails.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      // Nhóm theo ngày để dễ visualize
+      const schedulesByDate = {};
+      scheduleDetails.forEach(schedule => {
+        if (!schedulesByDate[schedule.date]) {
+          schedulesByDate[schedule.date] = [];
+        }
+        schedulesByDate[schedule.date].push(schedule);
+      });
+
+      res.json({
+        success: true,
+        course: { _id: course._id, title: course.title },
+        schedules: scheduleDetails,
+        schedulesByDate,
+        summary: {
+          totalSchedules: scheduleDetails.length,
+          availableSchedules: scheduleDetails.filter(s => s.isAvailable).length,
+          occupiedSchedules: scheduleDetails.filter(s => s.hasLesson).length,
+          inactiveSchedules: scheduleDetails.filter(s => !s.isActive).length
+        }
+      });
+    } catch (error) {
+      console.error('Get course schedules error:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Lỗi server', 
+        error: error.message 
+      });
+    }
+  },
 
   getCourseEditHistory: async (req, res) => {
     try {

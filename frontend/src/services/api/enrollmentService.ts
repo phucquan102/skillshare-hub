@@ -1,4 +1,10 @@
 import { apiRequest } from '../../utils/apiUtils';
+import { 
+  StudentCourseResponse, 
+  CourseProgressResponse,
+  LearningStatistics 
+} from '../../types/student.types';
+
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
@@ -28,7 +34,7 @@ export interface LessonAccessResponse {
   lesson?: any;
   message?: string;
 }
-
+ 
 export const enrollmentService = {
   /**
    * Tạo enrollment mới (đăng ký cả khóa học)
@@ -677,5 +683,165 @@ export const enrollmentService = {
     }
   }
 };
+export const getStudentCourses = async (page = 1, limit = 10, status?: string): Promise<StudentCourseResponse> => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Không tìm thấy token xác thực');
+    }
 
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    if (status) params.append('status', status);
+
+    const endpoint = `${API_BASE_URL}/api/students/my-courses?${params}`;
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    console.error('Error fetching student courses:', error);
+    throw error;
+  }
+};
+
+/**
+ * Lấy tiến độ chi tiết của một khóa học
+ */
+export const getCourseProgress = async (courseId: string): Promise<CourseProgressResponse> => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Không tìm thấy token xác thực');
+    }
+
+    const endpoint = `${API_BASE_URL}/api/students/courses/${courseId}/progress`;
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    console.error('Error fetching course progress:', error);
+    throw error;
+  }
+};
+
+/**
+ * Lấy thông tin chi tiết bài học (với kiểm tra quyền truy cập)
+ */
+export const getStudentLessonDetails = async (lessonId: string): Promise<any> => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Không tìm thấy token xác thực');
+    }
+
+    const endpoint = `${API_BASE_URL}/api/students/lessons/${lessonId}`;
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    console.error('Error fetching student lesson details:', error);
+    throw error;
+  }
+};
+
+/**
+ * Lấy danh sách bài học sắp tới
+ */
+export const getUpcomingLessons = async (limit = 5): Promise<any> => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Không tìm thấy token xác thực');
+    }
+
+    const endpoint = `${API_BASE_URL}/api/students/upcoming-lessons?limit=${limit}`;
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    console.error('Error fetching upcoming lessons:', error);
+    throw error;
+  }
+};
+
+/**
+ * Lấy thống kê học tập
+ */
+export const getLearningStatistics = async (): Promise<{ success: boolean; statistics: LearningStatistics }> => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Không tìm thấy token xác thực');
+    }
+
+    const endpoint = `${API_BASE_URL}/api/students/statistics`;
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    console.error('Error fetching learning statistics:', error);
+    throw error;
+  }
+};
 export default enrollmentService;
