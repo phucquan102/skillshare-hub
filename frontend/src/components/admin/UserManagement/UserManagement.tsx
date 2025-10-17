@@ -8,7 +8,7 @@ import UserStats from './UserStats';
 import styles from './UserManagement.module.scss';
 
 // Cache với expiry
-const cache = new Map<string, { data: User[]; timestamp: number }>();
+const cache = new Map<string, { data: User[]; timestamp: number; pagination: any }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 phút
 
 const UserManagement: React.FC = () => {
@@ -27,8 +27,18 @@ const UserManagement: React.FC = () => {
     totalPages: 1,
     currentPage: 1,
     total: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
   });
   const [stats, setStats] = useState<any>(null);
+
+  // Tính toán hasNextPage và hasPrevPage dựa trên currentPage và totalPages
+  const calculatePaginationFlags = (currentPage: number, totalPages: number) => {
+    return {
+      hasNextPage: currentPage < totalPages,
+      hasPrevPage: currentPage > 1,
+    };
+  };
 
   // Fetch users với cache + expiry
   const fetchUsers = async (currentFilters: UsersFilter) => {
@@ -38,21 +48,44 @@ const UserManagement: React.FC = () => {
 
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
         setUsers(cached.data);
+        setPagination(cached.pagination);
         return;
       }
 
       setLoading(true);
+      setError(null);
+      
       const response = await adminService.getUsers(currentFilters);
-      setUsers(response.users);
-      setPagination({
-        totalPages: response.totalPages,
-        currentPage: response.currentPage,
-        total: response.total,
-      });
+      
+      if (response && response.users) {
+        const currentPage = response.currentPage || currentFilters.page || 1;
+        const totalPages = response.totalPages || 1;
+        const paginationFlags = calculatePaginationFlags(currentPage, totalPages);
 
-      cache.set(key, { data: response.users, timestamp: Date.now() });
+        setUsers(response.users);
+        setPagination({
+          totalPages: totalPages,
+          currentPage: currentPage,
+          total: response.total || 0,
+          hasNextPage: paginationFlags.hasNextPage,
+          hasPrevPage: paginationFlags.hasPrevPage,
+        });
+
+        cache.set(key, { 
+          data: response.users, 
+          timestamp: Date.now(),
+          pagination: {
+            totalPages: totalPages,
+            currentPage: currentPage,
+            total: response.total || 0,
+            hasNextPage: paginationFlags.hasNextPage,
+            hasPrevPage: paginationFlags.hasPrevPage,
+          }
+        });
+      }
     } catch (err: any) {
       setError(err.message || 'Error while fetching users');
+      console.error('Fetch users error:', err);
     } finally {
       setLoading(false);
     }
@@ -87,28 +120,33 @@ const UserManagement: React.FC = () => {
     fetchStats();
   }, []);
 
-  const handleFilterChange = (newFilters: UsersFilter) => {
-    setFilters({ ...filters, ...newFilters, page: 1 });
+  const handleFilterChange = (newFilters: Partial<UsersFilter>) => {
+    setFilters(prev => ({ ...prev, ...newFilters, page: 1 }));
   };
 
   const handleResetFilters = () => {
-    setFilters({
+    const resetFilters = {
       page: 1,
       limit: 10,
       search: '',
       role: '',
       isActive: undefined,
       isVerified: undefined,
-    });
+    };
+    setFilters(resetFilters);
   };
 
   const handlePageChange = (page: number) => {
-    setFilters({ ...filters, page });
+    if (page >= 1 && page <= pagination.totalPages) {
+      setFilters(prev => ({ ...prev, page }));
+    }
   };
 
   const handleUpdateUser = async (userId: string, updates: Partial<User>) => {
     try {
       await adminService.updateUser(userId, updates);
+      // Clear cache khi có thay đổi user
+      cache.clear();
       fetchUsers(filters);
       fetchStats();
     } catch (err: any) {
@@ -120,12 +158,107 @@ const UserManagement: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         await adminService.deleteUser(userId);
+        // Clear cache khi có thay đổi user
+        cache.clear();
         fetchUsers(filters);
         fetchStats();
       } catch (err: any) {
         setError(err.message || 'Error deleting user');
       }
     }
+  };
+
+  // Render phân trang với các nút trang
+  const renderPaginationButtons = () => {
+    const buttons = [];
+    const currentPage = pagination.currentPage;
+    const totalPages = pagination.totalPages;
+
+    // Hiển thị tối đa 5 trang xung quanh trang hiện tại
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, currentPage + 2);
+
+    // Điều chỉnh để luôn hiển thị 5 nút nếu có đủ
+    if (endPage - startPage < 4) {
+      if (currentPage < 3) {
+        endPage = Math.min(totalPages, 5);
+      } else {
+        startPage = Math.max(1, totalPages - 4);
+      }
+    }
+
+    // Nút Previous
+    buttons.push(
+      <button
+        key="prev"
+        disabled={!pagination.hasPrevPage}
+        onClick={() => handlePageChange(currentPage - 1)}
+        className={`${styles.paginationButton} ${!pagination.hasPrevPage ? styles.disabled : ''}`}
+      >
+        Previous
+      </button>
+    );
+
+    // Nút trang đầu tiên
+    if (startPage > 1) {
+      buttons.push(
+        <button
+          key={1}
+          onClick={() => handlePageChange(1)}
+          className={styles.paginationButton}
+        >
+          1
+        </button>
+      );
+      if (startPage > 2) {
+        buttons.push(<span key="ellipsis1" className={styles.paginationEllipsis}>...</span>);
+      }
+    }
+
+    // Các nút trang
+    for (let i = startPage; i <= endPage; i++) {
+      buttons.push(
+        <button
+          key={i}
+          onClick={() => handlePageChange(i)}
+          className={`${styles.paginationButton} ${
+            i === currentPage ? styles.active : ''
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+
+    // Nút trang cuối cùng
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        buttons.push(<span key="ellipsis2" className={styles.paginationEllipsis}>...</span>);
+      }
+      buttons.push(
+        <button
+          key={totalPages}
+          onClick={() => handlePageChange(totalPages)}
+          className={styles.paginationButton}
+        >
+          {totalPages}
+        </button>
+      );
+    }
+
+    // Nút Next
+    buttons.push(
+      <button
+        key="next"
+        disabled={!pagination.hasNextPage}
+        onClick={() => handlePageChange(currentPage + 1)}
+        className={`${styles.paginationButton} ${!pagination.hasNextPage ? styles.disabled : ''}`}
+      >
+        Next
+      </button>
+    );
+
+    return buttons;
   };
 
   return (
@@ -143,14 +276,16 @@ const UserManagement: React.FC = () => {
       {error && (
         <div className={styles.errorMessage}>
           <span>{error}</span>
-          <button onClick={() => setError(null)}>Close</button>
+          <button onClick={() => setError(null)} className={styles.closeButton}>
+            Close
+          </button>
         </div>
       )}
 
       {loading && (
         <div className={styles.loading}>
           <div className={styles.spinner}></div>
-          <span>Loading...</span>
+          <span>Loading users...</span>
         </div>
       )}
 
@@ -161,25 +296,26 @@ const UserManagement: React.FC = () => {
         loading={loading}
       />
 
-      <div className={styles.pagination}>
-        <button
-          disabled={filters.page === 1}
-          onClick={() => handlePageChange(filters.page! - 1)}
-          className={styles.paginationButton}
-        >
-          Prev
-        </button>
-        <span>
-          Page {filters.page} / {pagination.totalPages}
-        </span>
-        <button
-          disabled={filters.page === pagination.totalPages}
-          onClick={() => handlePageChange(filters.page! + 1)}
-          className={styles.paginationButton}
-        >
-          Next
-        </button>
-      </div>
+      {/* Phân trang */}
+      {!loading && users.length > 0 && (
+        <div className={styles.paginationContainer}>
+          <div className={styles.paginationInfo}>
+            Showing {((filters.page || 1) - 1) * (filters.limit || 10) + 1} -{' '}
+            {Math.min((filters.page || 1) * (filters.limit || 10), pagination.total)} of {pagination.total} users
+            {filters.search && ' (filtered)'}
+          </div>
+          <div className={styles.pagination}>
+            {renderPaginationButtons()}
+          </div>
+        </div>
+      )}
+
+      {!loading && users.length === 0 && (
+        <div className={styles.noUsers}>
+          No users found
+          {filters.search && ' matching your search criteria'}
+        </div>
+      )}
     </div>
   );
 };

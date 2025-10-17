@@ -14,6 +14,7 @@ import InstructorLayout from '../layouts/InstructorLayout/InstructorLayout';
 import AdminDashboard from '../pages/admin/AdminDashboard/AdminDashboardPage';  
 import UsersManagementPage from '../pages/admin/UsersManagement/UsersManagementPage';
 import CoursesManagementPage from '../pages/admin/CoursesManagement/CoursesManagementPage';
+import { AdminCourseDetailPage } from '../pages/admin/CourseDetail';
 
 // Public Pages
 import HomePage from '../pages/Home/HomePage';
@@ -165,6 +166,7 @@ const AppRouter: React.FC = () => {
           <Route index element={<CoursesManagementPage />} />
           <Route path="create" element={<CreateCoursePage />} />
           <Route path="edit/:courseId" element={<EditCoursePage />} />
+          <Route path=":courseId" element={<AdminCourseDetailPage />} />
         </Route>
       </Route>
 
