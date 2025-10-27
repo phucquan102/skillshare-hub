@@ -64,7 +64,8 @@ app.get('/', (req, res) => {
       courses: '/api/courses',
       admin: '/api/admin',
       payments: '/api/payments',
-      upload: '/api/upload'
+      upload: '/api/upload',
+      chat: '/api/chat'
     }
   });
 });
@@ -77,7 +78,7 @@ app.get('/', (req, res) => {
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://user-service:3001';
 const COURSE_SERVICE_URL = process.env.COURSE_SERVICE_URL || 'http://course-service:3002';
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3003';
-
+const CHAT_SERVICE_URL = process.env.CHAT_SERVICE_URL || 'http://chat-service:3004'
 const createProxy = (target, serviceName, pathRewrite = {}) => {
   return createProxyMiddleware({
     target,
@@ -114,6 +115,25 @@ const createProxy = (target, serviceName, pathRewrite = {}) => {
  * =====================
  */
  
+ 
+app.use(
+  '/api/chat',
+  createProxyMiddleware({
+    target: process.env.CHAT_SERVICE_URL || 'http://chat-service:3004',
+    changeOrigin: true,
+    pathRewrite: { '^/api/chat': '' },
+    ws: true, // 👈 Thêm dòng này để proxy WebSocket
+    onProxyReq: (proxyReq, req, res) => {
+      const authHeader = req.headers['authorization'];
+      if (authHeader) {
+        proxyReq.setHeader('Authorization', authHeader);
+      }
+    },
+    logLevel: 'debug',
+  })
+);
+
+
 app.use('/api/upload', (req, res, next) => {
   console.log('🔍 [Upload Debug] Request received:', {
     method: req.method,
@@ -168,4 +188,5 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`  Users: ${USER_SERVICE_URL}`);
   console.log(`  Courses: ${COURSE_SERVICE_URL}`);
   console.log(`  Payments: ${PAYMENT_SERVICE_URL}`);
+  console.log(`  Chat: ${CHAT_SERVICE_URL}`); 
 });

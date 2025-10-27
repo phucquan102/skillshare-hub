@@ -1,4 +1,3 @@
-// src/layouts/DashboardLayout/DashboardLayout.tsx
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -16,7 +15,6 @@ const DashboardLayout: React.FC = () => {
     );
   }
 
-  // ProtectedRoute đã xử lý authentication, nên user sẽ không null ở đây
   const isActive = (path: string) => location.pathname === path;
 
   const getDashboardTitle = () => {
@@ -76,6 +74,17 @@ const DashboardLayout: React.FC = () => {
               <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/>
             </svg>
             <span className={styles.menuText}>My Courses</span>
+          </Link>
+
+          {/* 🆕 THÊM CHAT MENU ITEM */}
+          <Link 
+            to="/dashboard/chat" 
+            className={`${styles.menuItem} ${isActive('/dashboard/chat') ? styles.active : ''}`}
+          >
+            <svg className={styles.menuIcon} width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd"/>
+            </svg>
+            <span className={styles.menuText}>Messages</span>
           </Link>
 
           <Link 

@@ -83,7 +83,28 @@ services:
       - skillshare-network
     restart: on-failure
 
-  # API Gateway
+  chat-service:
+    build:
+      context: ./services/chat-service
+      dockerfile: Dockerfile
+    ports:
+      - "3004:3004"
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      - PORT=3004
+      - MONGO_URI=mongodb://admin:password123@mongo:27017/chatdb?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=your_super_secret_jwt_key_here
+      - USER_SERVICE_URL=http://user-service:3001
+      - COURSE_SERVICE_URL=http://course-service:3002
+      - FRONTEND_URL=*
+    networks:
+      - skillshare-network
+    restart: on-failure
+
+  # Cập nhật API Gateway để bao gồm chat service
   api-gateway:
     build:
       context: ./api-gateway
@@ -94,11 +115,13 @@ services:
       - user-service
       - course-service
       - payment-service
+      - chat-service  # 👈 Thêm dependency mới
     environment:
       - PORT=3000
       - USER_SERVICE_URL=http://user-service:3001
       - COURSE_SERVICE_URL=http://course-service:3002
       - PAYMENT_SERVICE_URL=http://payment-service:3003
+      - CHAT_SERVICE_URL=http://chat-service:3004  # 👈 Thêm biến mới
     networks:
       - skillshare-network
     restart: on-failure

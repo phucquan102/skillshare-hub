@@ -9,7 +9,8 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiLogOut,
-  FiUser
+  FiUser,
+  FiMessageSquare // 🆕 THÊM ICON CHAT
 } from 'react-icons/fi';
 import { HiOutlineShieldCheck, HiOutlineCog } from 'react-icons/hi';
 
@@ -21,6 +22,7 @@ const AdminLayout: React.FC = () => {
     { path: 'dashboard', label: 'Dashboard', icon: <FiHome className="w-5 h-5" /> },
     { path: 'users', label: 'User Management', icon: <FiUsers className="w-5 h-5" /> },
     { path: 'courses', label: 'Course Management', icon: <FiBook className="w-5 h-5" /> },
+    { path: 'chat', label: 'Messages', icon: <FiMessageSquare className="w-5 h-5" /> }, // 🆕 THÊM CHAT
     { path: 'reports', label: 'Analytics & Reports', icon: <FiBarChart2 className="w-5 h-5" /> },
     { path: 'settings', label: 'System Settings', icon: <HiOutlineCog className="w-5 h-5" /> },
   ];

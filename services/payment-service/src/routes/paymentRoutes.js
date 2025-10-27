@@ -1,15 +1,14 @@
-// payment-service/src/routes/paymentRoutes.js
 const express = require('express');
 const router = express.Router();
 const paymentController = require('../controllers/paymentController');
 const { authMiddleware } = require('../middleware/auth');
 
 // Webhook endpoint - không dùng auth middleware
-router.post('/webhook', 
-  express.raw({ type: 'application/json' }), 
+router.post('/webhook',
+  express.raw({ type: 'application/json' }),
   paymentController.handleStripeWebhook
 );
- 
+
 // Student routes
 router.post('/create-intent', authMiddleware, paymentController.createStudentPayment);
 router.post('/confirm', authMiddleware, paymentController.confirmPayment);
@@ -19,6 +18,7 @@ router.get('/status/:paymentId', authMiddleware, paymentController.checkPaymentS
 
 // Instructor routes
 router.post('/instructor-fee', authMiddleware, paymentController.createInstructorFee);
+router.get('/instructor/earnings', authMiddleware, paymentController.getInstructorEarnings);
 
 // Admin routes
 router.get('/admin/stats', authMiddleware, paymentController.getPaymentsStats);

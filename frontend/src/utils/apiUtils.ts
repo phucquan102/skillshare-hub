@@ -1,53 +1,19 @@
-// // utils/apiUtils.ts
-// export async function apiRequest<T>(
-//   url: string,
-//   options: RequestInit = {}
-// ): Promise<T> {
-//   try {
-//     const token = localStorage.getItem("token");
-//     console.log("🚀 Token gửi lên:", token);
-
-//     // Tạo headers cơ bản
-//     const headers: HeadersInit = {
-//       "Content-Type": "application/json",
-//       ...options.headers,
-//     };
-
-//     // CHỈ thêm Authorization nếu có token
-//     if (token) {
-//       headers.Authorization = `Bearer ${token}`;
-//     }
-
-//     const response = await fetch(url, {
-//       ...options,
-//       headers,
-//     });
-
-//     if (!response.ok) {
-//       const errorData = await response.json().catch(() => ({}));
-//       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-//     }
-
-//     const contentType = response.headers.get("content-type");
-//     if (contentType && contentType.includes("application/json")) {
-//       return await response.json();
-//     }
-
-//     return {} as T;
-//   } catch (error) {
-//     console.error("API Request failed:", error);
-//     throw error;
-//   }
-// }
-
 // utils/apiUtils.ts
+
+let lastLoggedToken: string | null = null; // Track token để chỉ log khi thay đổi
+
 export async function apiRequest<T>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {
   try {
     const token = localStorage.getItem("token");
-    console.log("🚀 Token gửi lên:", token);
+    
+    // ✅ Chỉ log khi token thay đổi, không log mỗi request
+    if (token !== lastLoggedToken) {
+      console.log("🚀 Token gửi lên:", token || "Không có token");
+      lastLoggedToken = token;
+    }
 
     // Tạo headers object với kiểu cụ thể
     const headers: Record<string, string> = {
@@ -93,7 +59,7 @@ export async function apiRequest<T>(
 
     return {} as T;
   } catch (error) {
-    console.error("API Request failed:", error);
+    console.error("❌ API Request failed:", error);
     throw error;
   }
 }

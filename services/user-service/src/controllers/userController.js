@@ -155,38 +155,39 @@ const userController = {
   },
 verifyToken: async (req, res) => {
   try {
+    console.log("--- 1. ĐÃ GỌI VÀO HÀM verifyToken ---"); // 👈 LOG 1
+
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    console.log("🔑 User Service - Verify Token:", token ? "Present" : "Missing");
-    
     if (!token) {
-      return res.status(401).json({ message: 'Token không tồn tại' });
+      return res.status(401).json({ message: 'Missing token' });
     }
 
-    const jwt = require('jsonwebtoken');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    const user = await User.findById(decoded.userId).select('-password');
-    
+
+    // Lấy đầy đủ thông tin cần cho chat-service
+    const user = await User.findById(decoded.userId).select('fullName role isActive profile.avatar email');
+
     if (!user) {
-      return res.status(401).json({ message: 'User không tồn tại' });
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    if (!user.isActive) {
-      return res.status(403).json({ message: 'Tài khoản không hoạt động' });
-    }
+    console.log("--- 2. LẤY ĐƯỢC USER TỪ DB:", user); // 👈 LOG 2 (Quan trọng nhất)
 
-    console.log("✅ User Service - Token verified for user:", user._id, user.role);
-    
     res.json({
-      userId: user._id.toString(),
+      userId: user._id,
       role: user.role,
-      isActive: user.isActive
+      isActive: user.isActive,
+      fullName: user.fullName,          
+      avatar: user.profile?.avatar || null, 
+      email: user.email                 
     });
   } catch (error) {
-    console.error('❌ Verify token error:', error.message);
-    res.status(401).json({ message: 'Token không hợp lệ' });
+    console.error('verifyToken error:', error.message);
+    res.status(401).json({ message: 'Invalid or expired token' });
   }
 },
+
+
 
 // Thêm hàm upgradeToInstructor
 upgradeToInstructor: async (req, res) => {

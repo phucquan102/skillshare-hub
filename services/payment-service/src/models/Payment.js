@@ -14,6 +14,10 @@ const paymentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     default: null
   },
+  instructorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null // Null nếu là instructor_fee hoặc admin_fee
+  },
   amount: {
     type: Number,
     required: true,

@@ -1559,32 +1559,42 @@ export const courseService = {
     }
   },
 
-  getUpcomingLessons: async (filters: { page?: number; limit?: number } = {}): Promise<LessonsResponse> => {
-    const queryParams = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && String(value).trim() !== '') {
-        queryParams.append(key, String(value));
+ getUpcomingLessons: async (filters: { page?: number; limit?: number } = {}): Promise<LessonsResponse> => {
+  const queryParams = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      queryParams.append(key, String(value));
+    }
+  });
+
+  // Sửa endpoint này - có thể backend chưa có API này
+  const endpoint = `${API_BASE_URL}/api/courses/upcoming-lessons?${queryParams.toString()}`;
+  
+  console.log('📡 [getUpcomingLessons] API Request:', endpoint);
+
+  try {
+    const response = await apiRequest<LessonsResponse>(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
 
-    const endpoint = `${API_BASE_URL}/api/lessons/upcoming?${queryParams.toString()}`;
-    
-    try {
-      const response = await apiRequest<LessonsResponse>(endpoint, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      return response;
-    } catch (error) {
-      console.error('Failed to fetch upcoming lessons:', error);
-      throw error;
-    }
-  },
-
+    return response;
+  } catch (error) {
+    console.error('❌ Failed to fetch upcoming lessons:', error);
+    // Trả về response rỗng nếu API chưa có
+    return {
+      lessons: [],
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        totalLessons: 0
+      }
+    };
+  }
+},
   searchLessons: async (query: string, filters: { page?: number; limit?: number } = {}): Promise<LessonsResponse> => {
     const queryParams = new URLSearchParams();
     queryParams.append('search', query);
