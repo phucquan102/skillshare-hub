@@ -221,7 +221,335 @@ class ChatController {
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+// ========================
+  // 🎓 GET COURSE INSTRUCTORS
+  // ========================
+  // ========================
+// 🎓 GET COURSE INSTRUCTORS (FIXED)
+// ========================
+async getCourseInstructors(req, res) {
+  try {
+    const { courseId } = req.params;
+    console.log('🔍 Getting instructors for course:', courseId);
 
+    let course;
+
+    // ✅ BƯỚC 1: Lấy thông tin khóa học từ Course Service
+    try {
+      const courseResponse = await axios.get(
+        `${process.env.COURSE_SERVICE_URL || 'http://localhost:3002'}/api/courses/${courseId}`,
+        {
+          headers: {
+            // Chuyển tiếp Authorization header nếu có
+            'Authorization': req.headers.authorization || ''
+          }
+        }
+      );
+
+      // (Giả sử dữ liệu trả về có thể nằm trong 'data.data' hoặc 'data')
+      course = courseResponse.data?.data || courseResponse.data;
+
+      if (!course) {
+        console.log('⚠️ Course not found from course-service');
+        return res.json({ instructors: [] });
+      }
+       console.log('✅ Course found:', course.title);
+
+    } catch (courseError) {
+      console.error('❌ Failed to fetch course info from course-service:', courseError.message);
+      // Nếu service kia lỗi (404, 500) thì cũng trả về rỗng
+      return res.json({ instructors: [] });
+    }
+
+    // ✅ BƯỚC 2: Xử lý thông tin giảng viên (LOGIC ĐÃ SỬA)
+    let instructorData = course.instructors || course.instructor; // <-- Lấy 'instructors' (số nhiều) trước, rồi mới tới 'instructor' (số ít)
+    let instructors = [];
+
+    if (instructorData) {
+      // TH 1: Dữ liệu là một mảng (popuplated hoặc mảng ID)
+      if (Array.isArray(instructorData)) {
+        
+        // Kiểm tra xem mảng chứa Object hay String (ID)
+        if (instructorData.length > 0 && typeof instructorData[0] === 'object') {
+          // Mảng đã được populate từ course-service
+          instructors = instructorData;
+        } else {
+          // Mảng chỉ chứa ID, cần gọi user-service cho từng ID
+          instructors = await Promise.all(
+            instructorData.map(id => this.getUserInfo(id))
+          );
+        }
+
+      } 
+      // TH 2: Dữ liệu là một Object (đã populate)
+      else if (typeof instructorData === 'object') {
+        instructors = [instructorData];
+      }
+      // TH 3: Dữ liệu là một String (chỉ có 1 ID)
+      else if (typeof instructorData === 'string') {
+        const info = await this.getUserInfo(instructorData);
+        instructors = [info];
+      }
+    }
+    
+    // Lọc bỏ các kết quả null (nếu getUserInfo lỗi)
+    const validInstructors = instructors.filter(Boolean);
+
+    console.log('✅ Instructors processed:', validInstructors.length, 'found');
+
+    // ✅ BƯỚC 3: Định dạng và trả về
+    res.json({
+      instructors: validInstructors.map(inst => ({
+        _id: inst._id || inst.id, // Đảm bảo lấy đúng _id
+        fullName: inst.fullName || inst.name || 'Unknown',
+        email: inst.email,
+        profile: { // Gửi về profile nếu có (frontend đang dùng)
+            avatar: inst.avatar || inst.profile?.avatar
+        }
+      }))
+    });
+
+  } catch (error) {
+    console.error('❌ Get course instructors error:', error);
+    res.json({ instructors: [] });
+  }
+}
+  // ========================
+  // 📋 CREATE COURSE CONVERSATION
+  // ========================
+  async createCourseConversation(req, res) {
+    try {
+      const { courseId, courseTitle } = req.body;
+      const userId = req.user.userId || req.user.id;
+      const userRole = req.user.role;
+
+      console.log('🎯 Creating course conversation:', {
+        courseId,
+        userId,
+        userRole,
+        courseTitle
+      });
+
+      if (!courseId) {
+        return res.status(400).json({ error: 'courseId is required' });
+      }
+
+      // ✅ Kiểm tra conversation đã tồn tại chưa
+      let conversation = await Conversation.findOne({
+        courseId,
+        type: 'group'
+      });
+
+      if (conversation) {
+        console.log('📌 Existing conversation:', conversation.title);
+        
+        // Add user to participants nếu chưa có
+        const isParticipant = conversation.participants.some(p => p.userId === userId);
+        if (!isParticipant) {
+          conversation.participants.push({
+            userId,
+            role: userRole
+          });
+          await conversation.save();
+        }
+
+        // Populate thông tin participants
+        const participantsWithInfo = await Promise.all(
+          conversation.participants.map(async (p) => {
+            const userData = await this.getUserInfo(p.userId);
+            return { ...p.toObject(), user: userData };
+          })
+        );
+
+        return res.json({
+          message: 'Course conversation already exists',
+          conversation: {
+            ...conversation.toObject(),
+            participants: participantsWithInfo
+          }
+        });
+      }
+
+      // ✅ Tạo conversation mới
+      const title = courseTitle ? `${courseTitle} - Discussion` : 'Course Discussion';
+      
+      conversation = new Conversation({
+        type: 'group',
+        courseId,
+        title,
+        description: `Discussion group for ${courseTitle || 'course'}`,
+        participants: [
+          { userId, role: userRole }
+        ]
+      });
+
+      await conversation.save();
+
+      console.log('✅ Created conversation:', title);
+
+      // Populate thông tin participants
+      const participantsWithInfo = await Promise.all(
+        conversation.participants.map(async (p) => {
+          const userData = await this.getUserInfo(p.userId);
+          return { ...p.toObject(), user: userData };
+        })
+      );
+
+      res.status(201).json({
+        message: 'Course conversation created successfully',
+        conversation: {
+          ...conversation.toObject(),
+          participants: participantsWithInfo
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Create course conversation error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // ========================
+  // 🤝 CREATE INSTRUCTOR CONVERSATION (1-1)
+  // ========================
+  async createInstructorConversation(req, res) {
+    try {
+      const { courseId, instructorId } = req.body;
+      const userId = req.user.userId || req.user.id;
+
+      console.log('💬 Creating 1-1 instructor conversation:', {
+        courseId,
+        instructorId,
+        userId
+      });
+
+      // ✅ Kiểm tra direct conversation đã tồn tại chưa
+      let conversation = await Conversation.findOne({
+        type: 'direct',
+        participants: {
+          $all: [
+            { $elemMatch: { userId: userId } },
+            { $elemMatch: { userId: instructorId } }
+          ]
+        }
+      });
+
+      if (conversation) {
+        console.log('📌 1-1 conversation already exists:', conversation._id);
+        
+        // Populate thông tin
+        const participantsWithInfo = await Promise.all(
+          conversation.participants.map(async (p) => {
+            const userData = await this.getUserInfo(p.userId);
+            return { ...p.toObject(), user: userData };
+          })
+        );
+
+        return res.json({
+          message: '1-1 conversation already exists',
+          conversation: {
+            ...conversation.toObject(),
+            participants: participantsWithInfo
+          }
+        });
+      }
+
+      // ✅ Tạo direct conversation mới
+      conversation = new Conversation({
+        type: 'direct',
+        courseId,
+        participants: [
+          { userId, role: req.user.role },
+          { userId: instructorId, role: 'instructor' }
+        ]
+      });
+
+      await conversation.save();
+
+      console.log('✅ Created 1-1 conversation:', conversation._id);
+
+      // Populate thông tin
+      const participantsWithInfo = await Promise.all(
+        conversation.participants.map(async (p) => {
+          const userData = await this.getUserInfo(p.userId);
+          return { ...p.toObject(), user: userData };
+        })
+      );
+
+      res.status(201).json({
+        message: '1-1 conversation created successfully',
+        conversation: {
+          ...conversation.toObject(),
+          participants: participantsWithInfo
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Create instructor conversation error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // ========================
+  // 📋 GET COURSE CONVERSATIONS
+  // ========================
+  async getCourseConversations(req, res) {
+    try {
+      const { courseId } = req.params;
+      const userId = req.user.userId || req.user.id;
+
+      const conversations = await Conversation.find({
+        courseId,
+        'participants.userId': userId
+      })
+        .populate('lastMessage')
+        .sort({ updatedAt: -1 });
+
+      // Populate participants with user info
+      const enrichedConversations = await Promise.all(
+        conversations.map(async (conversation) => {
+          const participantsWithInfo = await Promise.all(
+            conversation.participants.map(async (p) => {
+              const userData = await this.getUserInfo(p.userId);
+              return { ...p.toObject(), user: userData };
+            })
+          );
+
+          return {
+            ...conversation.toObject(),
+            participants: participantsWithInfo
+          };
+        })
+      );
+
+      res.json({
+        conversations: enrichedConversations
+      });
+
+    } catch (error) {
+      console.error('Get course conversations error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // ========================
+  // 👤 HELPER: Get User Info
+  // ========================
+  async getUserInfo(userId) {
+    try {
+      if (!userId) return null;
+      
+      const { getUserInfo } = require('../utils/getUserInfo');
+      return await getUserInfo(userId);
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+      return {
+        _id: userId,
+        fullName: 'Unknown User',
+        email: 'unknown@email.com'
+      };
+    }
+  }
 
   // ========================
   // 👀 Mark messages as read

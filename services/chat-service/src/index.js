@@ -4,6 +4,8 @@ const http = require('http');
 const cors = require('cors');
 const socketService = require('./services/socketService');
 const chatRoutes = require('./routes/chatRoutes');
+const courseChatRoutes = require('./routes/courseChatRoutes');
+const aiChatRoutes = require('./routes/aiChatRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -29,8 +31,8 @@ app.get('/health', (req, res) => {
 
 // Routes có auth
 app.use('/', chatRoutes);
-
-
+app.use('/courses', courseChatRoutes); 
+app.use('/ai-chat', aiChatRoutes);
 // MongoDB connection
 const connectDB = async () => {
   try {

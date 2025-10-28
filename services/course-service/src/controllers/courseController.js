@@ -903,7 +903,7 @@ const courseController = {
     }
   },
 
-  getCourseById: async (req, res) => {
+ getCourseById: async (req, res) => {
     try {
       const { courseId } = req.params;
 
@@ -914,6 +914,7 @@ const courseController = {
         return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
       }
 
+      // 1. Lấy course, không cần populate instructor ở đây
       const course = await Course.findById(courseId).populate('lessons').lean();
       if (!course) {
         console.log('⚠️ Course not found in DB:', courseId);
@@ -923,37 +924,61 @@ const courseController = {
       console.log('📚 Course found:', {
         _id: course._id,
         title: course.title,
-        instructor: course.instructor,
+        instructor: course.instructor, // ID giảng viên chính
+        coInstructors: course.coInstructors, // Mảng ID đồng giảng viên
         status: course.status
       });
 
-      const instructorId = course.instructor?._id || course.instructor;
-      const instructorInfo = await getInstructorInfo(instructorId);
+      // 2. Gom tất cả ID giảng viên lại
+      let allInstructorIds = [];
+      if (course.instructor) {
+        allInstructorIds.push(course.instructor.toString());
+      }
+      if (course.coInstructors && Array.isArray(course.coInstructors)) {
+        allInstructorIds.push(...course.coInstructors.map(id => id.toString()));
+      }
+      
+      // Lọc ID duy nhất
+      const uniqueInstructorIds = [...new Set(allInstructorIds)];
+      
+      console.log('👤 All unique instructor IDs:', uniqueInstructorIds);
 
-      console.log('👤 Instructor info fetched:', {
-        _id: instructorInfo._id,
-        fullName: instructorInfo.fullName
-      });
+      let allInstructorsInfo = [];
+      
+      // 3. Gọi batch-API để lấy thông tin tất cả giảng viên
+      if (uniqueInstructorIds.length > 0) {
+        allInstructorsInfo = await getMultipleInstructorInfo(uniqueInstructorIds);
+      }
 
-      const courseWithInstructor = {
+      console.log('✅ Fetched info for', allInstructorsInfo.length, 'instructors');
+
+      // 4. Tìm thông tin giảng viên chính từ kết quả batch
+      const mainInstructorInfo = allInstructorsInfo.find(
+        inst => inst && inst._id && course.instructor && inst._id.toString() === course.instructor.toString()
+      ) || { // Dự phòng nếu không tìm thấy (do data rác)
+          _id: course.instructor,
+          fullName: 'Unknown Instructor',
+          profile: { avatar: null, bio: null }
+      };
+
+      // 5. Xây dựng object trả về
+      const courseWithInstructors = {
         ...course,
-        instructor: {
-          _id: instructorInfo._id,
-          fullName: instructorInfo.fullName,
-          email: instructorInfo.email,
-          profile: instructorInfo.profile
-        },
+        // Giữ lại 'instructor' (object) cho trang khóa học
+        instructor: mainInstructorInfo, 
+        // 💥 THÊM MỚI: 'instructors' (array) cho ChatService
+        instructors: allInstructorsInfo, 
         availableSpots: course.maxStudents - course.currentEnrollments
       };
 
-      console.log('✅ Returning course with instructor');
-      res.json({ course: courseWithInstructor });
+      console.log('✅ Returning course with all instructors populated');
+      res.json({ course: courseWithInstructors });
+      
     } catch (error) {
       console.error('❌ Get course by ID error:', error);
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
   },
-
   updateCourse: async (req, res) => {
     try {
       const { courseId } = req.params;

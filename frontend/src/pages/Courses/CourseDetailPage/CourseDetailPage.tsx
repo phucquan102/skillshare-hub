@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { courseService, Course } from '../../../services/api/courseService';
 import { enrollmentService } from '../../../services/api/enrollmentService';
-
+import { ChatContainer } from '../../../components/chat/ChatContainer/ChatContainer';
+import { chatService } from '../../../services/api/chatService';
 const CourseDetailPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
@@ -12,14 +13,14 @@ const CourseDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'curriculum' | 'schedule' | 'gallery'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'curriculum' | 'schedule' | 'gallery' | 'chat'>('overview');
   
   // Enrollment states
   const [enrollment, setEnrollment] = useState<any>(null);
   const [hasAccess, setHasAccess] = useState(false);
   const [accessType, setAccessType] = useState<'none' | 'full_course' | 'single_lesson'>('none');
   const [enrollmentLoading, setEnrollmentLoading] = useState(false);
-
+  const DEFAULT_THUMBNAIL = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCIgdmlld0JveD0iMCAwIDQwMCAyNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjUwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMjUgODVIMjc1VjE2NUgxMjVWODVaIiBmaWxsPSIjREVER0RGIi8+Cjx0ZXh0IHg9IjIwMCIgeT0iMTQwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUE5QzlEIiBmb250LXNpemU9IjE2IiBmb250LWZhbWlseT0iQXJpYWwiPkNvdXJzZSBJbWFnZTwvdGV4dD4KPC9zdmc+';
   useEffect(() => {
     const fetchCourse = async () => {
       if (!courseId) {
@@ -203,14 +204,14 @@ const CourseDetailPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Course Image */}
           <div className="lg:col-span-1">
-            <img
-              src={course.thumbnail || 'https://via.placeholder.com/400x250?text=Course'}
-              alt={course.title}
-              className="w-full h-64 object-cover rounded-xl shadow-md"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x250?text=Course';
-              }}
-            />
+         <img
+  src={course.thumbnail || DEFAULT_THUMBNAIL}
+  alt={course.title}
+  className="w-full h-64 object-cover rounded-xl shadow-md"
+  onError={(e) => {
+    (e.target as HTMLImageElement).src = DEFAULT_THUMBNAIL;
+  }}
+/>
             
             {/* Enrollment Status Badge */}
             {hasAccess && (
@@ -414,6 +415,19 @@ const CourseDetailPage: React.FC = () => {
                 Hình ảnh ({course.gallery.length})
               </button>
             )}
+            {/* 🆕 THÊM TAB CHAT - CHỈ HIỆN KHI ĐÃ ENROLL */}
+            {hasAccess && (
+              <button
+                onClick={() => setActiveTab('chat')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'chat'
+                    ? 'border-[#4361ee] text-[#4361ee]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Thảo luận
+              </button>
+            )}
           </nav>
         </div>
       </div>
@@ -479,99 +493,98 @@ const CourseDetailPage: React.FC = () => {
             </div>
           )}
 
-      {activeTab === 'curriculum' && (
-    <div className="bg-white rounded-2xl shadow-lg p-8">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Nội dung khóa học</h2>
-      <div className="space-y-4">
-        {course.lessons && course.lessons.length > 0 ? (
-          course.lessons.map((lesson, index) => {
-            const userHasAccess = hasAccessToLesson(lesson._id);
-            const isCompleted = enrollment?.progress?.completedLessons?.some(
-              (completed: any) => completed.lessonId === lesson._id
-            );
-            const lessonPrice = lesson.price || 0; // Đảm bảo luôn có giá trị số
+          {activeTab === 'curriculum' && (
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Nội dung khóa học</h2>
+              <div className="space-y-4">
+                {course.lessons && course.lessons.length > 0 ? (
+                  course.lessons.map((lesson, index) => {
+                    const userHasAccess = hasAccessToLesson(lesson._id);
+                    const isCompleted = enrollment?.progress?.completedLessons?.some(
+                      (completed: any) => completed.lessonId === lesson._id
+                    );
+                    const lessonPrice = lesson.price || 0;
 
-            return (
-              <div
-                key={lesson._id}
-                className={`border rounded-xl p-6 transition-all duration-300 ${
-                  userHasAccess 
-                    ? 'border-green-200 bg-green-50 hover:border-green-300' 
-                    : 'border-gray-200 hover:border-[#4361ee]'
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-start space-x-4 mb-4 sm:mb-0">
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      userHasAccess 
-                        ? isCompleted ? 'bg-green-500' : 'bg-green-100'
-                        : 'bg-blue-100'
-                    }`}>
-                      {userHasAccess && isCompleted ? (
-                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <span className={`font-bold ${
-                          userHasAccess ? 'text-green-600' : 'text-[#4361ee]'
-                        }`}>
-                          {index + 1}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                        {lesson.title}
-                        {isCompleted && (
-                          <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                            Đã hoàn thành
-                          </span>
-                        )}
-                      </h3>
-                      <p className="text-gray-600 text-sm">
-                        {lesson.description || 'No description available'}
-                      </p>
-                      {lesson.duration && (
-                        <p className="text-gray-500 text-sm mt-1">
-                          Duration: {lesson.duration}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <span className="text-lg font-bold text-gray-900">
-                      {lessonPrice > 0 ? formatCurrency(lessonPrice) : 'Free'}
-                    </span>
-                    
-                    {userHasAccess ? (
-                      <button
-                        onClick={() => handleJoinLesson(lesson)}
-                        className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors duration-300"
+                    return (
+                      <div
+                        key={lesson._id}
+                        className={`border rounded-xl p-6 transition-all duration-300 ${
+                          userHasAccess 
+                            ? 'border-green-200 bg-green-50 hover:border-green-300' 
+                            : 'border-gray-200 hover:border-[#4361ee]'
+                        }`}
                       >
-                        Tham gia học
-                      </button>
-                    ) : canPurchaseIndividualLessons && lessonPrice > 0 ? (
-                      // ✅ ĐÃ SỬA: Sử dụng lessonPrice thay vì lesson.price
-                      <button
-                        onClick={() => handlePurchaseLesson(lesson._id, lessonPrice)}
-                        className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors duration-300"
-                      >
-                        Mua bài học
-                      </button>
-                    ) : null}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start space-x-4 mb-4 sm:mb-0">
+                            <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                              userHasAccess 
+                                ? isCompleted ? 'bg-green-500' : 'bg-green-100'
+                                : 'bg-blue-100'
+                            }`}>
+                              {userHasAccess && isCompleted ? (
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <span className={`font-bold ${
+                                  userHasAccess ? 'text-green-600' : 'text-[#4361ee]'
+                                }`}>
+                                  {index + 1}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                                {lesson.title}
+                                {isCompleted && (
+                                  <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                    Đã hoàn thành
+                                  </span>
+                                )}
+                              </h3>
+                              <p className="text-gray-600 text-sm">
+                                {lesson.description || 'No description available'}
+                              </p>
+                              {lesson.duration && (
+                                <p className="text-gray-500 text-sm mt-1">
+                                  Duration: {lesson.duration}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <span className="text-lg font-bold text-gray-900">
+                              {lessonPrice > 0 ? formatCurrency(lessonPrice) : 'Free'}
+                            </span>
+                            
+                            {userHasAccess ? (
+                              <button
+                                onClick={() => handleJoinLesson(lesson)}
+                                className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors duration-300"
+                              >
+                                Tham gia học
+                              </button>
+                            ) : canPurchaseIndividualLessons && lessonPrice > 0 ? (
+                              <button
+                                onClick={() => handlePurchaseLesson(lesson._id, lessonPrice)}
+                                className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors duration-300"
+                              >
+                                Mua bài học
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    Chưa có bài học nào trong khóa học này
                   </div>
-                </div>
+                )}
               </div>
-            );
-          })
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            Chưa có bài học nào trong khóa học này
-          </div>
-        )}
-      </div>
-    </div>
-  )}
+            </div>
+          )}
 
           {activeTab === 'schedule' && course.schedules && course.schedules.length > 0 && (
             <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -636,6 +649,16 @@ const CourseDetailPage: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* 🆕 TAB CHAT */}
+         {activeTab === 'chat' && (
+  <div className="bg-white rounded-2xl shadow-lg">
+    <ChatContainer 
+      courseId={courseId}
+      courseName={course.title} // ✅ THÊM DÒNG NÀY
+    />
+  </div>
+)}
         </div>
 
         {/* Sidebar */}
@@ -674,12 +697,20 @@ const CourseDetailPage: React.FC = () => {
                   </div>
                 )}
                 
-                <button
-                  onClick={() => setActiveTab('curriculum')}
-                  className="w-full py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-                >
-                  Tiếp tục học
-                </button>
+                <div className="flex flex-col space-y-2">
+                  <button
+                    onClick={() => setActiveTab('curriculum')}
+                    className="w-full py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    Tiếp tục học
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('chat')}
+                    className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    Vào thảo luận
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -717,15 +748,69 @@ const CourseDetailPage: React.FC = () => {
             )}
           </div>
 
-          {/* Rest of sidebar remains the same */}
+          {/* Course Information */}
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4">Thông tin khóa học</h3>
             <div className="space-y-3">
-              {/* ... existing course details ... */}
+              <div className="flex justify-between">
+                <span className="text-gray-600">Trình độ:</span>
+                <span className="font-medium">{translateLevel(course.level)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Ngôn ngữ:</span>
+                <span className="font-medium">
+                  {course.language === 'en' ? 'English' : course.language === 'vi' ? 'Vietnamese' : course.language}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Học viên:</span>
+                <span className="font-medium">{course.currentEnrollments || 0}</span>
+              </div>
+              {/* ĐÃ XÓA PHẦN duration VÌ KHÔNG CÓ TRONG INTERFACE COURSE */}
+              {course.certificate && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Chứng chỉ:</span>
+                  <span className="font-medium text-green-600">Có</span>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* ... other sidebar sections ... */}
+          {/* Instructor Info */}
+          {course.instructor && (
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Giảng viên</h3>
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <span className="font-semibold text-blue-600">
+                    {course.instructor.fullName?.charAt(0) || 'U'}
+                  </span>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">{course.instructor.fullName}</h4>
+                  <p className="text-sm text-gray-600">Instructor</p>
+                </div>
+              </div>
+       {hasAccess && (
+  <button
+    onClick={async () => {
+      if (course.instructor?._id && courseId) {
+        try {
+          await chatService.createInstructorConversation(courseId, course.instructor._id);
+          setActiveTab('chat');
+        } catch (err) {
+          console.error('Error creating conversation:', err);
+          alert('Không thể tạo cuộc trò chuyện. Vui lòng thử lại.');
+        }
+      }
+    }}
+    className="w-full mt-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors duration-300"
+  >
+    Nhắn tin với giảng viên
+  </button>
+)}
+            </div>
+          )}
         </div>
       </div>
 
