@@ -32,7 +32,7 @@ app.get('/health', (req, res) => {
 // Routes có auth
 app.use('/', chatRoutes);
 app.use('/courses', courseChatRoutes); 
-app.use('/ai-chat', aiChatRoutes);
+app.use('/', aiChatRoutes);
 // MongoDB connection
 const connectDB = async () => {
   try {

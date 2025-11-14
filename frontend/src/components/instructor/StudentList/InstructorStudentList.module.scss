@@ -1,0 +1,410 @@
+// frontend/src/components/instructor/StudentList/InstructorStudentList.module.scss
+
+.container {
+  padding: 2rem;
+  background: #f9fafb;
+  min-height: 100vh;
+}
+
+.header {
+  margin-bottom: 2rem;
+
+  .title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .subtitle {
+    color: #6b7280;
+    font-size: 1rem;
+    margin: 0;
+  }
+}
+
+// Course Selector
+.courseSelector {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  .label {
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .select {
+    flex: 1;
+    max-width: 400px;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    background-color: white;
+    cursor: pointer;
+
+    &:focus {
+      outline: none;
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+  }
+}
+
+// Stats Grid
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.statCard {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  text-align: center;
+
+  .statNumber {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #10b981;
+    margin-bottom: 0.5rem;
+  }
+
+  .statLabel {
+    font-size: 0.875rem;
+    color: #6b7280;
+    font-weight: 500;
+  }
+}
+
+// Filter Bar
+.filterBar {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.searchBox {
+  flex: 1;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+
+  &:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  }
+}
+
+.statusFilters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filterButton {
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #10b981;
+    color: #10b981;
+  }
+
+  &.active {
+    background: #10b981;
+    border-color: #10b981;
+    color: white;
+  }
+}
+
+// Table
+.tableWrapper {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
+  margin-bottom: 2rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+
+  thead {
+    background: #f3f4f6;
+    border-bottom: 2px solid #e5e7eb;
+
+    th {
+      padding: 1rem;
+      text-align: left;
+      font-weight: 600;
+      color: #374151;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid #e5e7eb;
+      transition: background-color 0.2s;
+
+      &:hover {
+        background-color: #f9fafb;
+      }
+
+      td {
+        padding: 1rem;
+        font-size: 0.95rem;
+      }
+    }
+  }
+}
+
+.studentInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatarPlaceholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #10b981;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.phone {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.email {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+// Badges
+.badge {
+  display: inline-block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+
+  &.badgeActive {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  &.badgeCompleted {
+    background: #dbeafe;
+    color: #0c4a6e;
+  }
+
+  &.badgeCancelled {
+    background: #fee2e2;
+    color: #7f1d1d;
+  }
+
+  &.badgePaused {
+    background: #fef3c7;
+    color: #92400e;
+  }
+}
+
+// Progress
+.progressContainer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.progressBar {
+  flex: 1;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #34d399);
+  transition: width 0.3s ease;
+}
+
+.progressText {
+  font-size: 0.85rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.joinedDate {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+// Buttons
+.detailButton {
+  padding: 0.5rem 1rem;
+  background: #10b981;
+  color: white;
+  border-radius: 0.375rem;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background: #059669;
+  }
+}
+
+.createButton {
+  padding: 0.75rem 1.5rem;
+  background: #10b981;
+  color: white;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  font-weight: 600;
+  display: inline-block;
+  margin-top: 1rem;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background: #059669;
+  }
+}
+
+// Pagination
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem 0;
+}
+
+.paginationButton {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: #374151;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    border-color: #10b981;
+    color: #10b981;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.pageInfo {
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+// Empty States
+.noData,
+.emptyState {
+  background: white;
+  padding: 3rem;
+  border-radius: 0.75rem;
+  text-align: center;
+  color: #6b7280;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  p {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+  }
+}
+
+// Loading
+.loadingContainer {
+  background: white;
+  padding: 3rem;
+  border-radius: 0.75rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: #6b7280;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+// Error Alert
+.errorAlert {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  color: #7f1d1d;
+  margin-bottom: 1.5rem;
+
+  p {
+    margin: 0;
+  }
+}

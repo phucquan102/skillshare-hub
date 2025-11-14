@@ -1,3 +1,6 @@
+// frontend/src/types/student.types.ts
+
+// ========== STUDENT COURSE TYPES ==========
 export interface StudentCourse {
   enrollmentId: string;
   enrolledAt: string;
@@ -70,6 +73,7 @@ export interface LessonProgress {
 
 export interface StudentCourseResponse {
   success: boolean;
+  message?: string;
   courses: StudentCourse[];
   stats: {
     total: number;
@@ -88,55 +92,7 @@ export interface StudentCourseResponse {
 
 export interface CourseProgressResponse {
   success: boolean;
-  progress: CourseProgress;
-  course: {
-    _id: string;
-    title: string;
-    description: string;
-    thumbnail: string;
-  };
-}
-
-export interface LearningStatistics {
-  overview: {
-    totalCourses: number;
-    completedCourses: number;
-    activeCourses: number;
-    totalLessons: number;
-    completedLessons: number;
-    averageProgress: number;
-    totalLearningTime: number;
-  };
-  coursesByCategory: { [category: string]: number };
-  recentActivity: Array<{
-    courseId: string;
-    courseTitle: string;
-    lastAccessed: string;
-    progress: number;
-  }>;
-}
-export interface StudentCourseResponse {
-  success: boolean;
-  message?: string; // Thêm property message (optional)
-  courses: StudentCourse[];
-  stats: {
-    total: number;
-    active: number;
-    completed: number;
-    cancelled: number;
-  };
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    totalCourses: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
-}
-
-export interface CourseProgressResponse {
-  success: boolean;
-  message?: string; // Thêm cho consistency
+  message?: string;
   progress: CourseProgress;
   course: {
     _id: string;
@@ -163,4 +119,143 @@ export interface LearningStatistics {
     lastAccessed: string;
     progress: number;
   }>;
+}
+
+// ========== INSTRUCTOR STUDENT LIST TYPES ==========
+
+export interface StudentInfo {
+  userId: string;
+  fullName: string;
+  email: string;
+  avatar?: string;
+  phoneNumber?: string;
+  joinedDate: string;
+}
+
+export interface StudentEnrollmentInfo {
+  status: 'active' | 'completed' | 'cancelled' | 'paused';
+  enrolledAt: string;
+  completedAt?: string;
+  hasFullAccess: boolean;
+  purchasedLessons: number;
+}
+
+export interface StudentProgressInfo {
+  completedLessons: number;
+  totalLessons: number;
+  progressPercentage: number;
+  lastAccessed?: string;
+}
+
+export interface InstructorStudent {
+  enrollmentId: string;
+  student: StudentInfo;
+  enrollment: StudentEnrollmentInfo;
+  progress: StudentProgressInfo;
+}
+
+export interface StudentListStats {
+  total: number;
+  active: number;
+  completed: number;
+  cancelled: number;
+  paused: number;
+}
+
+export interface StudentListPagination {
+  currentPage: number;
+  totalPages: number;
+  totalStudents: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface InstructorStudentListResponse {
+  success: boolean;
+  message?: string;
+  students: InstructorStudent[];
+  stats: StudentListStats;
+  pagination: StudentListPagination;
+}
+
+// ========== STUDENT PROGRESS DETAIL (FOR INSTRUCTOR) ==========
+
+export interface CompletedLessonDetail {
+  lessonId: string;
+  lessonTitle: string;
+  lessonOrder: number;
+  completedAt: string;
+  progress: number;
+}
+
+export interface StudentProgressDetailLesson {
+  _id: string;
+  title: string;
+  order: number;
+  duration: number;
+  lessonType: string;
+  status: string;
+  isCompleted: boolean;
+  completedAt?: string;
+}
+
+export interface StudentProgressDetail {
+  student: StudentInfo;
+  enrollment: {
+    enrollmentId: string;
+    status: string;
+    enrolledAt: string;
+    completedAt?: string;
+    hasFullAccess: boolean;
+  };
+  progress: {
+    overallProgress: number;
+    completedLessons: number;
+    totalLessons: number;
+    lastAccessed?: string;
+    completedLessonsDetails: CompletedLessonDetail[];
+  };
+  lessons: StudentProgressDetailLesson[];
+}
+
+export interface InstructorStudentProgressResponse {
+  success: boolean;
+  message?: string;
+  progressDetail: StudentProgressDetail;
+}
+
+// ========== INSTRUCTOR FILTER & SEARCH ==========
+
+export interface StudentListFilters {
+  page?: number;
+  limit?: number;
+  status?: 'all' | 'active' | 'completed' | 'cancelled' | 'paused';
+  search?: string;
+}
+
+export interface StudentListQueryParams {
+  page: number;
+  limit: number;
+  status?: string;
+  search?: string;
+}
+
+// ========== INSTRUCTOR COURSE STATS ==========
+
+export interface InstructorCourseStats {
+  totalEnrollments: number;
+  activeEnrollments: number;
+  completedEnrollments: number;
+  totalRevenue: number;
+  totalLessons: number;
+  averageRating: number;
+  ratingCount: number;
+  availableSpots: number;
+  completionRate: number;
+}
+
+export interface InstructorCourseStatsResponse {
+  success: boolean;
+  message?: string;
+  stats: InstructorCourseStats;
 }

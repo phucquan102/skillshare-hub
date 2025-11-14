@@ -1,0 +1,270 @@
+// frontend/src/pages/Chat/AIChatPage/AIChatPage.module.scss
+
+.pageContainer {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40px 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+// ==================
+// PAGE HEADER
+// ==================
+.pageHeader {
+  text-align: center;
+  color: white;
+  margin-bottom: 40px;
+  animation: fadeInDown 0.6s ease-out;
+
+  h1 {
+    margin: 0;
+    font-size: 36px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  p {
+    margin: 0;
+    font-size: 16px;
+    opacity: 0.95;
+    font-weight: 300;
+  }
+}
+
+// ==================
+// CHAT WRAPPER
+// ==================
+.chatWrapper {
+  max-width: 700px;
+  margin: 0 auto 40px;
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+// ==================
+// INFO SECTION
+// ==================
+.infoSection {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  animation: fadeInUp 0.6s ease-out 0.4s both;
+}
+
+.infoCard {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  }
+
+  h3 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+
+    li {
+      padding: 10px 0;
+      padding-left: 24px;
+      position: relative;
+      font-size: 14px;
+      color: #555;
+      line-height: 1.6;
+      border-bottom: 1px solid #f0f0f0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &::before {
+        content: '✓';
+        position: absolute;
+        left: 0;
+        color: #667eea;
+        font-weight: bold;
+        font-size: 16px;
+      }
+    }
+  }
+}
+
+// ==================
+// LOADING STATE
+// ==================
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: white;
+
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+  }
+
+  p {
+    font-size: 16px;
+    font-weight: 500;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// ==================
+// ERROR STATE
+// ==================
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  color: #d32f2f;
+
+  .errorIcon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    display: block;
+  }
+
+  p {
+    font-size: 16px;
+    margin-bottom: 24px;
+    color: #333;
+  }
+
+  button {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background: #764ba2;
+      transform: scale(1.05);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+}
+
+// ==================
+// ANIMATIONS
+// ==================
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ==================
+// RESPONSIVE
+// ==================
+@media (max-width: 768px) {
+  .pageContainer {
+    padding: 20px 16px;
+  }
+
+  .pageHeader {
+    margin-bottom: 30px;
+
+    h1 {
+      font-size: 28px;
+    }
+
+    p {
+      font-size: 14px;
+    }
+  }
+
+  .infoSection {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .infoCard {
+    padding: 16px;
+
+    h3 {
+      font-size: 16px;
+    }
+
+    ul li {
+      font-size: 13px;
+      padding: 8px 0;
+      padding-left: 20px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .pageContainer {
+    padding: 16px 12px;
+  }
+
+  .pageHeader {
+    h1 {
+      font-size: 24px;
+    }
+  }
+
+  .errorState {
+    padding: 24px;
+
+    .errorIcon {
+      font-size: 48px;
+    }
+  }
+}

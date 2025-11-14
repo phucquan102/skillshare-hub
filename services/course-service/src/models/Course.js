@@ -181,7 +181,7 @@ const courseSchema = new mongoose.Schema({
   materialsIncluded: [String],
   requirements: [String],
   tags: [String],
-  language: { type: String, default: 'vi' }, // 🆕 ĐỔI: Mặc định tiếng Việt
+  language: { type: String, default: 'english' },
   
   // THÊM: Course settings
   settings: {
@@ -314,7 +314,7 @@ courseSchema.index(
     tags: 'text'
   }, 
   {
-    default_language: 'none', // Sử dụng 'none' thay vì language override
+     default_language: 'english', // Sử dụng 'none' thay vì language override
     name: 'course_text_search'
   }
 );

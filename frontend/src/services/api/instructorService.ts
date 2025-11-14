@@ -1,5 +1,13 @@
 import { paymentService } from './paymentService';
-import { authService } from './authService'; // Thêm import này
+import { authService } from './authService';
+import {
+  InstructorStudent,
+  InstructorStudentListResponse,
+  InstructorStudentProgressResponse,
+  StudentListFilters
+} from '../../types/student.types';
+
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
 export interface InstructorRequirements {
   minCourses?: number;
@@ -13,7 +21,7 @@ export interface InstructorResponse {
   message: string;
   data?: any;
   error?: string;
-  tokenUpdated?: boolean; // Thêm field mới
+  tokenUpdated?: boolean;
 }
 
 export const instructorService = {
@@ -80,10 +88,10 @@ export const instructorService = {
   },
 
   /**
-   * Nâng cấp user lên instructor - PHIÊN BẢN ĐÃ SỬA
+   * Nâng cấp user lên instructor
    */
   async upgradeToInstructor(): Promise<InstructorResponse> {
-    const endpoint = `${process.env.REACT_APP_API_BASE_URL}/api/users/upgrade-to-instructor`;
+    const endpoint = `${API_BASE_URL}/api/users/upgrade-to-instructor`;
     
     try {
       console.log('🔄 [InstructorService] Upgrading to instructor...', endpoint);
@@ -93,7 +101,6 @@ export const instructorService = {
         throw new Error('Không tìm thấy token xác thực');
       }
 
-      // Debug token hiện tại
       console.log('🔍 [InstructorService] Current token debug:', {
         tokenExists: !!token,
         tokenLength: token.length
@@ -138,11 +145,9 @@ export const instructorService = {
 
       console.log('✅ [InstructorService] Upgrade API call successful');
 
-      // 🔥 QUAN TRỌNG: Xử lý token và profile sau khi upgrade
       let tokenUpdated = false;
       let newToken = null;
 
-      // Trường hợp 1: Backend trả về token mới trong response
       if (responseData.token) {
         console.log('🔄 [InstructorService] New token received from backend');
         newToken = responseData.token;
@@ -150,7 +155,6 @@ export const instructorService = {
         tokenUpdated = true;
       }
       
-      // Trường hợp 2: Backend trả về user data mới
       if (responseData.user) {
         console.log('🔄 [InstructorService] New user data received:', {
           role: responseData.user.role,
@@ -159,7 +163,6 @@ export const instructorService = {
         localStorage.setItem('user', JSON.stringify(responseData.user));
       }
 
-      // Trường hợp 3: Luôn gọi API getProfile để đảm bảo có thông tin mới nhất
       console.log('🔄 [InstructorService] Fetching updated profile...');
       try {
         const profileResponse = await authService.getProfile();
@@ -168,18 +171,14 @@ export const instructorService = {
           id: profileResponse.user._id
         });
         
-        // Cập nhật localStorage với user mới
         localStorage.setItem('user', JSON.stringify(profileResponse.user));
         
-        // Nếu chưa có token mới từ backend, sử dụng token hiện tại nhưng đánh dấu cần refresh
         if (!tokenUpdated) {
           console.warn('⚠️ [InstructorService] No new token received, current token may have old role');
-          // Vẫn đánh dấu là đã update profile thành công
           tokenUpdated = true;
         }
       } catch (profileError) {
         console.error('❌ [InstructorService] Failed to get updated profile:', profileError);
-        // Không throw error ở đây vì upgrade đã thành công
       }
 
       console.log('✅ [InstructorService] Upgrade to instructor completed successfully');
@@ -202,7 +201,7 @@ export const instructorService = {
   },
 
   /**
-   * Force refresh token và profile - METHOD MỚI
+   * Force refresh token và profile
    */
   async forceRefreshUserProfile(): Promise<boolean> {
     try {
@@ -223,19 +222,17 @@ export const instructorService = {
   },
 
   /**
-   * Kiểm tra và xử lý token sau khi upgrade - METHOD MỚI
+   * Kiểm tra và xử lý token sau khi upgrade
    */
   async handlePostUpgradeToken(): Promise<{ success: boolean; needsRelogin: boolean }> {
     try {
       console.log('🔍 [InstructorService] Handling post-upgrade token check...');
       
-      // Lấy profile mới nhất
       const refreshed = await this.forceRefreshUserProfile();
       if (!refreshed) {
         return { success: false, needsRelogin: true };
       }
 
-      // Kiểm tra token hiện tại
       const token = localStorage.getItem('token');
       if (!token) {
         return { success: false, needsRelogin: true };
@@ -252,7 +249,6 @@ export const instructorService = {
           match: payload.role === user?.role
         });
 
-        // Nếu token role và user role không khớp, cần đăng nhập lại
         if (payload.role !== user?.role) {
           console.warn('⚠️ [InstructorService] Token role mismatch, needs relogin');
           return { success: false, needsRelogin: true };
@@ -284,7 +280,7 @@ export const instructorService = {
   },
 
   /**
-   * Kiểm tra xem user đã là instructor chưa - PHIÊN BẢN CẢI TIẾN
+   * Kiểm tra xem user đã là instructor chưa
    */
   async checkInstructorStatus(): Promise<{ 
     isInstructor: boolean; 
@@ -300,7 +296,6 @@ export const instructorService = {
       try {
         const user = JSON.parse(userData);
         
-        // Debug token để so sánh
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
           console.log('🔍 [InstructorService] Status check - Token vs User:', {
@@ -333,6 +328,383 @@ export const instructorService = {
       isInstructor: false, 
       canBecomeInstructor: false 
     };
+  },
+
+  // ========== STUDENT LIST METHODS ==========
+
+  /**
+   * Lấy danh sách học viên của một khóa học
+   * GET /api/courses/:courseId/students
+   */
+  async getStudentsByCourse(
+    courseId: string,
+    filters?: StudentListFilters
+  ): Promise<InstructorStudentListResponse> {
+    try {
+      const page = filters?.page || 1;
+      const limit = filters?.limit || 10;
+      const status = filters?.status || 'all';
+      const search = filters?.search || '';
+
+      console.log('👥 [InstructorService] Getting students for course:', {
+        courseId,
+        page,
+        limit,
+        status,
+        search
+      });
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('limit', limit.toString());
+      if (status && status !== 'all') {
+        params.append('status', status);
+      }
+      if (search && search.trim()) {
+        params.append('search', search.trim());
+      }
+
+      const endpoint = `${API_BASE_URL}/api/courses/${courseId}/students?${params}`;
+
+      console.log('📤 [InstructorService] Sending get students request:', endpoint);
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [InstructorService] Error response:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data: InstructorStudentListResponse = await response.json();
+      console.log('✅ [InstructorService] Students retrieved successfully:', {
+        count: data.students.length,
+        total: data.pagination.totalStudents
+      });
+
+      return data;
+
+    } catch (error: any) {
+      console.error('❌ [InstructorService] Get students error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy chi tiết tiến độ học tập của một học viên
+   * GET /api/courses/:courseId/students/:studentId/progress
+   */
+  async getStudentProgress(
+    courseId: string,
+    studentId: string
+  ): Promise<InstructorStudentProgressResponse> {
+    try {
+      console.log('📈 [InstructorService] Getting student progress:', {
+        courseId,
+        studentId
+      });
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+
+      const endpoint = `${API_BASE_URL}/api/courses/${courseId}/students/${studentId}/progress`;
+
+      console.log('📤 [InstructorService] Sending get student progress request:', endpoint);
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [InstructorService] Error response:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data: InstructorStudentProgressResponse = await response.json();
+      console.log('✅ [InstructorService] Student progress retrieved successfully');
+
+      return data;
+
+    } catch (error: any) {
+      console.error('❌ [InstructorService] Get student progress error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách khóa học của giảng viên
+   * GET /api/courses/my-courses
+   */
+  async getMyCourses(
+  page: number = 1,
+  limit: number = 10,
+  status?: string
+): Promise<any> {
+  try {
+    console.log('📚 [InstructorService] Getting my courses:', {
+      page,
+      limit,
+      status
+    });
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Không tìm thấy token xác thực');
+    }
+
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    if (status && status !== 'all') {
+      params.append('status', status);
+    }
+
+    // 🔥 FIX: Sửa endpoint từ /api/courses/my-courses thành /api/courses/my-courses
+    const endpoint = `${API_BASE_URL}/api/courses/my-courses?${params}`;
+
+    console.log('📤 [InstructorService] Sending get my courses request:', endpoint);
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [InstructorService] Error response:', response.status, errorText);
+      
+      // Nếu 404, trả về response rỗng
+      if (response.status === 404) {
+        console.warn('⚠️ [InstructorService] Endpoint not found, returning empty response');
+        return {
+          success: false,
+          courses: [],
+          pagination: {
+            currentPage: page,
+            totalPages: 0,
+            totalCourses: 0,
+            hasNext: false,
+            hasPrev: false
+          }
+        };
+      }
+      
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ [InstructorService] My courses retrieved successfully:', {
+      count: data.courses?.length || 0,
+      total: data.pagination?.totalCourses || 0
+    });
+
+    return data;
+
+  } catch (error: any) {
+    console.error('❌ [InstructorService] Get my courses error:', error);
+    
+    // Trả về response rỗng thay vì throw
+    return {
+      success: false,
+      courses: [],
+      pagination: {
+        currentPage: page,
+        totalPages: 0,
+        totalCourses: 0,
+        hasNext: false,
+        hasPrev: false
+      }
+    };
+  }
+},
+  /**
+   * Lấy chi tiết một khóa học
+   * GET /api/courses/:courseId
+   */
+  async getCourseById(courseId: string): Promise<any> {
+    try {
+      const token = localStorage.getItem('token');
+
+      const endpoint = `${API_BASE_URL}/api/courses/${courseId}`;
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return await response.json();
+
+    } catch (error: any) {
+      console.error('❌ Get course error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cập nhật khóa học
+   * PATCH /api/courses/:courseId
+   */
+  async updateCourse(courseId: string, updateData: any): Promise<any> {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+
+      const endpoint = `${API_BASE_URL}/api/courses/${courseId}`;
+
+      const response = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      return await response.json();
+
+    } catch (error: any) {
+      console.error('❌ Update course error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Xóa khóa học
+   * DELETE /api/courses/:courseId
+   */
+  async deleteCourse(courseId: string): Promise<any> {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+
+      const endpoint = `${API_BASE_URL}/api/courses/${courseId}`;
+
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return await response.json();
+
+    } catch (error: any) {
+      console.error('❌ Delete course error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy thống kê khóa học
+   * GET /api/courses/:courseId/stats
+   */
+  async getCourseStats(courseId: string): Promise<any> {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+
+      const endpoint = `${API_BASE_URL}/api/courses/${courseId}/stats`;
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return await response.json();
+
+    } catch (error: any) {
+      console.error('❌ Get course stats error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách bài học của khóa học
+   * GET /api/courses/:courseId/lessons
+   */
+  async getLessonsByCourse(
+    courseId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<any> {
+    try {
+      const token = localStorage.getItem('token');
+
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('limit', limit.toString());
+
+      const endpoint = `${API_BASE_URL}/api/courses/${courseId}/lessons?${params}`;
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return await response.json();
+
+    } catch (error: any) {
+      console.error('❌ Get lessons error:', error);
+      throw error;
+    }
   }
 };
 

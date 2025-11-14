@@ -14,15 +14,14 @@ const messageLimiter = rateLimit({
 // All routes require authentication
 router.use(auth);
 
-// ========================
-// 📨 CONVERSATION ROUTES
-// ========================
+
+//  CONVERSATION ROUTES
 router.get('/conversations', chatController.getConversations);
 router.post('/conversations', chatController.createConversation);
 
-// ========================
+
 // 🎓 COURSE-SPECIFIC ROUTES
-// ========================
+
 // Get instructors for a course
 router.get('/courses/:courseId/instructors', chatController.getCourseInstructors);
 
@@ -35,9 +34,9 @@ router.get('/courses/:courseId/conversations', chatController.getCourseConversat
 // Create 1-1 conversation with instructor
 router.post('/courses/instructor/conversation', chatController.createInstructorConversation);
 
-// ========================
-// 💌 MESSAGE ROUTES
-// ========================
+
+//  MESSAGE ROUTES
+
 router.get('/conversations/:conversationId/messages', chatController.getMessages);
 router.post('/messages', messageLimiter, chatController.sendMessage);
 router.post('/conversations/:conversationId/read', chatController.markAsRead);

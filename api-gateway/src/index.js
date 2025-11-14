@@ -65,7 +65,8 @@ app.get('/', (req, res) => {
       admin: '/api/admin',
       payments: '/api/payments',
       upload: '/api/upload',
-      chat: '/api/chat'
+      chat: '/api/chat',
+      ai: '/api/chat/ai'
     }
   });
 });
@@ -79,6 +80,7 @@ const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://user-service:30
 const COURSE_SERVICE_URL = process.env.COURSE_SERVICE_URL || 'http://course-service:3002';
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3003';
 const CHAT_SERVICE_URL = process.env.CHAT_SERVICE_URL || 'http://chat-service:3004'
+
 const createProxy = (target, serviceName, pathRewrite = {}) => {
   return createProxyMiddleware({
     target,
@@ -119,24 +121,27 @@ const createProxy = (target, serviceName, pathRewrite = {}) => {
 app.use(
   '/api/chat',
   createProxyMiddleware({
-    target: process.env.CHAT_SERVICE_URL || 'http://chat-service:3004',
+    target: CHAT_SERVICE_URL,
     changeOrigin: true,
+    ws: true, // 👈 bật WebSocket proxy
     pathRewrite: { '^/api/chat': '' },
-    ws: true, // 👈 Thêm dòng này để proxy WebSocket
-    onProxyReq: (proxyReq, req, res) => {
-      const authHeader = req.headers['authorization'];
-      if (authHeader) {
-        proxyReq.setHeader('Authorization', authHeader);
+    logLevel: 'debug',
+    onProxyReq: (proxyReq, req) => {
+      console.log(`➡️ Chat Service: ${req.method} ${req.originalUrl}`);
+      if (req.headers['authorization']) {
+        proxyReq.setHeader('Authorization', req.headers['authorization']);
       }
     },
-    logLevel: 'debug',
+    onProxyRes: (proxyRes, req) => {
+      console.log(`⬅️ Chat Service: ${proxyRes.statusCode}`);
+    }
   })
 );
-
 
 app.use('/api/upload', (req, res, next) => {
   console.log('🔍 [Upload Debug] Request received:', {
     method: req.method,
+
     url: req.originalUrl,
     headers: req.headers,
     contentType: req.headers['content-type'],
@@ -178,6 +183,7 @@ app.use('/api/students', createProxyMiddleware({
     console.log(`➡️ Student Service: ${req.method} ${req.originalUrl}`);
   }
 }));
+
 /**
  * =====================
  *  START SERVER

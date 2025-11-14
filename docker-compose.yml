@@ -1,7 +1,9 @@
 version: '3.8'
 
 services:
+  # ========================
   # MongoDB Database
+  # ========================
   mongo:
     image: mongo:8.0
     ports:
@@ -14,8 +16,16 @@ services:
     command: mongod --auth
     networks:
       - skillshare-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test -u admin -p password123 --authenticationDatabase admin --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
-  # Redis
+  # ========================
+  # Redis Cache
+  # ========================
   redis:
     image: redis:7.0-alpine
     ports:
@@ -24,8 +34,35 @@ services:
       - redis-data:/data
     networks:
       - skillshare-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ========================
+  # Ollama AI Model
+  # ========================
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    networks:
+      - skillshare-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ========================
   # User Service
+  # ========================
   user-service:
     build:
       context: ./services/user-service
@@ -33,15 +70,25 @@ services:
     ports:
       - "3001:3001"
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
     environment:
       - MONGO_URI=mongodb://admin:password123@mongo:27017/userdb?authSource=admin
       - PORT=3001
+      - JWT_SECRET=your_super_secret_jwt_key_here
     networks:
       - skillshare-network
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+  # ========================
   # Course Service
+  # ========================
   course-service:
     build:
       context: ./services/course-service
@@ -49,19 +96,30 @@ services:
     ports:
       - "3002:3002"
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - MONGO_URI=mongodb://admin:password123@mongo:27017/coursedb?authSource=admin
       - USER_SERVICE_URL=http://user-service:3001
       - PAYMENT_SERVICE_URL=http://payment-service:3003
       - REDIS_URL=redis://redis:6379
       - PORT=3002
+      - JWT_SECRET=your_super_secret_jwt_key_here
     networks:
       - skillshare-network
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+  # ========================
   # Payment Service
+  # ========================
   payment-service:
     build:
       context: ./services/payment-service
@@ -69,20 +127,28 @@ services:
     ports:
       - "3003:3003"
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
     environment:
       - MONGO_URI=mongodb://admin:password123@mongo:27017/paymentdb?authSource=admin
       - USER_SERVICE_URL=http://user-service:3001
       - COURSE_SERVICE_URL=http://course-service:3002
       - PORT=3003
-  
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      # Thêm STRIPE_SECRET_KEY khi tích hợp Stripe
-      # - STRIPE_SECRET_KEY=sk_test_...
+      - JWT_SECRET=your_super_secret_jwt_key_here
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-sk_test_dummy}
     networks:
       - skillshare-network
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+  # ========================
+  # Chat Service (với AI)
+  # ========================
   chat-service:
     build:
       context: ./services/chat-service
@@ -90,8 +156,12 @@ services:
     ports:
       - "3004:3004"
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
     environment:
       - PORT=3004
       - MONGO_URI=mongodb://admin:password123@mongo:27017/chatdb?authSource=admin
@@ -99,12 +169,23 @@ services:
       - JWT_SECRET=your_super_secret_jwt_key_here
       - USER_SERVICE_URL=http://user-service:3001
       - COURSE_SERVICE_URL=http://course-service:3002
-      - FRONTEND_URL=*
+      - OLLAMA_URL=http://ollama:11434
+      - GEMINI_API_KEY=AIzaSyDxqJyrA6hVYsc1VNxaidBrFjLnRSk1eSQ
+      - GEMINI_MODEL=gemini-2.5-flash
+      - FRONTEND_URL=http://localhost:8081
     networks:
       - skillshare-network
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  # Cập nhật API Gateway để bao gồm chat service
+  # ========================
+  # API Gateway
+  # ========================
   api-gateway:
     build:
       context: ./api-gateway
@@ -112,21 +193,33 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - user-service
-      - course-service
-      - payment-service
-      - chat-service  # 👈 Thêm dependency mới
+      user-service:
+        condition: service_healthy
+      course-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
     environment:
       - PORT=3000
       - USER_SERVICE_URL=http://user-service:3001
       - COURSE_SERVICE_URL=http://course-service:3002
       - PAYMENT_SERVICE_URL=http://payment-service:3003
-      - CHAT_SERVICE_URL=http://chat-service:3004  # 👈 Thêm biến mới
+      - CHAT_SERVICE_URL=http://chat-service:3004
     networks:
       - skillshare-network
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+  # ========================
   # Frontend
+  # ========================
   frontend:
     build:
       context: ./frontend
@@ -134,17 +227,25 @@ services:
     ports:
       - "8081:80"
     depends_on:
-      - api-gateway
+      api-gateway:
+        condition: service_healthy
     environment:
-      - REACT_APP_API_BASE_URL=http://api-gateway:3000
+      - REACT_APP_API_BASE_URL=http://localhost:3000
     networks:
       - skillshare-network
     restart: on-failure
 
+# ========================
+# Volumes
+# ========================
 volumes:
   mongo-data:
   redis-data:
+  ollama:
 
+# ========================
+# Networks
+# ========================
 networks:
   skillshare-network:
     driver: bridge

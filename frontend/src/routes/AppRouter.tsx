@@ -45,9 +45,11 @@ import ManageCoursesPage from '../pages/instructor/ManageCourses/ManageCoursesPa
 import ManageLessonsPage from '../pages/instructor/ManageLessons/ManageLessonsPage';
 import LessonDetailPage from '../pages/instructor/ManageLessons/LessonDetailPage';
 import InstructorLessonStartPage from '../pages/instructor/InstructorLessonStartPage/InstructorLessonStartPage';
-
-// Chat Pages - 👈 THÊM IMPORT NÀY
+import AIChatPage from '../pages/Chat/AIChatPage/AIChatPage';
 import { ChatPage } from '../pages/Chat/ChatPage/ChatPage';
+
+// 🆕 THÊM IMPORT NÀY
+import InstructorStudentList from '../components/instructor/StudentList/InstructorStudentList';
 
 const AppRouter: React.FC = () => {
   return (
@@ -83,12 +85,14 @@ const AppRouter: React.FC = () => {
           <Route index element={<MyCoursesPage />} />
           <Route path=":courseId" element={<StudentLessonList />} />
         </Route>
-        {/* 🆕 Chat Route - 👈 THÊM DÒNG NÀY */}
+        {/* 🆕 Chat Route */}
         <Route path="chat" element={<ChatPage />} />
         <Route path="sessions" element={<div>Upcoming Sessions Page</div>} />
         <Route path="schedule" element={<div>Learning Schedule Page</div>} />
         <Route path="payments" element={<div>Payment History Page</div>} />
       </Route>
+
+      <Route path="/ai-chat" element={<AIChatPage />} />
 
       {/* 👨‍🏫 Instructor Dashboard */}
       <Route
@@ -118,11 +122,14 @@ const AppRouter: React.FC = () => {
           }
         />
 
-        {/* 🆕 Chat Route cho Instructor - 👈 THÊM DÒNG NÀY */}
+        {/* 🆕 Chat Route cho Instructor */}
         <Route path="chat" element={<ChatPage />} />
 
+        {/* 🆕 THÊM ROUTE CHO STUDENT LIST */}
+        <Route path="students" element={<InstructorStudentList />} />
+        <Route path="students/:studentId/progress" element={<div>Student Progress Detail Page</div>} />
+
         <Route path="sessions" element={<div>Session Management Page</div>} />
-        <Route path="students" element={<div>Students List Page</div>} />
         <Route path="earnings" element={<div>Earnings & Payments Page</div>} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -169,7 +176,7 @@ const AppRouter: React.FC = () => {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="users" element={<UsersManagementPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        {/* 🆕 Chat Route cho Admin - 👈 THÊM DÒNG NÀY */}
+        {/* 🆕 Chat Route cho Admin */}
         <Route path="chat" element={<ChatPage />} />
         <Route path="courses">
           <Route index element={<CoursesManagementPage />} />

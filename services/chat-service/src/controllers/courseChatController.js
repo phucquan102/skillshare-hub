@@ -3,7 +3,7 @@ const Message = require('../models/Message');
 const { getUserInfo } = require('../utils/getUserInfo');
 const axios = require('axios');
 
-// ✅ Cache để không phụ thuộc API course-service
+//  Cache để không phụ thuộc API course-service
 const courseCache = new Map();
 
 class CourseChatController {
@@ -37,7 +37,7 @@ class CourseChatController {
       console.warn(`⚠️  Could not fetch course: ${error.message}`);
     }
 
-    // ✅ Fallback: return default
+    //  Fallback: return default
     return {
       title: `Course ${courseId}`,
       thumbnail: null,
@@ -45,9 +45,9 @@ class CourseChatController {
     };
   }
 
-  // ========================
-  // 🎓 Tạo/lấy conversation cho khóa học
-  // ========================
+
+// Tạo/lấy conversation cho khóa học
+
   async createCourseConversation(req, res) {
     try {
       const { courseId } = req.params;
@@ -176,12 +176,9 @@ class CourseChatController {
     }
   }
 
-  // ========================
-  // 👨‍🏫 Lấy danh sách instructors của khóa học
-  // ========================
-// ========================
-  // 👨‍🏫 Lấy danh sách instructors của khóa học
-  // ========================
+ 
+  //  Lấy danh sách instructors của khóa học
+ 
   async getCourseInstructors(req, res) {
     console.log('🎯 [DEBUG] getCourseInstructors - axios is defined:', typeof axios !== 'undefined');
     console.log('🎯 [DEBUG] getCourseInstructors - axios version:', axios?.VERSION);
@@ -199,7 +196,7 @@ class CourseChatController {
 
       let courseTitle = 'Course';
       
-      // ✅ 1. LẤY COURSE TITLE (cache hoặc API)
+      //  1. LẤY COURSE TITLE (cache hoặc API)
       try {
         if (courseCache.has(courseId)) {
           courseTitle = courseCache.get(courseId).title;

@@ -3,7 +3,7 @@ import { io, Socket } from "socket.io-client";
 const token = localStorage.getItem("token");
 
 // ✅ FIX: Thay localhost:3000 → localhost:3004
-export const socket: Socket = io("http://localhost:3004", {
+export const socket = io('http://localhost:3000', {
   transports: ["websocket", "polling"], // ✅ ADD: fallback to polling
   auth: { token },
   reconnection: true,
