@@ -267,6 +267,7 @@ export interface CreateCourseData {
   fullCoursePrice?: number;
   coInstructors?: string[];
   schedules: AddScheduleData[];
+  datedSchedules?: any[];
   maxStudents: number;
   prerequisites?: string[];
   learningOutcomes?: string[];
@@ -372,7 +373,96 @@ export interface MeetingInfo {
   maxParticipants: number;
 }
 
-// ========== NEW INTERFACES FOR MEETING RESPONSES ==========
+export interface LessonAccessInfo {
+  hasAccess: boolean;
+  accessLevel: 'none' | 'preview' | 'full';
+  reason: string;
+  requiresPurchase?: boolean;
+  purchasePrice?: number;
+  isPreview?: boolean;
+  isFree?: boolean;
+}
+
+export interface LessonContent {
+  _id?: string;
+  type: 'video' | 'document' | 'quiz' | 'assignment' | 'text' | 'link';
+  title: string;
+  content?: string;
+  url?: string;
+  duration?: number;
+  order: number;
+  isPreview: boolean;
+  isRequired: boolean;
+  metadata?: any;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface LessonResource {
+  _id?: string;
+  type: 'file' | 'link' | 'document' | 'other';
+  title: string;
+  description?: string;
+  url?: string;
+  fileSize?: number;
+  fileType?: string;
+  order: number;
+  downloadCount?: number;
+  metadata?: any;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface LessonContentsResponse {
+  success: boolean;
+  contents: LessonContent[];
+  resources: LessonResource[];
+  access: {
+    hasFullAccess: boolean;
+    totalContents: number;
+    previewContents: number;
+    totalResources: number;
+    availableResources: number;
+  };
+}
+
+export interface UpdateLessonContentData {
+  contents?: LessonContent[];
+  resources?: LessonResource[];
+}
+
+export interface LessonSearchFilters {
+  search?: string;
+  lessonType?: string;
+  status?: string;
+  isPreview?: boolean;
+  isFree?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+export interface LessonSearchResponse {
+  success: boolean;
+  lessons: Lesson[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalLessons: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+  searchSummary: {
+    searchQuery?: string;
+    filters: {
+      lessonType?: string;
+      status?: string;
+      isPreview?: boolean;
+      isFree?: boolean;
+    };
+    resultsCount: number;
+    totalCount: number;
+  };
+}
 
 export interface MeetingStartResponse {
   success: boolean;
@@ -749,6 +839,66 @@ export const courseService = {
     }
   },
 
+  // 🆕 Service mới: Lấy available schedules theo type
+  getAvailableSchedulesByType: async (
+    courseId: string, 
+    scheduleType: 'weekly' | 'dated' = 'weekly'
+  ): Promise<AvailableSchedulesResponse> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/schedules/available-by-type?scheduleType=${scheduleType}`;
+    
+    console.log('📡 [getAvailableSchedulesByType] API Request:', endpoint);
+
+    try {
+      const response = await apiRequest<AvailableSchedulesResponse>(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      console.log('📥 [getAvailableSchedulesByType] API Response:', response);
+      return response;
+    } catch (error) {
+      console.error('💥 [getAvailableSchedulesByType] API Error:', error);
+      throw error;
+    }
+  },
+
+  // 🆕 Service tạo lesson với cả hai loại schedule
+  createLessonWithScheduleType: async (
+    courseId: string, 
+    lessonData: CreateLessonData & { datedScheduleId?: string }
+  ): Promise<{ message: string; lesson: Lesson }> => {
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/lessons`;
+    const token = localStorage.getItem('token');
+    
+    console.log('🔗 [createLessonWithScheduleType] Creating lesson:', lessonData);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(lessonData)
+      });
+
+      const responseText = await response.text();
+      console.log('📥 Response:', responseText);
+
+      if (!response.ok) {
+        throw new Error(responseText || `HTTP ${response.status}`);
+      }
+
+      return JSON.parse(responseText);
+    } catch (error: any) {
+      console.error('❌ [createLessonWithScheduleType] ERROR:', error.message);
+      throw error;
+    }
+  },
+
   // ========== LESSON MANAGEMENT ==========
 
   getLessonsByCourse: async (courseId: string, filters: { page?: number; limit?: number } = {}): Promise<LessonsResponse> => {
@@ -780,24 +930,127 @@ export const courseService = {
     }
   },
 
-  getLessonById: async (lessonId: string): Promise<{ lesson: Lesson }> => {
-    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}`;
+  // 🆕 THÊM: Get lesson by ID với kiểm tra quyền truy cập chi tiết
+  getLessonById: async (lessonId: string): Promise<{ 
+    success: boolean; 
+    lesson: Lesson & {
+      access: LessonAccessInfo;
+      scheduleInfo?: any;
+    } 
+  }> => {
+    // ✅ SỬA: Thay endpoint từ /detailed sang /
+     const endpoint = `${API_BASE_URL}/api/courses/lessons/${lessonId}/detailed`;
+    const token = localStorage.getItem('token');
     
-    console.log('📡 [getLessonById] Fixed API Request:', endpoint);
-    
+    console.log('📡 [getLessonById] API Request:', endpoint);
+
     try {
-      const response = await apiRequest<{ lesson: Lesson }>(endpoint, {
+      const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+
+      const responseText = await response.text();
+      console.log('📥 [getLessonById] Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = 'Lỗi server khi lấy thông tin bài học';
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = responseText || `HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = JSON.parse(responseText);
+      console.log('✅ [getLessonById] SUCCESS:', result);
+      return result;
+
+    } catch (error: any) {
+      console.error('❌ [getLessonById] ERROR:', error.message);
+      throw error;
+    }
+  },
+
+  // 🆕 THÊM: Get lesson preview (chế độ xem trước công khai)
+  getLessonPreview: async (lessonId: string): Promise<{ 
+    success: boolean; 
+    lesson: Lesson;
+    note?: string;
+  }> => {
+    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/preview`;
+    
+    console.log('📡 [getLessonPreview] API Request:', endpoint);
+
+    try {
+      const response = await apiRequest<{ 
+        success: boolean; 
+        lesson: Lesson;
+        note?: string;
+      }>(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
         }
       });
       
-      console.log('📥 [getLessonById] API Response:', response);
+      console.log('📥 [getLessonPreview] API Response:', response);
       return response;
     } catch (error) {
-      console.error('💥 [getLessonById] API Error:', error);
+      console.error('💥 [getLessonPreview] API Error:', error);
+      throw error;
+    }
+  },
+
+  // 🆕 THÊM: Check lesson access - API riêng để kiểm tra quyền
+  checkLessonAccess: async (lessonId: string): Promise<{
+    success: boolean;
+    access: LessonAccessInfo;
+    lesson: {
+      _id: string;
+      title: string;
+      price: number;
+    };
+  }> => {
+    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/check-access`;
+    const token = localStorage.getItem('token');
+    
+    console.log('📡 [checkLessonAccess] API Request:', endpoint);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+
+      const responseText = await response.text();
+      console.log('📥 [checkLessonAccess] Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = 'Lỗi server khi kiểm tra quyền truy cập';
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = responseText || `HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = JSON.parse(responseText);
+      console.log('✅ [checkLessonAccess] SUCCESS:', result);
+      return result;
+
+    } catch (error: any) {
+      console.error('❌ [checkLessonAccess] ERROR:', error.message);
       throw error;
     }
   },
@@ -1052,6 +1305,101 @@ export const courseService = {
 
   // ========== LESSON CONTENT MANAGEMENT ==========
 
+  // 🆕 THÊM: Get lesson contents với phân quyền
+  getLessonContents: async (lessonId: string): Promise<LessonContentsResponse> => {
+    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/contents`;
+    const token = localStorage.getItem('token');
+    
+    console.log('📡 [getLessonContents] API Request:', endpoint);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+
+      const responseText = await response.text();
+      console.log('📥 [getLessonContents] Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = 'Lỗi server khi lấy nội dung bài học';
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = responseText || `HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = JSON.parse(responseText);
+      console.log('✅ [getLessonContents] SUCCESS:', result);
+      return result;
+
+    } catch (error: any) {
+      console.error('❌ [getLessonContents] ERROR:', error.message);
+      throw error;
+    }
+  },
+
+  // 🆕 THÊM: Update lesson content (dành cho instructor)
+  updateLessonContent: async (
+    lessonId: string, 
+    contentData: UpdateLessonContentData
+  ): Promise<{
+    success: boolean;
+    message: string;
+    lesson: {
+      _id: string;
+      contentsCount: number;
+      resourcesCount: number;
+      updatedAt: string;
+    };
+  }> => {
+    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/contents`;
+    const token = localStorage.getItem('token');
+    
+    console.log('📡 [updateLessonContent] API Request:', endpoint);
+    console.log('📤 Update data:', contentData);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify(contentData)
+      });
+
+      const responseText = await response.text();
+      console.log('📥 [updateLessonContent] Response status:', response.status);
+      console.log('📥 [updateLessonContent] Response body:', responseText);
+
+      if (!response.ok) {
+        let errorMessage = 'Lỗi server khi cập nhật nội dung bài học';
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = responseText || `HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = JSON.parse(responseText);
+      console.log('✅ [updateLessonContent] SUCCESS:', result);
+      return result;
+
+    } catch (error: any) {
+      console.error('❌ [updateLessonContent] ERROR:', error.message);
+      throw error;
+    }
+  },
+
   addLessonContent: async (lessonId: string, contentData: any): Promise<{ message: string; lesson: Lesson }> => {
     const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/content`;
     
@@ -1136,37 +1484,210 @@ export const courseService = {
     }
   },
 
-  // ========== LESSON ANALYTICS ==========
-
-  getLessonAnalytics: async (lessonId: string): Promise<{
-    viewCount: number;
-    completionRate: number;
-    currentParticipants: number;
-    maxParticipants: number;
-    averageWatchTime: number;
-    totalWatchTime: number;
+  // 🆕 THÊM: Download lesson resource
+  downloadLessonResource: async (
+    lessonId: string, 
+    resourceId: string
+  ): Promise<{
+    success: boolean;
+    downloadUrl: string;
+    resource: LessonResource;
   }> => {
-    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/analytics`;
+    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/resources/${resourceId}/download`;
+    const token = localStorage.getItem('token');
     
+    console.log('📡 [downloadLessonResource] API Request:', endpoint);
+
     try {
-      const response = await apiRequest<{
-        viewCount: number;
-        completionRate: number;
-        currentParticipants: number;
-        maxParticipants: number;
-        averageWatchTime: number;
-        totalWatchTime: number;
-      }>(endpoint, {
+      const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          ...(token && { 'Authorization': `Bearer ${token}` })
         }
       });
 
-      return response;
-    } catch (error) {
-      console.error(`Failed to fetch lesson analytics for ${lessonId}:`, error);
+      const responseText = await response.text();
+      console.log('📥 [downloadLessonResource] Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = 'Lỗi server khi tải tài nguyên';
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = responseText || `HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = JSON.parse(responseText);
+      console.log('✅ [downloadLessonResource] SUCCESS:', result);
+      return result;
+
+    } catch (error: any) {
+      console.error('❌ [downloadLessonResource] ERROR:', error.message);
+      throw error;
+    }
+  },
+
+  // ========== LESSON ANALYTICS ==========
+
+  // 🆕 THÊM: Get lesson analytics
+  getLessonAnalytics: async (lessonId: string): Promise<{
+    success: boolean;
+    stats: {
+      totalViews: number;
+      uniqueViews: number;
+      completionRate: number;
+      averageWatchTime: number;
+      totalWatchTime: number;
+      engagementRate: number;
+      quizResults?: {
+        averageScore: number;
+        totalAttempts: number;
+        passRate: number;
+      };
+      resourceDownloads?: {
+        totalDownloads: number;
+        mostDownloaded: string[];
+      };
+    };
+  }> => {
+    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/analytics`;
+    const token = localStorage.getItem('token');
+    
+    console.log('📡 [getLessonAnalytics] API Request:', endpoint);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+
+      const responseText = await response.text();
+      console.log('📥 [getLessonAnalytics] Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = 'Lỗi server khi lấy thống kê bài học';
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = responseText || `HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = JSON.parse(responseText);
+      console.log('✅ [getLessonAnalytics] SUCCESS:', result);
+      return result;
+
+    } catch (error: any) {
+      console.error('❌ [getLessonAnalytics] ERROR:', error.message);
+      throw error;
+    }
+  },
+
+  // 🆕 THÊM: Record lesson view (khi học viên xem bài học)
+  recordLessonView: async (lessonId: string, data?: {
+    duration?: number;
+    progress?: number;
+    completed?: boolean;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    viewRecord: any;
+  }> => {
+    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/record-view`;
+    const token = localStorage.getItem('token');
+    
+    console.log('📡 [recordLessonView] API Request:', endpoint);
+    console.log('📊 View data:', data);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify(data || {})
+      });
+
+      const responseText = await response.text();
+      console.log('📥 [recordLessonView] Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = 'Lỗi server khi ghi nhận lượt xem';
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = responseText || `HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = JSON.parse(responseText);
+      console.log('✅ [recordLessonView] SUCCESS:', result);
+      return result;
+
+    } catch (error: any) {
+      console.error('❌ [recordLessonView] ERROR:', error.message);
+      throw error;
+    }
+  },
+
+  // 🆕 THÊM: Complete lesson (đánh dấu hoàn thành bài học)
+  completeLesson: async (lessonId: string, data?: {
+    score?: number;
+    timeSpent?: number;
+    notes?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    completion: any;
+  }> => {
+    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/complete`;
+    const token = localStorage.getItem('token');
+    
+    console.log('📡 [completeLesson] API Request:', endpoint);
+    console.log('📝 Completion data:', data);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify(data || {})
+      });
+
+      const responseText = await response.text();
+      console.log('📥 [completeLesson] Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = 'Lỗi server khi đánh dấu hoàn thành bài học';
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = responseText || `HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = JSON.parse(responseText);
+      console.log('✅ [completeLesson] SUCCESS:', result);
+      return result;
+
+    } catch (error: any) {
+      console.error('❌ [completeLesson] ERROR:', error.message);
       throw error;
     }
   },
@@ -1186,6 +1707,62 @@ export const courseService = {
       return response;
     } catch (error) {
       console.error(`Failed to increment view count for lesson ${lessonId}:`, error);
+      throw error;
+    }
+  },
+
+  // 🆕 THÊM: Search lessons trong khóa học
+  searchLessonsInCourse: async (
+    courseId: string,
+    filters: LessonSearchFilters = {}
+  ): Promise<LessonSearchResponse> => {
+    const queryParams = new URLSearchParams();
+    
+    // Thêm courseId vào query params
+    queryParams.append('courseId', courseId);
+    
+    // Thêm các filter khác
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        queryParams.append(key, String(value));
+      }
+    });
+
+    const endpoint = `${API_BASE_URL}/api/courses/${courseId}/lessons/search?${queryParams.toString()}`;
+    const token = localStorage.getItem('token');
+    
+    console.log('📡 [searchLessonsInCourse] API Request:', endpoint);
+    console.log('🔍 Search filters:', filters);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+
+      const responseText = await response.text();
+      console.log('📥 [searchLessonsInCourse] Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = 'Lỗi server khi tìm kiếm bài học';
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = responseText || `HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = JSON.parse(responseText);
+      console.log('✅ [searchLessonsInCourse] SUCCESS:', result);
+      return result;
+
+    } catch (error: any) {
+      console.error('❌ [searchLessonsInCourse] ERROR:', error.message);
       throw error;
     }
   },
@@ -1540,11 +2117,20 @@ export const courseService = {
 
   // ========== UTILITY METHODS ==========
 
-  checkLessonAccess: async (lessonId: string): Promise<{ hasAccess: boolean; reason?: string }> => {
-    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/check-access`;
+  getUpcomingLessons: async (filters: { page?: number; limit?: number } = {}): Promise<LessonsResponse> => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        queryParams.append(key, String(value));
+      }
+    });
+
+    const endpoint = `${API_BASE_URL}/api/courses/upcoming-lessons?${queryParams.toString()}`;
     
+    console.log('📡 [getUpcomingLessons] API Request:', endpoint);
+
     try {
-      const response = await apiRequest<{ hasAccess: boolean; reason?: string }>(endpoint, {
+      const response = await apiRequest<LessonsResponse>(endpoint, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -1554,47 +2140,18 @@ export const courseService = {
 
       return response;
     } catch (error) {
-      console.error(`Failed to check lesson access for ${lessonId}:`, error);
-      throw error;
+      console.error('❌ Failed to fetch upcoming lessons:', error);
+      return {
+        lessons: [],
+        pagination: {
+          currentPage: 1,
+          totalPages: 0,
+          totalLessons: 0
+        }
+      };
     }
   },
 
- getUpcomingLessons: async (filters: { page?: number; limit?: number } = {}): Promise<LessonsResponse> => {
-  const queryParams = new URLSearchParams();
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
-      queryParams.append(key, String(value));
-    }
-  });
-
-  // Sửa endpoint này - có thể backend chưa có API này
-  const endpoint = `${API_BASE_URL}/api/courses/upcoming-lessons?${queryParams.toString()}`;
-  
-  console.log('📡 [getUpcomingLessons] API Request:', endpoint);
-
-  try {
-    const response = await apiRequest<LessonsResponse>(endpoint, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-
-    return response;
-  } catch (error) {
-    console.error('❌ Failed to fetch upcoming lessons:', error);
-    // Trả về response rỗng nếu API chưa có
-    return {
-      lessons: [],
-      pagination: {
-        currentPage: 1,
-        totalPages: 0,
-        totalLessons: 0
-      }
-    };
-  }
-},
   searchLessons: async (query: string, filters: { page?: number; limit?: number } = {}): Promise<LessonsResponse> => {
     const queryParams = new URLSearchParams();
     queryParams.append('search', query);

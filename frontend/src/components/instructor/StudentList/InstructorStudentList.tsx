@@ -59,34 +59,66 @@ const InstructorStudentList: React.FC = () => {
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [coursesLoading, setCoursesLoading] = useState(false);
 
-  // Lấy danh sách khóa học của instructor
+  // Fetch instructor's courses
   useEffect(() => {
     loadInstructorCourses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Lấy danh sách học viên khi course thay đổi
+  // Fetch students whenever selected course or filters change
   useEffect(() => {
     if (selectedCourse) {
       loadStudents();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCourse, state.page, state.status, state.search]);
 
   const loadInstructorCourses = async () => {
     try {
       setCoursesLoading(true);
+      console.log('Fetching instructor courses...');
       const response = await instructorService.getMyCourses(1, 50);
-      setCourses(response.courses || []);
+      console.log('Instructor courses response:', response);
       
-      // Nếu không có course selected và có courses, chọn cái đầu tiên
-      if (!selectedCourse && response.courses && response.courses.length > 0) {
-        setSelectedCourse(response.courses[0]._id);
+      // Handle various response formats
+      let coursesData: any[] = [];
+      
+      if (response && response.courses) {
+        // Format 1: response.courses
+        coursesData = response.courses;
+      } else if (response && Array.isArray(response)) {
+        // Format 2: response is an array
+        coursesData = response;
+      } else if (response && response.data && response.data.courses) {
+        // Format 3: response.data.courses
+        coursesData = response.data.courses;
+      } else if (response && response.success === false) {
+        // API returned success: false but might still include data
+        console.warn('API returned success: false; checking for courses field');
+        coursesData = response.courses || [];
       }
-    } catch (error) {
+
+      console.log('Processed courses data:', coursesData);
+
+      if (coursesData && coursesData.length > 0) {
+        setCourses(coursesData);
+
+        // Auto-select the first course if none selected
+        if (!selectedCourse && coursesData.length > 0) {
+          setSelectedCourse(coursesData[0]._id);
+          console.log('Auto-selected course:', coursesData[0]._id, coursesData[0].title);
+        }
+      } else {
+        console.warn('No courses found after processing response');
+        setCourses([]);
+      }
+    } catch (error: any) {
       console.error('Failed to load courses:', error);
       setState(prev => ({
         ...prev,
-        error: 'Không thể tải danh sách khóa học'
+        error: error.message || 'Unable to load course list'
       }));
+      setCourses([]);
     } finally {
       setCoursesLoading(false);
     }
@@ -97,6 +129,7 @@ const InstructorStudentList: React.FC = () => {
 
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
+      console.log(`Fetching students for course: ${selectedCourse}`);
       
       const response: InstructorStudentListResponse = 
         await instructorService.getStudentsByCourse(selectedCourse, {
@@ -106,23 +139,59 @@ const InstructorStudentList: React.FC = () => {
           search: state.search
         });
 
+      console.log('Students response:', response);
+
+      // Normalize response into consistent structures
+      let studentsData: InstructorStudent[] = [];
+      let statsData = {
+        total: 0,
+        active: 0,
+        completed: 0,
+        cancelled: 0,
+        paused: 0
+      };
+      let paginationData = {
+        currentPage: state.page,
+        totalPages: 0,
+        totalStudents: 0
+      };
+
+      if (response && 'students' in response) {
+        // Format 1: InstructorStudentListResponse
+        studentsData = response.students || [];
+        statsData = response.stats || statsData;
+        paginationData = response.pagination || paginationData;
+      } else if (response && Array.isArray(response)) {
+        // Format 2: response is an array of students
+        studentsData = response;
+      } else if (response && 'data' in response) {
+        // Format 3: nested data payload
+        const responseWithData = response as any;
+        studentsData = responseWithData.data?.students || responseWithData.data || [];
+        statsData = responseWithData.data?.stats || statsData;
+        paginationData = responseWithData.data?.pagination || paginationData;
+      }
+
+      console.log('Processed students data:', {
+        studentsCount: studentsData.length,
+        stats: statsData,
+        pagination: paginationData
+      });
+
       setState(prev => ({
         ...prev,
-        students: response.students,
-        stats: response.stats,
-        pagination: {
-          currentPage: response.pagination.currentPage,
-          totalPages: response.pagination.totalPages,
-          totalStudents: response.pagination.totalStudents
-        },
-        loading: false
+        students: studentsData,
+        stats: statsData,
+        pagination: paginationData,
+        loading: false,
+        error: null
       }));
     } catch (error: any) {
       console.error('Failed to load students:', error);
       setState(prev => ({
         ...prev,
         loading: false,
-        error: error.message || 'Không thể tải danh sách học viên'
+        error: error.message || 'Unable to load student list'
       }));
     }
   };
@@ -167,10 +236,10 @@ const InstructorStudentList: React.FC = () => {
 
   const getStatusText = (status: string) => {
     const statusMap: { [key: string]: string } = {
-      active: 'Đang học',
-      completed: 'Hoàn thành',
-      cancelled: 'Hủy',
-      paused: 'Tạm dừng'
+      active: 'Active',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      paused: 'Paused'
     };
     return statusMap[status] || status;
   };
@@ -189,12 +258,12 @@ const InstructorStudentList: React.FC = () => {
     return (
       <div className={styles.container}>
         <div className={styles.header}>
-          <h1 className={styles.title}>Danh Sách Học Viên</h1>
+          <h1 className={styles.title}>Student List</h1>
         </div>
         <div className={styles.emptyState}>
-          <p>Bạn chưa có khóa học nào. Hãy tạo khóa học đầu tiên!</p>
+          <p>You don't have any courses yet. Create your first course!</p>
           <Link to="/instructor/courses/create" className={styles.createButton}>
-            Tạo khóa học
+            Create Course
           </Link>
         </div>
       </div>
@@ -205,14 +274,14 @@ const InstructorStudentList: React.FC = () => {
     <div className={styles.container}>
       {/* Header */}
       <div className={styles.header}>
-        <h1 className={styles.title}>Danh Sách Học Viên</h1>
-        <p className={styles.subtitle}>Quản lý và theo dõi tiến độ học viên của bạn</p>
+        <h1 className={styles.title}>Student List</h1>
+        <p className={styles.subtitle}>Manage and track your students' progress</p>
       </div>
 
       {/* Course Selector */}
       <div className={styles.courseSelector}>
         <label htmlFor="course-select" className={styles.label}>
-          Chọn khóa học:
+          Select course:
         </label>
         <select
           id="course-select"
@@ -220,7 +289,7 @@ const InstructorStudentList: React.FC = () => {
           onChange={(e) => setSelectedCourse(e.target.value)}
           className={styles.select}
         >
-          <option value="">-- Chọn khóa học --</option>
+          <option value="">-- Select a course --</option>
           {courses.map(course => (
             <option key={course._id} value={course._id}>
               {course.title}
@@ -234,25 +303,25 @@ const InstructorStudentList: React.FC = () => {
         <div className={styles.statsGrid}>
           <div className={styles.statCard}>
             <div className={styles.statNumber}>{state.stats.total}</div>
-            <div className={styles.statLabel}>Tổng cộng</div>
+            <div className={styles.statLabel}>Total</div>
           </div>
           <div className={styles.statCard}>
             <div className={styles.statNumber} style={{ color: '#10b981' }}>
               {state.stats.active}
             </div>
-            <div className={styles.statLabel}>Đang học</div>
+            <div className={styles.statLabel}>Active</div>
           </div>
           <div className={styles.statCard}>
             <div className={styles.statNumber} style={{ color: '#3b82f6' }}>
               {state.stats.completed}
             </div>
-            <div className={styles.statLabel}>Hoàn thành</div>
+            <div className={styles.statLabel}>Completed</div>
           </div>
           <div className={styles.statCard}>
             <div className={styles.statNumber} style={{ color: '#f59e0b' }}>
               {state.stats.cancelled}
             </div>
-            <div className={styles.statLabel}>Hủy</div>
+            <div className={styles.statLabel}>Cancelled</div>
           </div>
         </div>
       )}
@@ -263,7 +332,7 @@ const InstructorStudentList: React.FC = () => {
           <div className={styles.searchBox}>
             <input
               type="text"
-              placeholder="Tìm kiếm theo tên hoặc email..."
+              placeholder="Search by name or email..."
               value={state.search}
               onChange={(e) => handleSearch(e.target.value)}
               className={styles.searchInput}
@@ -279,7 +348,7 @@ const InstructorStudentList: React.FC = () => {
                   state.status === status ? styles.active : ''
                 }`}
               >
-                {status === 'all' ? 'Tất cả' : getStatusText(status)}
+                {status === 'all' ? 'All' : getStatusText(status)}
               </button>
             ))}
           </div>
@@ -297,7 +366,7 @@ const InstructorStudentList: React.FC = () => {
       {state.loading ? (
         <div className={styles.loadingContainer}>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-          <p>Đang tải dữ liệu...</p>
+          <p>Loading data...</p>
         </div>
       ) : selectedCourse ? (
         <>
@@ -307,12 +376,12 @@ const InstructorStudentList: React.FC = () => {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>Học Viên</th>
+                    <th>Student</th>
                     <th>Email</th>
-                    <th>Trạng Thái</th>
-                    <th>Tiến Độ</th>
-                    <th>Ngày Tham Gia</th>
-                    <th>Hành Động</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Joined At</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -363,14 +432,14 @@ const InstructorStudentList: React.FC = () => {
                         </div>
                       </td>
                       <td className={styles.joinedDate}>
-                        {new Date(student.enrollment.enrolledAt).toLocaleDateString('vi-VN')}
+                        {new Date(student.enrollment.enrolledAt).toLocaleDateString()}
                       </td>
                       <td>
                         <Link
                           to={`/instructor/students/${student.student.userId}/progress?courseId=${selectedCourse}`}
                           className={styles.detailButton}
                         >
-                          Chi tiết
+                          Details
                         </Link>
                       </td>
                     </tr>
@@ -380,7 +449,7 @@ const InstructorStudentList: React.FC = () => {
             </div>
           ) : (
             <div className={styles.noData}>
-              <p>Không có học viên nào</p>
+              <p>No students found</p>
             </div>
           )}
 
@@ -392,11 +461,11 @@ const InstructorStudentList: React.FC = () => {
                 disabled={state.pagination.currentPage === 1}
                 className={styles.paginationButton}
               >
-                ← Trước
+                ← Prev
               </button>
 
               <div className={styles.pageInfo}>
-                Trang {state.pagination.currentPage} / {state.pagination.totalPages}
+                Page {state.pagination.currentPage} / {state.pagination.totalPages}
               </div>
 
               <button
@@ -404,14 +473,14 @@ const InstructorStudentList: React.FC = () => {
                 disabled={state.pagination.currentPage === state.pagination.totalPages}
                 className={styles.paginationButton}
               >
-                Sau →
+                Next →
               </button>
             </div>
           )}
         </>
       ) : (
         <div className={styles.noData}>
-          <p>Vui lòng chọn một khóa học</p>
+          <p>Please select a course</p>
         </div>
       )}
     </div>

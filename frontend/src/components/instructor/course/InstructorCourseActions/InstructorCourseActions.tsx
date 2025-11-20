@@ -58,26 +58,26 @@ const InstructorCourseActions: React.FC<InstructorCourseActionsProps> = ({
     switch (course.status) {
       case 'draft':
         options.push(
-          { value: 'pending_review', label: 'Gửi duyệt', icon: 'fas fa-paper-plane', color: 'text-blue-600' }
+          { value: 'pending_review', label: 'Submit for Review', icon: 'fas fa-paper-plane', color: 'text-blue-600' }
         );
         break;
       case 'published':
         options.push(
-          { value: 'draft', label: 'Chuyển về nháp', icon: 'fas fa-edit', color: 'text-yellow-600' },
-          { value: 'archived', label: 'Lưu trữ', icon: 'fas fa-archive', color: 'text-gray-600' }
+          { value: 'draft', label: 'Move to Draft', icon: 'fas fa-edit', color: 'text-yellow-600' },
+          { value: 'archived', label: 'Archive', icon: 'fas fa-archive', color: 'text-gray-600' }
         );
         break;
       case 'rejected':
         options.push(
-          { value: 'draft', label: 'Chỉnh sửa lại', icon: 'fas fa-edit', color: 'text-blue-600' }
+          { value: 'draft', label: 'Edit and Resubmit', icon: 'fas fa-edit', color: 'text-blue-600' }
         );
         break;
       case 'pending_review':
-        // Instructor không có quyền duyệt
+        // Instructor cannot approve, so no actions
         break;
       case 'archived':
         options.push(
-          { value: 'draft', label: 'Khôi phục', icon: 'fas fa-undo', color: 'text-green-600' }
+          { value: 'draft', label: 'Restore', icon: 'fas fa-undo', color: 'text-green-600' }
         );
         break;
     }
@@ -92,7 +92,7 @@ const InstructorCourseActions: React.FC<InstructorCourseActionsProps> = ({
         'view',
         () => onView(course._id),
         'text-blue-600 hover:bg-blue-50',
-        'Xem chi tiết',
+        'View Details',
         'fas fa-eye'
       )}
 
@@ -101,7 +101,7 @@ const InstructorCourseActions: React.FC<InstructorCourseActionsProps> = ({
         'edit',
         () => onEdit(course._id),
         'text-green-600 hover:bg-green-50',
-        'Chỉnh sửa',
+        'Edit Course',
         'fas fa-edit',
         course.status === 'pending_review' || course.status === 'published'
       )}
@@ -112,7 +112,7 @@ const InstructorCourseActions: React.FC<InstructorCourseActionsProps> = ({
           <button
             className="text-purple-600 hover:bg-purple-50 p-2 rounded transition-all duration-200"
             onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-            title="Thay đổi trạng thái"
+            title="Change Status"
           >
             <i className="fas fa-exchange-alt"></i>
           </button>
@@ -149,7 +149,7 @@ const InstructorCourseActions: React.FC<InstructorCourseActionsProps> = ({
         'delete',
         () => onDelete(course._id),
         'text-red-600 hover:bg-red-50',
-        'Xóa khóa học',
+        'Delete Course',
         'fas fa-trash',
         course.currentEnrollments > 0 || course.status === 'published'
       )}
@@ -161,7 +161,7 @@ const InstructorCourseActions: React.FC<InstructorCourseActionsProps> = ({
             'analytics',
             () => window.open(`/analytics/course/${course._id}`, '_blank'),
             'text-indigo-600 hover:bg-indigo-50',
-            'Xem thống kê',
+            'View Analytics',
             'fas fa-chart-bar'
           )}
           
@@ -169,7 +169,7 @@ const InstructorCourseActions: React.FC<InstructorCourseActionsProps> = ({
             'students',
             () => window.open(`/course/${course._id}/students`, '_blank'),
             'text-teal-600 hover:bg-teal-50',
-            'Quản lý học viên',
+            'Manage Students',
             'fas fa-users'
           )}
         </div>

@@ -4,6 +4,7 @@ const token = localStorage.getItem("token");
 
 // ✅ FIX: Thay localhost:3000 → localhost:3004
 export const socket = io('http://localhost:3000', {
+   path: '/api/chat/socket.io',
   transports: ["websocket", "polling"], // ✅ ADD: fallback to polling
   auth: { token },
   reconnection: true,

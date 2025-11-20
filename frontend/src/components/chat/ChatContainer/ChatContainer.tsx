@@ -4,13 +4,19 @@ import { chatService } from './../../../services/api/chatService';
 import { ChatSidebar } from '../ChatSidebar/ChatSidebar';
 import { MessageList } from '../MessageList/MessageList';
 import { MessageInput } from '../MessageInput/MessageInput';
-import styles from './ChatContainer.module.scss';
 import { useAuth } from './../../../context/AuthContext';
 import { socket } from "../../../utils/socket";
-
-// ========================
-// 🎯 GIẢI PHÁP: Auto-fetch instructors khi component mount
-// ========================
+import { 
+  FiMessageSquare, 
+  FiUsers, 
+  FiBook,
+  FiRefreshCw,
+  FiAlertCircle,
+  FiArrowLeft,
+  FiUser,
+  FiCheck
+} from 'react-icons/fi';
+import { HiOutlineAcademicCap, HiOutlineSparkles } from 'react-icons/hi';
 
 interface ChatContainerProps {
   initialConversationId?: string;
@@ -37,9 +43,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   
   const currentConversationIdRef = useRef<string | null>(null);
 
-  // ========================
-  // 👨‍🏫 LẤY DANH SÁCH INSTRUCTORS - CẢI TIẾN
-  // ========================
+  // Load course instructors
   const loadCourseInstructors = async (courseId: string) => {
     try {
       console.log('👨‍🏫 Loading instructors for course:', courseId);
@@ -47,41 +51,21 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
       
       const response = await chatService.getCourseInstructors(courseId);
       
-      console.log('📦 Instructors response (FULL):', JSON.stringify(response, null, 2));
-      console.log('📦 Response type:', typeof response);
-      console.log('📦 Is array?', Array.isArray(response));
-      console.log('📦 response.instructors:', response?.instructors);
-      console.log('📦 response.instructors type:', typeof response?.instructors);
-      console.log('📦 Is response.instructors array?', Array.isArray(response?.instructors));
-      
-      // ✅ Xử lý linh hoạt dữ liệu từ API
       let instructors = [];
       
       if (response?.instructors && Array.isArray(response.instructors)) {
         instructors = response.instructors;
-        console.log('✅ Path 1: Got instructors from response.instructors');
       } else if (Array.isArray(response)) {
         instructors = response;
-        console.log('✅ Path 2: Response is direct array');
       } else if ((response as any)?.data && Array.isArray((response as any).data)) {
         instructors = (response as any).data;
-        console.log('✅ Path 3: Got instructors from response.data');
       }
       
       console.log('✅ Final extracted instructors:', instructors);
-      console.log('✅ Instructors count:', instructors.length);
-      
-      if (instructors.length > 0) {
-        console.log('✅ First instructor:', instructors[0]);
-      }
-      
       setCourseInstructors(instructors);
-      
       return instructors;
     } catch (error: any) {
       console.error('❌ Failed to load instructors:', error);
-      console.error('❌ Error details:', error.message);
-      console.error('❌ Error response:', error.response?.data);
       setCourseInstructors([]);
       return [];
     } finally {
@@ -89,18 +73,14 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     }
   };
 
-  // ========================
-  // 🎓 KHỞI TẠO COURSE CHAT
-  // ========================
+  // Initialize course chat
   const initializeCourseChat = async (courseId: string) => {
     try {
       console.log('🔄 Initializing course chat for:', courseId);
       
-      // 1️⃣ TẢI INSTRUCTORS TRƯỚC
       const instructors = await loadCourseInstructors(courseId);
       console.log('✅ Instructors loaded:', instructors.length);
       
-      // 2️⃣ TẠO/LẤY COURSE CONVERSATION
       try {
         const existingConversations = await chatService.getConversations();
         const existingCourseConversation = existingConversations.conversations.find(
@@ -124,11 +104,8 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         }
         
         setCourseConversation(courseConversation);
-        
-        // 3️⃣ LOAD LẠI CONVERSATIONS
         await loadConversations();
         
-        // 4️⃣ AUTO-SELECT COURSE CONVERSATION
         if (courseConversation) {
           handleSelectCourseConversation(courseConversation);
         }
@@ -144,9 +121,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     }
   };
 
-  // ========================
-  // 💬 CHAT 1-1 VỚI INSTRUCTOR
-  // ========================
+  // Start 1-1 chat with instructor
   const handleStartInstructorConversation = async (instructorId: string) => {
     if (!courseId) {
       console.warn('⚠️ No courseId, cannot start instructor conversation');
@@ -191,9 +166,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     }
   };
 
-  // ========================
-  // 👥 CHỌN COURSE GROUP CONVERSATION
-  // ========================
+  // Select course group conversation
   const handleSelectCourseConversation = (conversation?: Conversation) => {
     const targetConversation = conversation || courseConversation;
     if (!targetConversation) {
@@ -215,9 +188,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     loadMessages(targetConversation._id);
   };
 
-  // ========================
-  // 📋 LOAD CONVERSATIONS
-  // ========================
+  // Load conversations
   const loadConversations = async () => {
     try {
       setLoading(true);
@@ -252,9 +223,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     }
   };
 
-  // ========================
-  // 💌 LOAD MESSAGES
-  // ========================
+  // Load messages
   const loadMessages = async (conversationId: string) => {
     try {
       console.log('💌 Loading messages for conversation:', conversationId);
@@ -267,9 +236,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     }
   };
 
-  // ========================
-  // ✉️ SEND MESSAGE
-  // ========================
+  // Send message
   const handleSendMessage = async (content: string) => {
     if (!selectedConversation) {
       setError('Vui lòng chọn một hội thoại để gửi tin nhắn.');
@@ -289,9 +256,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     }
   };
 
-  // ========================
-  // SELECT CONVERSATION
-  // ========================
+  // Select conversation
   const handleSelectConversation = (conversation: Conversation) => {
     if (currentConversationIdRef.current) {
       socket.emit("leave_conversation", currentConversationIdRef.current);
@@ -304,9 +269,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     loadMessages(conversation._id);
   };
 
-  // ========================
-  // START NEW CONVERSATION
-  // ========================
+  // Start new conversation
   const handleStartNewConversation = async (participantId: string) => {
     try {
       const conversation = await chatService.findOrCreateDirectConversation(participantId);
@@ -325,18 +288,13 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     }
   };
 
-  // ========================
-  // EFFECTS - CẢI TIẾN
-  // ========================
-  
-  // ✅ Initial load + Load instructors khi có courseId
+  // Effects
   useEffect(() => {
     console.log('🚀 ChatContainer mounted');
     console.log('📌 Props - courseId:', courseId, 'courseName:', courseName);
     
     loadConversations();
     
-    // ✅ NẾU CÓ COURSEID, KHỞI TẠO COURSE CHAT VÀ TẢI INSTRUCTORS
     if (courseId) {
       console.log('🎓 Initializing course chat...');
       initializeCourseChat(courseId);
@@ -379,17 +337,25 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     };
   }, [selectedConversation?._id]);
 
-  // ========================
-  // RENDER
-  // ========================
-  
+  // Loading state
   if (loading && conversations.length === 0) {
-    return <div className={styles.loading}>Đang tải hội thoại...</div>;
+    return (
+      <div className="flex items-center justify-center h-96 bg-gradient-to-br from-emerald-50 to-green-50 rounded-3xl">
+        <div className="text-center">
+          <div className="relative inline-block mb-4">
+            <div className="w-16 h-16 border-4 border-emerald-200 rounded-full animate-spin"></div>
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <p className="text-gray-600 font-medium">Đang tải hội thoại...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className={styles.chatContainer}>
-      <div className={styles.sidebar}>
+    <div className="flex h-[600px] bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+      {/* Sidebar */}
+      <div className="w-80 border-r border-gray-200/60 bg-gradient-to-b from-emerald-50 to-green-50 flex-shrink-0">
         <ChatSidebar
           conversations={conversations}
           selectedConversation={selectedConversation}
@@ -406,84 +372,179 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         />
       </div>
 
-      <div className={styles.chatArea}>
+      {/* Chat Area - FIXED: Thêm min-w-0 và flex-col */}
+      <div className="flex-1 flex flex-col min-w-0">
         {selectedConversation ? (
           <>
-            <div className={styles.chatHeader}>
-              <h3>
-                {selectedConversation.type === 'direct'
-                  ? selectedConversation.participants.find((p) => p.userId !== user?._id)?.user?.fullName ||
-                    'Người dùng'
-                  : selectedConversation.title || 'Thảo luận nhóm'}
-              </h3>
-              <span className={styles.chatInfo}>
-                {selectedConversation.type === 'direct' ? 'Tin nhắn riêng' : 'Thảo luận nhóm'}
-                {selectedConversation._id === courseConversation?._id && ' • Thảo luận khóa học'}
-              </span>
+            {/* Chat Header - FIXED: Thêm flex-shrink-0 */}
+            <div className="bg-white/70 backdrop-blur-sm border-b border-gray-200/60 px-6 py-4 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl flex items-center justify-center">
+                    <FiMessageSquare className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-lg">
+                      {selectedConversation.type === 'direct'
+                        ? selectedConversation.participants.find((p) => p.userId !== user?._id)?.user?.fullName ||
+                          'Người dùng'
+                        : selectedConversation.title || 'Thảo luận nhóm'}
+                    </h3>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span className="flex items-center gap-1">
+                        {selectedConversation.type === 'direct' ? (
+                          <>
+                            <FiUser className="w-3 h-3" />
+                            Tin nhắn riêng
+                          </>
+                        ) : (
+                          <>
+                            <FiUsers className="w-3 h-3" />
+                            Thảo luận nhóm
+                          </>
+                        )}
+                      </span>
+                      {selectedConversation._id === courseConversation?._id && (
+                        <>
+                          <span>•</span>
+                          <span className="flex items-center gap-1 text-emerald-600">
+                            <FiBook className="w-3 h-3" />
+                            Thảo luận khóa học
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedConversation._id === courseConversation?._id && (
+                    <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200">
+                      Course Chat
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className={styles.messagesContainer}>
+            {/* Messages Container - FIXED: Thêm min-h-0 và flex-1 */}
+            <div className="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-white to-emerald-50/30">
               <MessageList messages={messages} currentUserId={user?._id || ''} />
             </div>
             
-            <MessageInput onSendMessage={handleSendMessage} disabled={!selectedConversation} />
+            {/* Message Input - FIXED: Thêm flex-shrink-0 */}
+            <div className="border-t border-gray-200/60 bg-white/80 backdrop-blur-sm flex-shrink-0">
+              <MessageInput onSendMessage={handleSendMessage} disabled={!selectedConversation} />
+            </div>
           </>
         ) : (
-          <div className={styles.noConversation}>
-            <h3>Chào mừng đến với Thảo luận</h3>
-            <p>Chọn một hội thoại hoặc bắt đầu cuộc trò chuyện mới</p>
-            
-            {courseId && (
-              <div className={styles.courseActions}>
-                <p>Khóa học: <strong>{courseName || courseId}</strong></p>
-                
-                {/* ✅ HIỂN THỊ LOADING KHI ĐANG TẢI INSTRUCTORS */}
-                {instructorLoading ? (
-                  <div className={styles.loadingInstructors}>
-                    <span>⏳ Đang tải danh sách giảng viên...</span>
-                  </div>
-                ) : courseInstructors.length > 0 ? (
-                  <div className={styles.instructorsPreview}>
-                    <p>👨‍🏫 Giảng viên có sẵn: <strong>{courseInstructors.length}</strong></p>
-                    {courseInstructors.map(instructor => (
-                      <div key={instructor._id} className={styles.instructorQuick}>
-                        <span>{instructor.fullName}</span>
-                        <button 
-                          onClick={() => handleStartInstructorConversation(instructor._id)}
-                          className={styles.quickChatButton}
-                        >
-                          💬 Chat
-                        </button>
-                      </div>
-                    ))}
-                    <button 
-                      onClick={() => setActiveTab('instructors')}
-                      className={styles.viewInstructorsButton}
-                    >
-                      Xem đầy đủ danh sách
-                    </button>
-                  </div>
-                ) : (
-                  <div className={styles.noInstructors}>
-                    <p>Chưa có giảng viên nào trong khóa học này</p>
-                  </div>
-                )}
-                
-                <button 
-                  onClick={() => initializeCourseChat(courseId)}
-                  className={styles.initializeCourseChatButton}
-                >
-                  {courseConversation ? '🔄 Tải lại thảo luận' : '🆕 Khởi tạo thảo luận khóa học'}
-                </button>
+          /* No Conversation Selected - FIXED: Thêm min-h-0 */
+          <div className="flex-1 min-h-0 flex items-center justify-center bg-gradient-to-br from-white to-emerald-50/50 p-8">
+            <div className="text-center max-w-md">
+              <div className="w-20 h-20 bg-gradient-to-r from-emerald-500 to-green-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <HiOutlineSparkles className="w-8 h-8 text-white" />
               </div>
-            )}
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-emerald-700 bg-clip-text text-transparent mb-3">
+                Chào mừng đến với Thảo luận
+              </h3>
+              <p className="text-gray-600 mb-8 text-lg">
+                Chọn một hội thoại hoặc bắt đầu cuộc trò chuyện mới
+              </p>
+              
+              {courseId && (
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-emerald-100 shadow-lg">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center">
+                      <FiBook className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Khóa học hiện tại</p>
+                      <p className="font-bold text-gray-900">{courseName || courseId}</p>
+                    </div>
+                  </div>
+
+                  {/* Instructors Loading */}
+                  {instructorLoading ? (
+                    <div className="flex items-center justify-center gap-3 py-4">
+                      <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-gray-600">Đang tải danh sách giảng viên...</span>
+                    </div>
+                  ) : courseInstructors.length > 0 ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <HiOutlineAcademicCap className="w-4 h-4" />
+                        <span>Giảng viên có sẵn: <strong>{courseInstructors.length}</strong></span>
+                      </div>
+                      
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {courseInstructors.slice(0, 3).map(instructor => (
+                          <div key={instructor._id} className="flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
+                                <FiUser className="w-4 h-4 text-white" />
+                              </div>
+                              <span className="font-medium text-gray-900">{instructor.fullName}</span>
+                            </div>
+                            <button 
+                              onClick={() => handleStartInstructorConversation(instructor._id)}
+                              className="px-3 py-1.5 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600 transition-all duration-200 font-medium flex items-center gap-2"
+                            >
+                              <FiMessageSquare className="w-3 h-3" />
+                              Chat
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {courseInstructors.length > 3 && (
+                        <button 
+                          onClick={() => setActiveTab('instructors')}
+                          className="w-full py-2 text-emerald-600 hover:text-emerald-700 font-medium text-sm flex items-center justify-center gap-2 hover:bg-emerald-50 rounded-xl transition-all duration-200"
+                        >
+                          Xem thêm {courseInstructors.length - 3} giảng viên
+                          <FiArrowLeft className="w-4 h-4 transform rotate-180" />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      <FiUsers className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p>Chưa có giảng viên nào trong khóa học này</p>
+                    </div>
+                  )}
+                  
+                  <button 
+                    onClick={() => initializeCourseChat(courseId)}
+                    className="w-full mt-4 px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-300 font-semibold flex items-center justify-center gap-3"
+                  >
+                    {courseConversation ? (
+                      <>
+                        <FiRefreshCw className="w-4 h-4" />
+                        Tải lại thảo luận
+                      </>
+                    ) : (
+                      <>
+                        <HiOutlineSparkles className="w-4 h-4" />
+                        Khởi tạo thảo luận
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
+        {/* Error Display */}
         {error && (
-          <div className={styles.error}>
-            <span>{error}</span>
-            <button onClick={() => setError(null)}>Đóng</button>
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl shadow-lg backdrop-blur-sm flex items-center gap-4 max-w-md">
+            <FiAlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <span className="flex-1 text-sm font-medium">{error}</span>
+            <button 
+              onClick={() => setError(null)} 
+              className="text-red-600 hover:text-red-800 hover:scale-110 transition-all duration-200"
+            >
+              <FiCheck className="w-4 h-4" />
+            </button>
           </div>
         )}
       </div>

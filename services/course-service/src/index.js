@@ -1,7 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
 require('dotenv').config();
-
 const app = express();
 const port = process.env.PORT || 3002;
 
@@ -42,6 +41,10 @@ const adminRoutes = require('./routes/adminRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const jitsiRoutes = require('./routes/jitsiRoutes');
 const studentRoutes = require('./routes/studentRoutes');
+const datedScheduleRoutes = require('./routes/datedScheduleRoutes');
+
+// ✅ Import cron jobs
+const { startCronJobs } = require('./services/cronService');
 
 // Health check
 app.get('/health', (req, res) => {
@@ -59,11 +62,13 @@ app.use('/', courseRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/jitsi', jitsiRoutes);
 app.use('/students', studentRoutes);
+app.use('/dated-schedules', datedScheduleRoutes);
 
 console.log('✅ Mounted routes:');
 console.log('   - /enrollments -> enrollmentRoutes');
 console.log('   - /admin -> adminRoutes');
 console.log('   - / -> courseRoutes');
+console.log('   - /dated-schedules -> datedScheduleRoutes');
 
 // Error handler
 app.use((error, req, res, next) => {
@@ -76,7 +81,12 @@ app.use((error, req, res, next) => {
 
 // Start server
 connectDB().then(() => {
+  // ✅ Khởi động cron jobs sau khi kết nối DB
+  startCronJobs();
+
   app.listen(port, () => {
     console.log(`🚀 Course Service running on port ${port}`);
   });
 });
+
+module.exports = app;

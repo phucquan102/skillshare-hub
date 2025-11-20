@@ -8,37 +8,45 @@ client.connect();
  * Lấy thông tin user từ user-service và cache vào Redis
  */
 const getUserInfo = async (userId) => {
-  const cacheKey = `user:${userId}`;
-
   try {
-    // 1. Kiểm tra cache Redis
-    const cached = await client.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+    if (!userId) {
+      console.warn('⚠️ getUserInfo: userId is required');
+      return null;
+    }
 
-    // 2. Gọi user-service
-    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://user-service:3001';
-    const response = await axios.get(`${userServiceUrl}/internal/${userId}`, { timeout: 5000 });
-    const userData = response.data;
+    console.log(`👤 [getUserInfo] Fetching user info for: ${userId}`);
+    
+    // ✅ SỬA URL - DÙNG ĐÚNG ROUTE CỦA USER SERVICE
+    const response = await axios({
+      method: 'get',
+      url: `http://user-service:3001/internal/${userId}`,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 5000
+    });
 
-    const userInfo = {
-      _id: userData._id,
-      fullName: userData.fullName || 'Unknown Name',
-      email: userData.email || 'unknown@example.com',
-      profile: userData.profile || { avatar: null, bio: null },
-      role: userData.role || 'student'
-    };
+    console.log(`✅ [getUserInfo] Successfully fetched user: ${userId}`);
+    return response.data;
 
-    // 3. Lưu cache 10 phút
-    await client.setEx(cacheKey, 600, JSON.stringify(userInfo));
-
-    return userInfo;
   } catch (error) {
-    console.error('❌ Error fetching user info:', error.message);
+    console.error(`❌ [getUserInfo] Error fetching user ${userId}:`, {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      url: error.config?.url
+    });
+    
+    // Fallback user info
     return {
       _id: userId,
       fullName: 'Unknown User',
-      profile: { avatar: null, bio: null },
-      role: 'student'
+      email: 'unknown@example.com',
+      role: 'user',
+      profile: {
+        avatar: null,
+        bio: null
+      }
     };
   }
 };

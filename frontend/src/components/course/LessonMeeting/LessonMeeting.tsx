@@ -42,7 +42,7 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
     try {
       setStartingMeeting(true);
       setError(null);
-      console.log('🎬 Starting meeting for lesson:', lesson._id);
+      console.log('Starting meeting for lesson:', lesson._id);
       const response = await courseService.startLessonMeeting(lesson._id);
 
       const meetingId = response.meetingId || `skillshare-${lesson.courseId}-${lesson._id}`;
@@ -63,7 +63,7 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
       }
     } catch (err: any) {
       console.error('Error starting meeting:', err);
-      setError(err.message || 'Không thể bắt đầu buổi học');
+      setError(err.message || 'Unable to start the meeting');
     } finally {
       setStartingMeeting(false);
     }
@@ -73,7 +73,7 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
     try {
       setJoiningMeeting(true);
       setError(null);
-      console.log('🎯 Joining meeting for lesson:', lesson._id);
+      console.log('Joining meeting for lesson:', lesson._id);
       const response = await courseService.joinLessonMeeting(lesson._id);
 
       const meetingId = response.meetingId || `skillshare-${lesson.courseId}-${lesson._id}`;
@@ -85,7 +85,7 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
       setShowMeeting(true);
     } catch (err: any) {
       console.error('Error joining meeting:', err);
-      setError(err.message || 'Không thể tham gia buổi học');
+      setError(err.message || 'Unable to join the meeting');
     } finally {
       setJoiningMeeting(false);
     }
@@ -109,12 +109,12 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
       }
     } catch (err: any) {
       console.error('Error ending meeting:', err);
-      setError('Lỗi khi kết thúc buổi học: ' + err.message);
+      setError('Error ending meeting: ' + (err.message || err));
     }
   };
 
   const formatTime = (timeString: string) => {
-    return new Date(timeString).toLocaleString('vi-VN', {
+    return new Date(timeString).toLocaleString('en-US', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -127,38 +127,38 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
     switch (meetingStatus) {
       case 'live':
         return {
-          text: 'Đang diễn ra',
+          text: 'Live',
           className: 'status-live',
           icon: '🔴',
-          description: 'Buổi học đang được tiến hành',
+          description: 'The lesson is currently in progress',
         };
       case 'ended':
         return {
-          text: 'Đã kết thúc',
+          text: 'Ended',
           className: 'status-ended',
           icon: '⚫',
-          description: 'Buổi học đã kết thúc',
+          description: 'The lesson has ended',
         };
       case 'starting':
         return {
-          text: 'Đang bắt đầu',
+          text: 'Starting',
           className: 'status-starting',
           icon: '🟡',
-          description: 'Đang khởi tạo buổi học...',
+          description: 'Initializing the lesson...',
         };
       default:
         return {
-          text: 'Sắp diễn ra',
+          text: 'Upcoming',
           className: 'status-upcoming',
           icon: '🟢',
-          description: 'Buổi học sắp được bắt đầu',
+          description: 'The lesson will start soon',
         };
     }
   };
 
   const statusInfo = getStatusInfo();
 
-  // 🧠 Khởi tạo Jitsi API khi meetingInfo sẵn sàng
+  // Initialize Jitsi API when meetingInfo is ready
   useEffect(() => {
     if (showMeeting && meetingInfo) {
       const domain = 'meet.jit.si';
@@ -166,8 +166,8 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
         roomName: meetingInfo.meetingId,
         parentNode: document.getElementById('jitsi-container'),
         userInfo: {
-          displayName: user.fullName || user.name || 'Guest',
-          email: user.email || '',
+          displayName: user?.fullName || user?.name || 'Guest',
+          email: user?.email || '',
         },
         configOverwrite: {
           disableDeepLinking: true,
@@ -180,24 +180,28 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
 
       const api = new window.JitsiMeetExternalAPI(domain, options);
       return () => {
-        api.dispose();
+        try {
+          api.dispose();
+        } catch (disposeErr) {
+          console.warn('Error disposing Jitsi API:', disposeErr);
+        }
       };
     }
   }, [showMeeting, meetingInfo, user]);
 
-  // 📌 Khi buổi học đã bắt đầu → hiển thị giao diện meeting
+  // If meeting is active and meetingInfo exists -> show meeting UI
   if (showMeeting && meetingInfo) {
     return (
       <div className="lesson-meeting-container">
         <div className="meeting-header">
-          <h3>Phòng học: {meetingInfo.meetingId}</h3>
+          <h3>Room: {meetingInfo.meetingId}</h3>
           <div className="header-right">
             <span className="status-badge status-live">
-              <span className="status-icon">🔴</span> Đang diễn ra
+              <span className="status-icon">🔴</span> Live
             </span>
             {isInstructor && (
               <button onClick={handleMeetingEnd} className="end-meeting-btn">
-                Kết thúc buổi học
+                End Meeting
               </button>
             )}
           </div>
@@ -211,7 +215,7 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
     );
   }
 
-  // ⬇️ Giao diện trước khi bắt đầu hoặc sau khi kết thúc
+  // UI before meeting starts or after it ends
   return (
     <div className="lesson-meeting-info">
       <div className="meeting-card">
@@ -220,7 +224,7 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
             <i className="icon-video">📹</i>
           </div>
           <div className="header-content">
-            <h3>Lớp học trực tuyến</h3>
+            <h3>Online Lesson</h3>
             <p>{statusInfo.description}</p>
           </div>
           <div className={`status-badge ${statusInfo.className}`}>
@@ -231,18 +235,18 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
 
         <div className="meeting-details">
           <div className="detail-section">
-            <h4>Thông tin buổi học</h4>
+            <h4>Session Info</h4>
             <div className="detail-grid">
               <div className="detail-item">
                 <div className="detail-label">
                   <i className="icon-hash">#</i>
-                  <span>Mã phòng:</span>
+                  <span>Room ID:</span>
                 </div>
                 <div className="detail-value">
                   {lesson.meetingId ? (
                     <code className="room-code">{lesson.meetingId}</code>
                   ) : (
-                    <span className="text-muted">Chưa được tạo</span>
+                    <span className="text-muted">Not created yet</span>
                   )}
                 </div>
               </div>
@@ -251,7 +255,7 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
                 <div className="detail-item">
                   <div className="detail-label">
                     <i className="icon-clock">⏰</i>
-                    <span>Thời gian bắt đầu:</span>
+                    <span>Start Time:</span>
                   </div>
                   <div className="detail-value">{formatTime(lesson.actualStartTime)}</div>
                 </div>
@@ -280,12 +284,12 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
               {joiningMeeting ? (
                 <>
                   <div className="loading-spinner"></div>
-                  Đang kết nối...
+                  Connecting...
                 </>
               ) : (
                 <>
                   <i className="icon-join">🎯</i>
-                  Tham gia lớp học
+                  Join Lesson
                 </>
               )}
             </button>
@@ -298,12 +302,12 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
               {startingMeeting ? (
                 <>
                   <div className="loading-spinner"></div>
-                  Đang bắt đầu...
+                  Starting...
                 </>
               ) : (
                 <>
                   <i className="icon-start">🚀</i>
-                  Bắt đầu buổi học
+                  Start Lesson
                 </>
               )}
             </button>
@@ -315,13 +319,13 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
               className="recording-link"
             >
               <i className="icon-play">▶️</i>
-              Xem lại buổi học
+              Watch Recording
             </a>
           ) : (
             <div className="info-message">
               <i className="icon-info">ℹ️</i>
               <div>
-                <p>Buổi học {meetingStatus === 'ended' ? 'đã kết thúc' : 'chưa bắt đầu'}</p>
+                <p>The session {meetingStatus === 'ended' ? 'has ended' : 'has not started yet'}</p>
                 {isInstructor && meetingStatus !== 'ended' && (
                   <button
                     className="btn-start-meeting"
@@ -329,7 +333,7 @@ const LessonMeeting: React.FC<LessonMeetingProps> = ({
                     disabled={startingMeeting}
                   >
                     <i className="icon-start">🚀</i>
-                    Bắt đầu buổi học
+                    Start Lesson
                   </button>
                 )}
               </div>

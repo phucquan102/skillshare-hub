@@ -51,35 +51,43 @@ const CoursesManagementPage: React.FC = () => {
   });
 
   // Fetch courses
-  const fetchCourses = useCallback(async () => {
-    setLoading(true);
-    setSearchLoading(true);
-    setError(null);
-    try {
-      const response: CoursesResponse = await courseService.getCourses(filters);
-      if (response?.courses && response?.pagination) {
-        setCourses(response.courses);
-        setPagination(response.pagination);
-      } else {
-        setCourses([]);
-        setPagination({
-          currentPage: 1,
-          totalPages: 1,
-          totalCourses: 0,
-          hasNext: false,
-          hasPrev: false,
-        });
-      }
-    } catch (error: any) {
-      console.error('Error fetching courses:', error);
-      const errorMessage = error?.response?.data?.message || 'Unable to load course list.';
-      setError(errorMessage);
+ const fetchCourses = useCallback(async () => {
+  setLoading(true);
+  setSearchLoading(true);
+  setError(null);
+  try {
+    console.log('📤 [Admin] Fetching courses with filters:', filters);
+    
+    // ✅ THAY ĐỔI: Sử dụng endpoint admin thay vì endpoint thường
+    const response: CoursesResponse = await courseService.getCoursesForApproval(filters);
+    
+    console.log('📥 [Admin] Received response:', response);
+    
+    if (response?.courses && response?.pagination) {
+      setCourses(response.courses);
+      setPagination(response.pagination);
+      console.log(`✅ [Admin] Loaded ${response.courses.length} courses`);
+    } else {
+      console.warn('⚠️ [Admin] No courses or pagination in response');
       setCourses([]);
-    } finally {
-      setLoading(false);
-      setSearchLoading(false);
+      setPagination({
+        currentPage: 1,
+        totalPages: 1,
+        totalCourses: 0,
+        hasNext: false,
+        hasPrev: false,
+      });
     }
-  }, [filters]);
+  } catch (error: any) {
+    console.error('❌ [Admin] Error fetching courses:', error);
+    const errorMessage = error?.response?.data?.message || 'Unable to load course list.';
+    setError(errorMessage);
+    setCourses([]);
+  } finally {
+    setLoading(false);
+    setSearchLoading(false);
+  }
+}, [filters]);
 
   // Debounce search input
   useEffect(() => {

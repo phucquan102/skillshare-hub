@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Course, CreateCourseData, EditCourseData, GalleryImage } from './../../../services/api/courseService';
 import { uploadService } from '../../../services/api/uploadService';
-import { FiSave, FiSend, FiX, FiPlus, FiTrash2, FiImage, FiUpload, FiVideo } from 'react-icons/fi';
+import { FiSave, FiSend, FiX, FiPlus, FiTrash2, FiImage, FiUpload, FiVideo, FiCalendar } from 'react-icons/fi';
 
 interface CourseFormProps {
   course?: Course;
@@ -12,18 +12,24 @@ interface CourseFormProps {
   isEdit?: boolean;
 }
 
-interface Schedule {
-  dayOfWeek: string;
+// 🆕 REMOVED: Weekly schedule interface
+// 🆕 KEEP: Dated schedule interface
+interface DatedSchedule {
+  _id?: string;
+  date: string; // YYYY-MM-DD
   startTime: string;
   endTime: string;
-  _id?: string;
+  timezone?: string;
+  meetingPlatform?: string;
+  individualPrice?: number;
+  availableForIndividualPurchase?: boolean;
+  notes?: string;
 }
 
 interface UploadProgress {
   [key: string]: number;
 }
 
-// Interface cho kết quả upload
 interface UploadResult {
   url: string;
   public_id: string;
@@ -33,37 +39,6 @@ interface UploadResult {
   duration?: number;
 }
 
-// ✅ FIX: Map day names to numbers
-const dayOfWeekMap: { [key: string]: number } = {
-  'monday': 1,
-  'tuesday': 2, 
-  'wednesday': 3,
-  'thursday': 4,
-  'friday': 5,
-  'saturday': 6,
-  'sunday': 0
-};
-
-const dayOfWeekReverseMap: { [key: number]: string } = {
-  0: 'sunday',
-  1: 'monday',
-  2: 'tuesday',
-  3: 'wednesday',
-  4: 'thursday',
-  5: 'friday',
-  6: 'saturday'
-};
-
-const dayOfWeekOptions = [
-  { value: 'monday', label: 'Thứ 2' },
-  { value: 'tuesday', label: 'Thứ 3' },
-  { value: 'wednesday', label: 'Thứ 4' },
-  { value: 'thursday', label: 'Thứ 5' },
-  { value: 'friday', label: 'Thứ 6' },
-  { value: 'saturday', label: 'Thứ 7' },
-  { value: 'sunday', label: 'Chủ nhật' }
-];
-
 const CourseForm: React.FC<CourseFormProps> = ({
   course,
   onSubmit,
@@ -71,37 +46,41 @@ const CourseForm: React.FC<CourseFormProps> = ({
   submitting = false,
   isEdit = false
 }) => {
-  // State cho schedules
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  // 🆕 REMOVED: Weekly schedules state
+  // 🆕 KEEP: Dated schedules state
+  const [datedSchedules, setDatedSchedules] = useState<DatedSchedule[]>([]);
   
-  // State cho gallery images
+  // State for gallery images
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   
-  // State cho upload progress
+  // State for upload progress
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
   const [uploading, setUploading] = useState(false);
 
-  // Refs cho file inputs
+  // 🆕 REMOVED: Scheduling type state (only dated schedules now)
+  // We'll use dated schedules by default
+
+  // Refs for file inputs
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
-  // Hàm format date để xử lý cả ISO string và Date object
+  // Function to format date for input
   const formatDateForInput = (dateValue: any): string => {
     if (!dateValue) return '';
     
     try {
-      // Nếu là string ISO (từ MongoDB)
+      // If it's an ISO string (from MongoDB)
       if (typeof dateValue === 'string') {
         const date = new Date(dateValue);
         return date.toISOString().split('T')[0];
       }
-      // Nếu là Date object
+      // If it's a Date object
       else if (dateValue instanceof Date) {
         return dateValue.toISOString().split('T')[0];
       }
-      // Nếu đã là định dạng YYYY-MM-DD
+      // If it's already in YYYY-MM-DD format
       else if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
         return dateValue;
       }
@@ -128,22 +107,25 @@ const CourseForm: React.FC<CourseFormProps> = ({
     learningOutcomes: '',
     requirements: '',
     tags: '',
-    language: 'vi',
+    language: 'en', // 🆕 CHANGED: Default to English
     thumbnail: '',
     coverImage: '',
     promoVideo: '',
     certificate: false,
     featured: false,
+    // 🆕 KEEP: New settings
+    allowIndividualLessonPurchase: false,
+    defaultLessonPrice: 0,
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // ✅ FIX: useEffect để đồng bộ dữ liệu khi course thay đổi
+  // ✅ FIX: useEffect to sync data when course changes
   useEffect(() => {
     if (isEdit && course) {
       console.log("🪄 Updating form when course changes:", course);
 
-      // ✅ THÊM DEBUG: Kiểm tra xem course có startDate và endDate không
+      // ✅ ADD DEBUG: Check if course has startDate and endDate
       console.log("📅 Course date fields:", {
         hasStartDate: !!course.startDate,
         hasEndDate: !!course.endDate,
@@ -152,7 +134,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
         courseKeys: Object.keys(course)
       });
 
-      // ✅ THÊM FALLBACK: Nếu không có startDate/endDate, dùng giá trị mặc định
+      // ✅ ADD FALLBACK: If no startDate/endDate, use default values
       const today = new Date().toISOString().split('T')[0];
       const oneMonthLater = new Date();
       oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
@@ -168,14 +150,14 @@ const CourseForm: React.FC<CourseFormProps> = ({
         pricingType: course.pricingType || 'full_course',
         fullCoursePrice: course.fullCoursePrice || 0,
         maxStudents: course.maxStudents || 20,
-        // ✅ SỬA QUAN TRỌNG: Nếu không có date từ API, dùng giá trị mặc định
+        // ✅ IMPORTANT FIX: If no date from API, use default values
         startDate: course.startDate ? formatDateForInput(course.startDate) : today,
         endDate: course.endDate ? formatDateForInput(course.endDate) : oneMonthLaterStr,
         prerequisites: course.prerequisites?.join(', ') || '',
         learningOutcomes: course.learningOutcomes?.join(', ') || '',
         requirements: course.requirements?.join(', ') || '',
         tags: course.tags?.join(', ') || '',
-        language: course.language || 'vi',
+        language: course.language || 'en', // 🆕 CHANGED: Default to English
         thumbnail: course.thumbnail || '',
         coverImage: course.coverImage || '',
         promoVideo: course.promoVideo || '',
@@ -183,34 +165,59 @@ const CourseForm: React.FC<CourseFormProps> = ({
           ? (course.certificate.isEnabled || false) 
           : false,
         featured: course.featured || false,
+        // 🆕 KEEP: New settings
+        allowIndividualLessonPurchase: (course as any).settings?.allowIndividualLessonPurchase ?? false,
+        defaultLessonPrice: (course as any).settings?.lessonPricing?.defaultLessonPrice || 0,
       });
 
-      // ✅ FIX QUAN TRỌNG: Convert schedules từ number sang string cho form
-      if (course.schedules && course.schedules.length > 0) {
-        console.log('📅 Initializing schedules from course:', course.schedules);
-        const formattedSchedules = course.schedules.map(schedule => ({
-          dayOfWeek: dayOfWeekReverseMap[schedule.dayOfWeek] || '',
+      // 🆕 UPDATED: Only initialize dated schedules
+      const hasDatedSchedules = (course as any).datedSchedules && (course as any).datedSchedules.length > 0;
+      
+      if (hasDatedSchedules) {
+        console.log('📅 Initializing dated schedules from course:', (course as any).datedSchedules);
+        const formattedDatedSchedules = (course as any).datedSchedules.map((schedule: any) => ({
+          _id: schedule._id,
+          date: formatDateForInput(schedule.date),
           startTime: schedule.startTime || '',
           endTime: schedule.endTime || '',
-          _id: schedule._id
+          timezone: schedule.timezone || 'UTC',
+          meetingPlatform: schedule.meetingPlatform || 'zoom',
+          individualPrice: schedule.individualPrice || 0,
+          availableForIndividualPurchase: schedule.availableForIndividualPurchase || false,
+          notes: schedule.notes || ''
         }));
-        console.log('📅 Formatted schedules for form:', formattedSchedules);
-        setSchedules(formattedSchedules);
+        setDatedSchedules(formattedDatedSchedules);
       } else {
-        setSchedules([]);
+        setDatedSchedules([]);
       }
 
-      // Đồng bộ gallery images
+      // 🆕 REMOVED: Weekly schedules initialization
+
+      // Sync gallery images
       if (course.gallery && course.gallery.length > 0) {
         console.log('🖼️ Initializing gallery from course:', course.gallery);
         setGallery(course.gallery);
       } else {
         setGallery([]);
       }
+    } else {
+      // 🆕 ADD: Default initialization for new course
+      const today = new Date().toISOString().split('T')[0];
+      const oneMonthLater = new Date();
+      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+      const oneMonthLaterStr = oneMonthLater.toISOString().split('T')[0];
+
+      setFormData(prev => ({
+        ...prev,
+        startDate: today,
+        endDate: oneMonthLaterStr
+      }));
     }
   }, [course, isEdit]);
 
-  // Hàm upload file sử dụng uploadService
+  // ========== UPLOAD FUNCTIONS (KEEP AS IS) ==========
+  
+  // File upload function using uploadService
   const uploadFile = async (file: File, type: 'image' | 'video'): Promise<UploadResult> => {
     console.log('🔄 Starting upload:', { 
       type, 
@@ -260,8 +267,8 @@ const CourseForm: React.FC<CourseFormProps> = ({
     } catch (error: any) {
       console.error('❌ Upload failed:', error);
       
-      // Hiển thị thông báo lỗi chi tiết
-      let errorMessage = 'Upload thất bại';
+      // Show detailed error message
+      let errorMessage = 'Upload failed';
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {
@@ -274,20 +281,20 @@ const CourseForm: React.FC<CourseFormProps> = ({
     }
   };
 
-  // Hàm xử lý upload thumbnail
+  // Handle thumbnail upload
   const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Kiểm tra định dạng ảnh
+    // Check image format
     if (!file.type.startsWith('image/')) {
-      alert('Vui lòng chọn file ảnh (JPEG, PNG, etc.)');
+      alert('Please select an image file (JPEG, PNG, etc.)');
       return;
     }
 
-    // Kiểm tra kích thước file (tối đa 10MB)
+    // Check file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      alert('Kích thước file quá lớn. Vui lòng chọn file nhỏ hơn 10MB');
+      alert('File size too large. Please choose a file smaller than 10MB');
       return;
     }
 
@@ -295,22 +302,22 @@ const CourseForm: React.FC<CourseFormProps> = ({
       const result = await uploadFile(file, 'image');
       setFormData(prev => ({ ...prev, thumbnail: result.url }));
     } catch (error: any) {
-      alert(`Upload ảnh đại diện thất bại: ${error.message}`);
+      alert(`Thumbnail upload failed: ${error.message}`);
     }
   };
 
-  // Hàm xử lý upload cover image
+  // Handle cover image upload
   const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Vui lòng chọn file ảnh');
+      alert('Please select an image file');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('Kích thước file quá lớn. Vui lòng chọn file nhỏ hơn 10MB');
+      alert('File size too large. Please choose a file smaller than 10MB');
       return;
     }
 
@@ -318,35 +325,35 @@ const CourseForm: React.FC<CourseFormProps> = ({
       const result = await uploadFile(file, 'image');
       setFormData(prev => ({ ...prev, coverImage: result.url }));
     } catch (error: any) {
-      alert(`Upload ảnh cover thất bại: ${error.message}`);
+      alert(`Cover image upload failed: ${error.message}`);
     }
   };
 
-  // Hàm xử lý upload gallery images
+  // Handle gallery images upload
   const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
     console.log('🖼️ Uploading gallery images:', files.length);
 
-    // Kiểm tra định dạng ảnh
+    // Check image format
     const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
     if (invalidFiles.length > 0) {
-      alert('Vui lòng chỉ chọn file ảnh (JPEG, PNG, etc.)');
+      alert('Please select only image files (JPEG, PNG, etc.)');
       return;
     }
 
-    // Kiểm tra kích thước
+    // Check file size
     const oversizedFiles = files.filter(file => file.size > 10 * 1024 * 1024);
     if (oversizedFiles.length > 0) {
-      alert('Một số file có kích thước quá lớn. Vui lòng chọn file nhỏ hơn 10MB');
+      alert('Some files are too large. Please choose files smaller than 10MB');
       return;
     }
 
     try {
       setUploading(true);
       
-      // Upload từng file một để có progress riêng
+      // Upload each file individually for separate progress
       for (const file of files) {
         console.log('📤 Uploading gallery image:', file.name);
         
@@ -366,33 +373,33 @@ const CourseForm: React.FC<CourseFormProps> = ({
       console.log('✅ All gallery images uploaded successfully');
     } catch (error: any) {
       console.error('❌ Gallery upload failed:', error);
-      alert(`Upload ảnh gallery thất bại: ${error.message}`);
+      alert(`Gallery upload failed: ${error.message}`);
     } finally {
       setUploading(false);
     }
   };
 
-  // Hàm xử lý upload video
+  // Handle video upload
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Kiểm tra định dạng video
+    // Check video format
     const videoFormats = ['mp4', 'mov', 'avi', 'webm'];
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
     if (!fileExtension || !videoFormats.includes(fileExtension)) {
-      alert('Định dạng video không hợp lệ. Chấp nhận: MP4, MOV, AVI, WEBM');
+      alert('Invalid video format. Supported: MP4, MOV, AVI, WEBM');
       return;
     }
 
     if (!file.type.startsWith('video/')) {
-      alert('Vui lòng chọn file video');
+      alert('Please select a video file');
       return;
     }
 
-    // Kiểm tra kích thước video (tối đa 50MB)
+    // Check video size (max 50MB)
     if (file.size > 50 * 1024 * 1024) {
-      alert('Kích thước video quá lớn. Vui lòng chọn file nhỏ hơn 50MB');
+      alert('Video size too large. Please choose a file smaller than 50MB');
       return;
     }
 
@@ -400,34 +407,46 @@ const CourseForm: React.FC<CourseFormProps> = ({
       const result = await uploadFile(file, 'video');
       setFormData(prev => ({ ...prev, promoVideo: result.url }));
     } catch (error: any) {
-      alert(`Upload video thất bại: ${error.message}`);
+      alert(`Video upload failed: ${error.message}`);
     }
   };
 
-  // Thêm schedule mới
-  const addSchedule = () => {
-    setSchedules([...schedules, { dayOfWeek: '', startTime: '', endTime: '' }]);
+  // ========== DATED SCHEDULES FUNCTIONS ==========
+
+  // 🆕 KEEP: Functions for dated schedules
+  const addDatedSchedule = () => {
+    const newSchedule: DatedSchedule = {
+      date: formData.startDate || new Date().toISOString().split('T')[0],
+      startTime: '09:00',
+      endTime: '10:30',
+      timezone: 'UTC',
+      meetingPlatform: 'zoom',
+      individualPrice: formData.defaultLessonPrice || 0,
+      availableForIndividualPurchase: formData.allowIndividualLessonPurchase,
+      notes: ''
+    };
+    setDatedSchedules([...datedSchedules, newSchedule]);
   };
 
-  // Cập nhật schedule
-  const updateSchedule = (index: number, field: keyof Schedule, value: string) => {
-    const updatedSchedules = schedules.map((schedule, i) =>
+  const updateDatedSchedule = (index: number, field: keyof DatedSchedule, value: string | number | boolean) => {
+    const updatedSchedules = datedSchedules.map((schedule, i) =>
       i === index ? { ...schedule, [field]: value } : schedule
     );
-    setSchedules(updatedSchedules);
+    setDatedSchedules(updatedSchedules);
   };
 
-  // Xóa schedule
-  const removeSchedule = (index: number) => {
-    setSchedules(schedules.filter((_, i) => i !== index));
+  const removeDatedSchedule = (index: number) => {
+    setDatedSchedules(datedSchedules.filter((_, i) => i !== index));
   };
 
-  // Xóa ảnh khỏi gallery
+  // ========== GALLERY FUNCTIONS ==========
+
+  // Remove image from gallery
   const removeGalleryImage = (index: number) => {
     setGallery(gallery.filter((_, i) => i !== index));
   };
 
-  // Cập nhật gallery image
+  // Update gallery image
   const updateGalleryImage = (index: number, field: keyof GalleryImage, value: string | boolean) => {
     const updatedGallery = gallery.map((image, i) =>
       i === index ? { ...image, [field]: value } : image
@@ -440,11 +459,11 @@ const CourseForm: React.FC<CourseFormProps> = ({
     
     let processedValue: any = value;
     
-    // Xử lý các trường number
-    if (name === 'fullCoursePrice' || name === 'maxStudents') {
+    // Handle number fields
+    if (name === 'fullCoursePrice' || name === 'maxStudents' || name === 'defaultLessonPrice') {
       processedValue = value === '' ? 0 : Number(value);
     }
-    // Xử lý checkbox
+    // Handle checkbox
     else if (type === 'checkbox') {
       processedValue = (e.target as HTMLInputElement).checked;
     }
@@ -463,48 +482,48 @@ const CourseForm: React.FC<CourseFormProps> = ({
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!formData.title.trim()) newErrors.title = 'Tiêu đề là bắt buộc';
-    if (!formData.description.trim()) newErrors.description = 'Mô tả là bắt buộc';
-    if (!formData.category.trim()) newErrors.category = 'Danh mục là bắt buộc';
-    if (!formData.startDate) newErrors.startDate = 'Ngày bắt đầu là bắt buộc';
-    if (!formData.endDate) newErrors.endDate = 'Ngày kết thúc là bắt buộc';
+    if (!formData.title.trim()) newErrors.title = 'Title is required';
+    if (!formData.description.trim()) newErrors.description = 'Description is required';
+    if (!formData.category.trim()) newErrors.category = 'Category is required';
+    if (!formData.startDate) newErrors.startDate = 'Start date is required';
+    if (!formData.endDate) newErrors.endDate = 'End date is required';
     
     if (formData.startDate && formData.endDate) {
       const start = new Date(formData.startDate);
       const end = new Date(formData.endDate);
-      if (start >= end) newErrors.endDate = 'Ngày kết thúc phải sau ngày bắt đầu';
+      if (start >= end) newErrors.endDate = 'End date must be after start date';
     }
 
     if ((formData.pricingType === 'full_course' || formData.pricingType === 'both') && 
         (!formData.fullCoursePrice || formData.fullCoursePrice <= 0)) {
-      newErrors.fullCoursePrice = 'Giá khóa học phải lớn hơn 0';
+      newErrors.fullCoursePrice = 'Course price must be greater than 0';
     }
 
     if (formData.maxStudents < 1) {
-      newErrors.maxStudents = 'Số học viên tối đa phải ít nhất là 1';
+      newErrors.maxStudents = 'Maximum students must be at least 1';
     }
 
-    // Thêm validation cho thumbnail
+    // Add validation for thumbnail
     if (!formData.thumbnail.trim()) {
-      newErrors.thumbnail = 'Ảnh đại diện là bắt buộc';
+      newErrors.thumbnail = 'Thumbnail is required';
     }
 
-    // ✅ FIX: Validation cho schedules
-    if (schedules.length === 0) {
-      newErrors.schedules = 'Cần ít nhất một lịch học';
+    // 🆕 UPDATED: Validation only for dated schedules
+    if (datedSchedules.length === 0) {
+      newErrors.datedSchedules = 'At least one schedule is required';
     } else {
-      schedules.forEach((schedule, index) => {
-        if (!schedule.dayOfWeek) {
-          newErrors[`schedule_${index}_day`] = `Lịch học ${index + 1}: Chọn ngày trong tuần`;
+      datedSchedules.forEach((schedule, index) => {
+        if (!schedule.date) {
+          newErrors[`datedSchedule_${index}_date`] = `Schedule ${index + 1}: Select date`;
         }
         if (!schedule.startTime) {
-          newErrors[`schedule_${index}_start`] = `Lịch học ${index + 1}: Chọn giờ bắt đầu`;
+          newErrors[`datedSchedule_${index}_start`] = `Schedule ${index + 1}: Select start time`;
         }
         if (!schedule.endTime) {
-          newErrors[`schedule_${index}_end`] = `Lịch học ${index + 1}: Chọn giờ kết thúc`;
+          newErrors[`datedSchedule_${index}_end`] = `Schedule ${index + 1}: Select end time`;
         }
         if (schedule.startTime && schedule.endTime && schedule.startTime >= schedule.endTime) {
-          newErrors[`schedule_${index}_time`] = `Lịch học ${index + 1}: Giờ kết thúc phải sau giờ bắt đầu`;
+          newErrors[`datedSchedule_${index}_time`] = `Schedule ${index + 1}: End time must be after start time`;
         }
       });
     }
@@ -513,32 +532,9 @@ const CourseForm: React.FC<CourseFormProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ FIX QUAN TRỌNG: Chuẩn bị dữ liệu gửi đi - convert string -> number cho dayOfWeek
+  // ✅ FIX: Prepare form data for submission
   const prepareFormData = (): CreateCourseData | EditCourseData => {
-    // ✅ FIX: Convert schedules từ string sang number trước khi gửi
-    const processedSchedules = schedules
-      .filter(schedule => schedule.dayOfWeek && schedule.startTime && schedule.endTime)
-      .map(schedule => {
-        const dayNumber = dayOfWeekMap[schedule.dayOfWeek];
-        console.log(`📅 Converting schedule: ${schedule.dayOfWeek} -> ${dayNumber}`);
-        
-        return {
-          dayOfWeek: dayNumber,
-          startTime: schedule.startTime,
-          endTime: schedule.endTime,
-          timezone: 'Asia/Ho_Chi_Minh',
-          meetingPlatform: 'zoom' as const,
-          meetingUrl: '',
-          meetingId: '',
-          meetingPassword: '',
-          isActive: true,
-          notes: ''
-        };
-      });
-
-    console.log('📅 Processed schedules for submission:', processedSchedules);
-
-    const baseData = {
+    const baseData: any = {
       title: formData.title,
       description: formData.description,
       shortDescription: formData.shortDescription || undefined,
@@ -560,22 +556,51 @@ const CourseForm: React.FC<CourseFormProps> = ({
       promoVideo: formData.promoVideo || undefined,
       gallery: gallery.length > 0 ? gallery : undefined,
       featured: formData.featured,
-      // Chuyển boolean thành object certificate
       certificate: formData.certificate ? {
         isEnabled: true,
         template: 'default',
         issuedBy: 'SkillShare Hub'
       } : undefined,
-      // ✅ SỬA QUAN TRỌNG: Sử dụng schedules đã được convert
-      schedules: processedSchedules.length > 0 ? processedSchedules : undefined,
+      settings: {
+        allowIndividualLessonPurchase: formData.allowIndividualLessonPurchase,
+        autoCreateLessonsFromSchedules: false,
+        useDatedSchedules: true, // 🆕 CHANGED: Always use dated schedules
+        maxStudentsPerLesson: formData.maxStudents,
+        requireApprovalForEnrollment: false,
+        allowRecordingAccess: true,
+        notificationPreferences: {
+          email: true,
+          sms: false,
+          push: true
+        },
+        lessonPricing: formData.allowIndividualLessonPurchase ? {
+          allowIndividualPurchase: formData.allowIndividualLessonPurchase,
+          defaultLessonPrice: formData.defaultLessonPrice,
+          bundleDiscount: 0
+        } : undefined
+      }
     };
 
-    console.log('📤 Prepared form data with schedules:', baseData.schedules);
-    console.log('📅 Prepared form data with dates:', {
-      startDate: baseData.startDate,
-      endDate: baseData.endDate
+    // 🆕 UPDATED: Only add dated schedules
+    if (datedSchedules.length > 0) {
+      baseData.datedSchedules = datedSchedules.map(schedule => ({
+        date: schedule.date,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        timezone: schedule.timezone,
+        meetingPlatform: schedule.meetingPlatform,
+        individualPrice: schedule.individualPrice,
+        availableForIndividualPurchase: schedule.availableForIndividualPurchase,
+        notes: schedule.notes,
+        isActive: true
+      }));
+    }
+
+    console.log('📤 Prepared form data:', {
+      datedSchedulesCount: baseData.datedSchedules?.length || 0,
+      settings: baseData.settings
     });
-    console.log('🖼️ Prepared form data with gallery:', baseData.gallery);
+
     return baseData as CreateCourseData | EditCourseData;
   };
 
@@ -603,12 +628,12 @@ const CourseForm: React.FC<CourseFormProps> = ({
     onSubmit(submitData, 'submit');
   };
 
-  // Hiển thị progress bar
+  // Show progress bars
   const renderProgressBars = () => {
     return Object.entries(uploadProgress).map(([key, progress]) => (
       <div key={key} className="mb-2">
         <div className="flex justify-between text-sm text-gray-600 mb-1">
-          <span>Đang upload...</span>
+          <span>Uploading...</span>
           <span>{progress}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
@@ -623,11 +648,11 @@ const CourseForm: React.FC<CourseFormProps> = ({
 
   return (
     <form className="space-y-6">
-      {/* Basic Information */}
+      {/* Basic Information - TRANSLATED TO ENGLISH */}
       <div className="grid grid-cols-1 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Tiêu đề khóa học *
+            Course Title *
           </label>
           <input
             type="text"
@@ -637,14 +662,14 @@ const CourseForm: React.FC<CourseFormProps> = ({
             className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all ${
               errors.title ? 'border-red-500' : 'border-gray-300'
             }`}
-            placeholder="Nhập tiêu đề khóa học"
+            placeholder="Enter course title"
           />
           {errors.title && <p className="mt-1 text-red-500 text-sm">{errors.title}</p>}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Mô tả ngắn
+            Short Description
           </label>
           <textarea
             name="shortDescription"
@@ -652,13 +677,13 @@ const CourseForm: React.FC<CourseFormProps> = ({
             onChange={handleChange}
             rows={2}
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-            placeholder="Mô tả ngắn về khóa học (tối đa 300 ký tự)"
+            placeholder="Brief description about the course (max 300 characters)"
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Mô tả chi tiết *
+            Detailed Description *
           </label>
           <textarea
             name="description"
@@ -668,17 +693,17 @@ const CourseForm: React.FC<CourseFormProps> = ({
             className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all ${
               errors.description ? 'border-red-500' : 'border-gray-300'
             }`}
-            placeholder="Mô tả chi tiết về khóa học"
+            placeholder="Detailed description about the course"
           />
           {errors.description && <p className="mt-1 text-red-500 text-sm">{errors.description}</p>}
         </div>
       </div>
 
-      {/* Category and Level */}
+      {/* Category and Level - TRANSLATED TO ENGLISH */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Danh mục *
+            Category *
           </label>
           <select
             name="category"
@@ -688,26 +713,26 @@ const CourseForm: React.FC<CourseFormProps> = ({
               errors.category ? 'border-red-500' : 'border-gray-300'
             }`}
           >
-            <option value="">Chọn danh mục</option>
-            <option value="programming">Lập trình</option>
-            <option value="design">Thiết kế</option>
-            <option value="business">Kinh doanh</option>
+            <option value="">Select category</option>
+            <option value="programming">Programming</option>
+            <option value="design">Design</option>
+            <option value="business">Business</option>
             <option value="marketing">Marketing</option>
-            <option value="language">Ngôn ngữ</option>
-            <option value="music">Âm nhạc</option>
-            <option value="photography">Nhiếp ảnh</option>
-            <option value="cooking">Nấu ăn</option>
-            <option value="fitness">Thể dục</option>
-            <option value="art">Nghệ thuật</option>
-            <option value="writing">Viết lách</option>
-            <option value="other">Khác</option>
+            <option value="language">Language</option>
+            <option value="music">Music</option>
+            <option value="photography">Photography</option>
+            <option value="cooking">Cooking</option>
+            <option value="fitness">Fitness</option>
+            <option value="art">Art</option>
+            <option value="writing">Writing</option>
+            <option value="other">Other</option>
           </select>
           {errors.category && <p className="mt-1 text-red-500 text-sm">{errors.category}</p>}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Cấp độ
+            Level
           </label>
           <select
             name="level"
@@ -715,18 +740,18 @@ const CourseForm: React.FC<CourseFormProps> = ({
             onChange={handleChange}
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
           >
-            <option value="beginner">Người mới bắt đầu</option>
-            <option value="intermediate">Trung cấp</option>
-            <option value="advanced">Nâng cao</option>
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
           </select>
         </div>
       </div>
 
-      {/* Pricing */}
+      {/* Pricing - TRANSLATED TO ENGLISH */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Loại định giá
+            Pricing Type
           </label>
           <select
             name="pricingType"
@@ -734,15 +759,15 @@ const CourseForm: React.FC<CourseFormProps> = ({
             onChange={handleChange}
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
           >
-            <option value="full_course">Thanh toán trọn khóa</option>
-            <option value="per_lesson">Thanh toán theo bài học</option>
-            <option value="both">Cả hai</option>
+            <option value="full_course">Full Course Payment</option>
+            <option value="per_lesson">Pay Per Lesson</option>
+            <option value="both">Both</option>
           </select>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Giá khóa học (VND) *
+            Course Price (USD) *
           </label>
           <input
             type="number"
@@ -750,7 +775,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
             value={formData.fullCoursePrice}
             onChange={handleChange}
             min="0"
-            step="1000"
+            step="10"
             className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all ${
               errors.fullCoursePrice ? 'border-red-500' : 'border-gray-300'
             }`}
@@ -759,11 +784,11 @@ const CourseForm: React.FC<CourseFormProps> = ({
         </div>
       </div>
 
-      {/* Dates and Capacity */}
+      {/* Dates and Capacity - TRANSLATED TO ENGLISH */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Ngày bắt đầu *
+            Start Date *
           </label>
           <input
             type="date"
@@ -779,7 +804,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Ngày kết thúc *
+            End Date *
           </label>
           <input
             type="date"
@@ -795,7 +820,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Số học viên tối đa
+            Maximum Students
           </label>
           <input
             type="number"
@@ -812,17 +837,221 @@ const CourseForm: React.FC<CourseFormProps> = ({
         </div>
       </div>
 
+      {/* 🆕 UPDATED: Course Settings - TRANSLATED TO ENGLISH */}
+      <div className="border-t border-gray-200 pt-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <FiCalendar className="w-5 h-5" />
+          Course Settings
+        </h3>
+
+        <div className="grid grid-cols-1 gap-6">
+          {/* Individual lesson purchase */}
+          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+            <div>
+              <h4 className="font-medium text-gray-900">Allow Individual Lesson Purchase</h4>
+              <p className="text-sm text-gray-500">Students can purchase individual lessons separately</p>
+            </div>
+            <input
+              type="checkbox"
+              name="allowIndividualLessonPurchase"
+              checked={formData.allowIndividualLessonPurchase}
+              onChange={handleChange}
+              className="h-5 w-5 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+            />
+          </div>
+        </div>
+
+        {/* Default lesson price */}
+        {formData.allowIndividualLessonPurchase && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Default Price per Lesson (USD)
+            </label>
+            <input
+              type="number"
+              name="defaultLessonPrice"
+              value={formData.defaultLessonPrice}
+              onChange={handleChange}
+              min="0"
+              step="10"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+              placeholder="Enter default price per lesson"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ========== DATED SCHEDULES SECTION ========== */}
+      <div className="border-t border-gray-200 pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+            <FiCalendar className="w-5 h-5" />
+            Course Schedules
+          </h3>
+          <button
+            type="button"
+            onClick={addDatedSchedule}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+          >
+            <FiPlus className="w-4 h-4" />
+            Add Schedule
+          </button>
+        </div>
+
+        {datedSchedules.length > 0 && (
+          <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-700">
+              📅 Currently have {datedSchedules.length} scheduled sessions.
+            </p>
+          </div>
+        )}
+
+        {/* Show schedules error */}
+        {datedSchedules.length === 0 && errors.datedSchedules && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <p className="text-red-700 text-sm">{errors.datedSchedules}</p>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {datedSchedules.map((schedule, index) => (
+            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                {/* Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Session Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={schedule.date}
+                    onChange={(e) => updateDatedSchedule(index, 'date', e.target.value)}
+                    min={formData.startDate}
+                    max={formData.endDate}
+                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      errors[`datedSchedule_${index}_date`] ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                  {errors[`datedSchedule_${index}_date`] && (
+                    <p className="mt-1 text-red-500 text-xs">{errors[`datedSchedule_${index}_date`]}</p>
+                  )}
+                </div>
+
+                {/* Start Time */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Time *
+                  </label>
+                  <input
+                    type="time"
+                    value={schedule.startTime}
+                    onChange={(e) => updateDatedSchedule(index, 'startTime', e.target.value)}
+                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      errors[`datedSchedule_${index}_start`] ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                  {errors[`datedSchedule_${index}_start`] && (
+                    <p className="mt-1 text-red-500 text-xs">{errors[`datedSchedule_${index}_start`]}</p>
+                  )}
+                </div>
+
+                {/* End Time */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Time *
+                  </label>
+                  <input
+                    type="time"
+                    value={schedule.endTime}
+                    onChange={(e) => updateDatedSchedule(index, 'endTime', e.target.value)}
+                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      errors[`datedSchedule_${index}_end`] || errors[`datedSchedule_${index}_time`] ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                  {errors[`datedSchedule_${index}_end`] && (
+                    <p className="mt-1 text-red-500 text-xs">{errors[`datedSchedule_${index}_end`]}</p>
+                  )}
+                  {errors[`datedSchedule_${index}_time`] && (
+                    <p className="mt-1 text-red-500 text-xs">{errors[`datedSchedule_${index}_time`]}</p>
+                  )}
+                </div>
+
+                {/* Individual Price */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Lesson Price (USD)
+                  </label>
+                  <input
+                    type="number"
+                    value={schedule.individualPrice || 0}
+                    onChange={(e) => updateDatedSchedule(index, 'individualPrice', Number(e.target.value))}
+                    min="0"
+                    step="10"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                {/* Remove Button */}
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={() => removeDatedSchedule(index)}
+                    className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors w-full"
+                  >
+                    <FiTrash2 className="w-4 h-4" />
+                    Remove
+                  </button>
+                </div>
+              </div>
+
+              {/* Additional options */}
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={schedule.availableForIndividualPurchase || false}
+                    onChange={(e) => updateDatedSchedule(index, 'availableForIndividualPurchase', e.target.checked)}
+                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-900">
+                    Allow individual purchase for this lesson
+                  </label>
+                </div>
+                
+                <div>
+                  <input
+                    type="text"
+                    value={schedule.notes || ''}
+                    onChange={(e) => updateDatedSchedule(index, 'notes', e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Notes (optional)"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {datedSchedules.length === 0 && (
+          <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+            <FiCalendar className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+            <p className="text-gray-500">No schedules have been set up</p>
+            <p className="text-sm text-gray-400 mt-1">Click "Add Schedule" to set up course sessions</p>
+          </div>
+        )}
+      </div>
+
       {/* ========== IMAGES SECTION ========== */}
       <div className="border-t border-gray-200 pt-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
           <FiImage className="w-5 h-5" />
-          Hình ảnh khóa học
+          Course Images
         </h3>
 
         {/* Progress bars */}
         {Object.keys(uploadProgress).length > 0 && (
           <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-            <h4 className="font-medium text-blue-700 mb-2">Đang upload...</h4>
+            <h4 className="font-medium text-blue-700 mb-2">Uploading...</h4>
             {renderProgressBars()}
           </div>
         )}
@@ -830,7 +1059,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
         {/* Thumbnail */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Ảnh đại diện (Thumbnail) *
+            Thumbnail Image *
           </label>
           
           <div className="flex flex-col md:flex-row gap-4 items-start">
@@ -850,11 +1079,11 @@ const CourseForm: React.FC<CourseFormProps> = ({
                 className="flex items-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <FiUpload className="w-4 h-4" />
-                {formData.thumbnail ? 'Thay đổi ảnh' : 'Chọn ảnh'}
+                {formData.thumbnail ? 'Change Image' : 'Select Image'}
               </button>
             </div>
 
-            {/* Preview và URL input */}
+            {/* Preview and URL input */}
             <div className="flex-1 w-full">
               {formData.thumbnail ? (
                 <div className="flex flex-col md:flex-row gap-4 items-start">
@@ -877,18 +1106,18 @@ const CourseForm: React.FC<CourseFormProps> = ({
                       className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all ${
                         errors.thumbnail ? 'border-red-500' : 'border-gray-300'
                       }`}
-                      placeholder="URL ảnh đại diện"
+                      placeholder="Thumbnail image URL"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      URL ảnh đại diện cho khóa học. Kích thước đề xuất: 400x300px
+                      Thumbnail image for the course. Recommended size: 400x300px
                     </p>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-4 border-2 border-dashed border-gray-300 rounded-xl">
                   <FiImage className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">Chưa có ảnh đại diện</p>
-                  <p className="text-sm text-gray-400">Chọn ảnh từ máy tính của bạn</p>
+                  <p className="text-gray-500">No thumbnail image</p>
+                  <p className="text-sm text-gray-400">Select an image from your computer</p>
                 </div>
               )}
             </div>
@@ -899,7 +1128,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
         {/* Cover Image */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Ảnh cover (Banner)
+            Cover Image (Banner)
           </label>
           
           <div className="flex flex-col md:flex-row gap-4 items-start">
@@ -919,11 +1148,11 @@ const CourseForm: React.FC<CourseFormProps> = ({
                 className="flex items-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <FiUpload className="w-4 h-4" />
-                {formData.coverImage ? 'Thay đổi ảnh' : 'Chọn ảnh'}
+                {formData.coverImage ? 'Change Image' : 'Select Image'}
               </button>
             </div>
 
-            {/* Preview và URL input */}
+            {/* Preview and URL input */}
             <div className="flex-1 w-full">
               {formData.coverImage ? (
                 <div className="flex flex-col md:flex-row gap-4 items-start">
@@ -944,18 +1173,18 @@ const CourseForm: React.FC<CourseFormProps> = ({
                       value={formData.coverImage}
                       onChange={handleChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-                      placeholder="URL ảnh cover"
+                      placeholder="Cover image URL"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Ảnh banner lớn cho trang chi tiết khóa học. Kích thước đề xuất: 1200x400px
+                      Large banner image for course detail page. Recommended size: 1200x400px
                     </p>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-4 border-2 border-dashed border-gray-300 rounded-xl">
                   <FiImage className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">Chưa có ảnh cover</p>
-                  <p className="text-sm text-gray-400">Chọn ảnh từ máy tính của bạn</p>
+                  <p className="text-gray-500">No cover image</p>
+                  <p className="text-sm text-gray-400">Select an image from your computer</p>
                 </div>
               )}
             </div>
@@ -965,7 +1194,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
         {/* Gallery */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Bộ sưu tập hình ảnh
+            Image Gallery
           </label>
           
           {/* Upload multiple images */}
@@ -985,17 +1214,17 @@ const CourseForm: React.FC<CourseFormProps> = ({
               className="flex items-center gap-2 px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <FiUpload className="w-4 h-4" />
-              Chọn nhiều ảnh
+              Select Multiple Images
             </button>
             <p className="text-xs text-gray-500 mt-1">
-              Chọn nhiều ảnh để thêm vào bộ sưu tập khóa học (tối đa 10 ảnh, mỗi ảnh dưới 10MB)
+              Select multiple images to add to course gallery (max 10 images, each under 10MB)
             </p>
           </div>
 
           {/* Gallery images list */}
           {gallery.length > 0 ? (
             <div className="space-y-3">
-              <h4 className="font-medium text-gray-700">Ảnh trong gallery ({gallery.length})</h4>
+              <h4 className="font-medium text-gray-700">Images in gallery ({gallery.length})</h4>
               {gallery.map((image, index) => (
                 <div key={index} className="border border-gray-200 rounded-lg p-3 bg-white">
                   <div className="flex flex-col md:flex-row gap-4">
@@ -1032,7 +1261,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
                         />
                       </div>
                       <div className="md:col-span-2">
-                        <label className="block text-xs text-gray-600 mb-1">Chú thích</label>
+                        <label className="block text-xs text-gray-600 mb-1">Caption</label>
                         <input
                           type="text"
                           value={image.caption}
@@ -1050,7 +1279,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
                         className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                       >
                         <FiTrash2 className="w-4 h-4" />
-                        Xóa
+                        Remove
                       </button>
                     </div>
                   </div>
@@ -1060,8 +1289,8 @@ const CourseForm: React.FC<CourseFormProps> = ({
           ) : (
             <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
               <FiImage className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-500">Chưa có ảnh nào trong gallery</p>
-              <p className="text-sm text-gray-400 mt-1">Thêm ảnh để hiển thị trong bộ sưu tập khóa học</p>
+              <p className="text-gray-500">No images in gallery</p>
+              <p className="text-sm text-gray-400 mt-1">Add images to display in course gallery</p>
             </div>
           )}
         </div>
@@ -1069,7 +1298,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
         {/* Promo Video */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Video giới thiệu
+            Promotional Video
           </label>
           
           <div className="flex flex-col md:flex-row gap-4 items-start">
@@ -1088,12 +1317,12 @@ const CourseForm: React.FC<CourseFormProps> = ({
                 disabled={uploading}
                 className="flex items-center gap-2 px-4 py-3 bg-purple-500 text-white rounded-xl hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <FiVideo className="w-4 h-4" />
-                {formData.promoVideo ? 'Thay đổi video' : 'Chọn video'}
+                <FiUpload className="w-4 h-4" />
+                {formData.promoVideo ? 'Change Video' : 'Select Video'}
               </button>
             </div>
 
-            {/* Preview và URL input */}
+            {/* Preview and URL input */}
             <div className="flex-1 w-full">
               {formData.promoVideo ? (
                 <div className="flex flex-col md:flex-row gap-4 items-start">
@@ -1111,160 +1340,33 @@ const CourseForm: React.FC<CourseFormProps> = ({
                       value={formData.promoVideo}
                       onChange={handleChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-                      placeholder="URL video giới thiệu"
+                      placeholder="Promotional video URL"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      URL video giới thiệu khóa học
+                      Promotional video URL for the course
                     </p>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-4 border-2 border-dashed border-gray-300 rounded-xl">
                   <FiVideo className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">Chưa có video giới thiệu</p>
-                  <p className="text-sm text-gray-400">Chọn video từ máy tính của bạn</p>
+                  <p className="text-gray-500">No promotional video</p>
+                  <p className="text-sm text-gray-400">Select a video from your computer</p>
                 </div>
               )}
             </div>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Định dạng hỗ trợ: MP4, MOV, AVI, WEBM. Kích thước tối đa: 50MB
+            Supported formats: MP4, MOV, AVI, WEBM. Maximum size: 50MB
           </p>
         </div>
       </div>
 
-      {/* ========== SCHEDULES SECTION ========== */}
-      <div className="border-t border-gray-200 pt-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Lịch học</h3>
-          <button
-            type="button"
-            onClick={addSchedule}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-          >
-            <FiPlus className="w-4 h-4" />
-            Thêm lịch học
-          </button>
-        </div>
-
-        {schedules.length > 0 && (
-          <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700">
-              📅 Hiện có {schedules.length} lịch học. Các lịch học sẽ được chuyển đổi sang số (0-6) khi lưu.
-            </p>
-          </div>
-        )}
-
-        {/* Hiển thị lỗi schedules tổng */}
-        {schedules.length === 0 && errors.schedules && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-            <p className="text-red-700 text-sm">{errors.schedules}</p>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {schedules.map((schedule, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Day of Week */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ngày trong tuần *
-                  </label>
-                  <select
-                    value={schedule.dayOfWeek}
-                    onChange={(e) => updateSchedule(index, 'dayOfWeek', e.target.value)}
-                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                      errors[`schedule_${index}_day`] ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Chọn ngày</option>
-                    {dayOfWeekOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  {errors[`schedule_${index}_day`] && (
-                    <p className="mt-1 text-red-500 text-xs">{errors[`schedule_${index}_day`]}</p>
-                  )}
-                </div>
-
-                {/* Start Time */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Giờ bắt đầu *
-                  </label>
-                  <input
-                    type="time"
-                    value={schedule.startTime}
-                    onChange={(e) => updateSchedule(index, 'startTime', e.target.value)}
-                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                      errors[`schedule_${index}_start`] ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {errors[`schedule_${index}_start`] && (
-                    <p className="mt-1 text-red-500 text-xs">{errors[`schedule_${index}_start`]}</p>
-                  )}
-                </div>
-
-                {/* End Time */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Giờ kết thúc *
-                  </label>
-                  <input
-                    type="time"
-                    value={schedule.endTime}
-                    onChange={(e) => updateSchedule(index, 'endTime', e.target.value)}
-                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                      errors[`schedule_${index}_end`] || errors[`schedule_${index}_time`] ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {errors[`schedule_${index}_end`] && (
-                    <p className="mt-1 text-red-500 text-xs">{errors[`schedule_${index}_end`]}</p>
-                  )}
-                  {errors[`schedule_${index}_time`] && (
-                    <p className="mt-1 text-red-500 text-xs">{errors[`schedule_${index}_time`]}</p>
-                  )}
-                </div>
-
-                {/* Remove Button */}
-                <div className="flex items-end">
-                  <button
-                    type="button"
-                    onClick={() => removeSchedule(index)}
-                    className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                  >
-                    <FiTrash2 className="w-4 h-4" />
-                    Xóa
-                  </button>
-                </div>
-              </div>
-              
-              {/* Debug info - chỉ hiển thị trong development */}
-              {process.env.NODE_ENV === 'development' && schedule.dayOfWeek && (
-                <div className="mt-2 p-2 bg-yellow-100 rounded text-xs">
-                  <span className="font-medium">Debug:</span> {schedule.dayOfWeek} → {dayOfWeekMap[schedule.dayOfWeek]}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {schedules.length === 0 && (
-          <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-            <p className="text-gray-500">Chưa có lịch học nào được thiết lập</p>
-            <p className="text-sm text-gray-400 mt-1">Nhấn "Thêm lịch học" để thiết lập lịch học cho khóa học</p>
-          </div>
-        )}
-      </div>
-
-      {/* Additional Fields */}
+      {/* Additional Fields - TRANSLATED TO ENGLISH */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Điều kiện tiên quyết
+            Prerequisites
           </label>
           <textarea
             name="prerequisites"
@@ -1272,13 +1374,13 @@ const CourseForm: React.FC<CourseFormProps> = ({
             onChange={handleChange}
             rows={2}
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-            placeholder="Nhập các điều kiện tiên quyết, phân cách bằng dấu phẩy"
+            placeholder="Enter prerequisites, separated by commas"
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Kết quả học tập
+            Learning Outcomes
           </label>
           <textarea
             name="learningOutcomes"
@@ -1286,12 +1388,12 @@ const CourseForm: React.FC<CourseFormProps> = ({
             onChange={handleChange}
             rows={2}
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-            placeholder="Nhập các kết quả học tập mong đợi, phân cách bằng dấu phẩy"
+            placeholder="Enter expected learning outcomes, separated by commas"
           />
         </div>
       </div>
 
-      {/* Certificate Checkbox */}
+      {/* Certificate Checkbox - TRANSLATED TO ENGLISH */}
       <div className="flex items-center">
         <input
           type="checkbox"
@@ -1301,11 +1403,11 @@ const CourseForm: React.FC<CourseFormProps> = ({
           className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
         />
         <label className="ml-2 block text-sm text-gray-900">
-          Cung cấp chứng chỉ hoàn thành khóa học
+          Provide course completion certificate
         </label>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Buttons - TRANSLATED TO ENGLISH */}
       <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
         <button
           type="button"
@@ -1314,7 +1416,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
           className="flex-1 px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
           <FiSave className="w-5 h-5" />
-          {submitting ? 'Đang lưu...' : 'Lưu bản nháp'}
+          {submitting ? 'Saving...' : 'Save Draft'}
         </button>
 
         <button
@@ -1324,7 +1426,7 @@ const CourseForm: React.FC<CourseFormProps> = ({
           className="flex-1 px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
           <FiSend className="w-5 h-5" />
-          {submitting ? 'Đang gửi...' : 'Gửi để phê duyệt'}
+          {submitting ? 'Submitting...' : 'Submit for Review'}
         </button>
 
         <button
@@ -1334,15 +1436,15 @@ const CourseForm: React.FC<CourseFormProps> = ({
           className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
           <FiX className="w-5 h-5" />
-          Hủy
+          Cancel
         </button>
       </div>
 
-      {/* Uploading warning */}
+      {/* Uploading warning - TRANSLATED TO ENGLISH */}
       {(uploading || Object.keys(uploadProgress).length > 0) && (
         <div className="fixed bottom-4 right-4 bg-yellow-500 text-white p-4 rounded-lg shadow-lg">
-          <p className="font-medium">Đang upload file...</p>
-          <p className="text-sm">Vui lòng không đóng trang</p>
+          <p className="font-medium">Uploading files...</p>
+          <p className="text-sm">Please do not close the page</p>
         </div>
       )}
     </form>

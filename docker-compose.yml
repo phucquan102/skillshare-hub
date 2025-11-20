@@ -16,12 +16,13 @@ services:
     command: mongod --auth
     networks:
       - skillshare-network
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test -u admin -p password123 --authenticationDatabase admin --quiet
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+    # ❌ BỎ HEALTHCHECK
+    # healthcheck:
+    #   test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test -u admin -p password123 --authenticationDatabase admin --quiet
+    #   interval: 10s
+    #   timeout: 10s
+    #   retries: 5
+    #   start_period: 30s
 
   # ========================
   # Redis Cache
@@ -34,14 +35,15 @@ services:
       - redis-data:/data
     networks:
       - skillshare-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    # ❌ BỎ HEALTHCHECK
+    # healthcheck:
+    #   test: ["CMD", "redis-cli", "ping"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
 
   # ========================
-  # Ollama AI Model
+  # Ollama AI Model (Optional)
   # ========================
   ollama:
     image: ollama/ollama:latest
@@ -53,12 +55,11 @@ services:
       - OLLAMA_HOST=0.0.0.0:11434
     networks:
       - skillshare-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 4G
 
   # ========================
   # User Service
@@ -70,8 +71,7 @@ services:
     ports:
       - "3001:3001"
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo
     environment:
       - MONGO_URI=mongodb://admin:password123@mongo:27017/userdb?authSource=admin
       - PORT=3001
@@ -79,12 +79,13 @@ services:
     networks:
       - skillshare-network
     restart: on-failure
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    # ❌ BỎ HEALTHCHECK
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
 
   # ========================
   # Course Service
@@ -96,26 +97,26 @@ services:
     ports:
       - "3002:3002"
     depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - mongo
+      - redis
     environment:
       - MONGO_URI=mongodb://admin:password123@mongo:27017/coursedb?authSource=admin
       - USER_SERVICE_URL=http://user-service:3001
       - PAYMENT_SERVICE_URL=http://payment-service:3003
       - REDIS_URL=redis://redis:6379
       - PORT=3002
+      - ENABLE_CRON_JOBS=true
       - JWT_SECRET=your_super_secret_jwt_key_here
     networks:
       - skillshare-network
     restart: on-failure
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    # ❌ BỎ HEALTHCHECK
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
 
   # ========================
   # Payment Service
@@ -127,8 +128,7 @@ services:
     ports:
       - "3003:3003"
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo
     environment:
       - MONGO_URI=mongodb://admin:password123@mongo:27017/paymentdb?authSource=admin
       - USER_SERVICE_URL=http://user-service:3001
@@ -139,12 +139,13 @@ services:
     networks:
       - skillshare-network
     restart: on-failure
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    # ❌ BỎ HEALTHCHECK
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
 
   # ========================
   # Chat Service (với AI)
@@ -156,12 +157,8 @@ services:
     ports:
       - "3004:3004"
     depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      ollama:
-        condition: service_healthy
+      - mongo
+      - redis
     environment:
       - PORT=3004
       - MONGO_URI=mongodb://admin:password123@mongo:27017/chatdb?authSource=admin
@@ -176,12 +173,41 @@ services:
     networks:
       - skillshare-network
     restart: on-failure
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    # ❌ BỎ HEALTHCHECK
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
+
+  # ========================
+  # Review Service
+  # ========================
+  review-service:
+    build:
+      context: ./services/review-service
+      dockerfile: Dockerfile
+    ports:
+      - "3005:3005"
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=mongodb://admin:password123@mongo:27017/reviewdb?authSource=admin
+      - PORT=3005
+      - JWT_SECRET=your_super_secret_jwt_key_here
+      - USER_SERVICE_URL=http://user-service:3001
+      - COURSE_SERVICE_URL=http://course-service:3002
+    networks:
+      - skillshare-network
+    restart: on-failure
+    # ❌ BỎ HEALTHCHECK
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
 
   # ========================
   # API Gateway
@@ -193,29 +219,28 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      user-service:
-        condition: service_healthy
-      course-service:
-        condition: service_healthy
-      payment-service:
-        condition: service_healthy
-      chat-service:
-        condition: service_healthy
+      - user-service
+      - course-service
+      - payment-service
+      - chat-service
+      - review-service
     environment:
       - PORT=3000
       - USER_SERVICE_URL=http://user-service:3001
       - COURSE_SERVICE_URL=http://course-service:3002
       - PAYMENT_SERVICE_URL=http://payment-service:3003
       - CHAT_SERVICE_URL=http://chat-service:3004
+      - REVIEW_SERVICE_URL=http://review-service:3005
     networks:
       - skillshare-network
     restart: on-failure
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    # ❌ BỎ HEALTHCHECK
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
 
   # ========================
   # Frontend
@@ -227,8 +252,7 @@ services:
     ports:
       - "8081:80"
     depends_on:
-      api-gateway:
-        condition: service_healthy
+      - api-gateway
     environment:
       - REACT_APP_API_BASE_URL=http://localhost:3000
     networks:

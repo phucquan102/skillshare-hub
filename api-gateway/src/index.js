@@ -2,6 +2,7 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const cors = require('cors');
+
 require('dotenv').config();
 
 const app = express();
@@ -66,7 +67,10 @@ app.get('/', (req, res) => {
       payments: '/api/payments',
       upload: '/api/upload',
       chat: '/api/chat',
-      ai: '/api/chat/ai'
+      ai: '/api/chat/ai',
+      reviews: '/api/reviews',
+      ratings: '/api/ratings',
+      datedSchedules: '/api/courses/:courseId/dated-schedules'
     }
   });
 });
@@ -79,7 +83,9 @@ app.get('/', (req, res) => {
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://user-service:3001';
 const COURSE_SERVICE_URL = process.env.COURSE_SERVICE_URL || 'http://course-service:3002';
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3003';
-const CHAT_SERVICE_URL = process.env.CHAT_SERVICE_URL || 'http://chat-service:3004'
+const CHAT_SERVICE_URL = process.env.CHAT_SERVICE_URL || 'http://chat-service:3004';
+const REVIEW_SERVICE_URL = process.env.REVIEW_SERVICE_URL || 'http://review-service:3005';
+
 
 const createProxy = (target, serviceName, pathRewrite = {}) => {
   return createProxyMiddleware({
@@ -123,8 +129,10 @@ app.use(
   createProxyMiddleware({
     target: CHAT_SERVICE_URL,
     changeOrigin: true,
-    ws: true, // 👈 bật WebSocket proxy
-    pathRewrite: { '^/api/chat': '' },
+    ws: true, // BẬT WebSocket support
+    pathRewrite: { 
+      '^/api/chat': '' 
+    },
     logLevel: 'debug',
     onProxyReq: (proxyReq, req) => {
       console.log(`➡️ Chat Service: ${req.method} ${req.originalUrl}`);
@@ -137,6 +145,25 @@ app.use(
     }
   })
 );
+app.use(
+  '/socket.io',
+  createProxyMiddleware({
+    target: CHAT_SERVICE_URL,
+    changeOrigin: true,
+    ws: true, // BẬT WebSocket support
+    logLevel: 'debug'
+  })
+);
+
+
+app.use('/api/reviews', createProxy(REVIEW_SERVICE_URL, 'review-service', { 
+  '^/api/reviews': '/reviews' 
+}));
+
+app.use('/api/ratings', createProxy(REVIEW_SERVICE_URL, 'review-service', { 
+  '^/api/ratings': '/ratings' 
+}));
+
 
 app.use('/api/upload', (req, res, next) => {
   console.log('🔍 [Upload Debug] Request received:', {
@@ -195,4 +222,5 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`  Courses: ${COURSE_SERVICE_URL}`);
   console.log(`  Payments: ${PAYMENT_SERVICE_URL}`);
   console.log(`  Chat: ${CHAT_SERVICE_URL}`); 
+  console.log(`  Reviews: ${REVIEW_SERVICE_URL}`);
 });

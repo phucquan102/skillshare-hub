@@ -28,6 +28,16 @@ router.get('/public/check', enrollmentController.checkEnrollment);
 // Instructor routes - sử dụng authMiddleware và instructorMiddleware
 router.get('/course/:courseId/enrollments', authMiddleware, instructorMiddleware, enrollmentController.getCourseEnrollments);
 
+
+// Thêm routes mới cho hoàn thành khóa học
+router.post('/:enrollmentId/complete', authMiddleware, instructorMiddleware, enrollmentController.completeCourseForStudent);
+router.post('/cron/auto-complete', enrollmentController.autoCompleteExpiredCourses); // Cho cron job
+
+
+
+router.get('/progress-details/:enrollmentId', authMiddleware, enrollmentController.getProgressDetails);
+router.post('/purchase-dated-lesson/:courseId/:scheduleId', authMiddleware, enrollmentController.purchaseDatedLesson);
+
 console.log('✅ All enrollment routes registered successfully');
 
 module.exports = router;

@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const Enrollment = require('../models/Enrollment');
 const Course = require('../models/Course');
 const Lesson = require('../models/Lesson');
-
+const axios = require('axios');
 /**
  * =====================
  *  PURCHASE INDIVIDUAL LESSON
@@ -52,8 +52,11 @@ const purchaseLesson = async (req, res) => {
 
     // 🔥 QUAN TRỌNG: Kiểm tra xem user đã có full access chưa
     if (enrollment && enrollment.hasFullAccess) {
-      return res.status(400).json({ 
-        message: 'Bạn đã mua toàn bộ khóa học, không cần mua bài học riêng lẻ' 
+      return res.status(200).json({ 
+        success: true,
+        message: 'Bạn đã mua toàn bộ khóa học, không cần mua bài học riêng lẻ',
+        alreadyPurchased: true,
+        enrollment: enrollment
       });
     }
 
@@ -64,8 +67,11 @@ const purchaseLesson = async (req, res) => {
       );
 
       if (alreadyPurchased) {
-        return res.status(400).json({ 
-          message: 'Bạn đã mua bài học này rồi' 
+        return res.status(200).json({ 
+          success: true,
+          message: 'Bạn đã mua bài học này rồi',
+          alreadyPurchased: true,
+          enrollment: enrollment
         });
       }
 
@@ -426,10 +432,15 @@ const updateEnrollmentStatus = async (req, res) => {
  *  GET COURSE ENROLLMENTS (FOR INSTRUCTOR)
  * =====================
  */
+/**
+ * =====================
+ *  GET COURSE ENROLLMENTS (FOR INSTRUCTOR) - FIXED
+ * =====================
+ */
 const getCourseEnrollments = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { page = 1, limit = 10, status } = req.query;
+    const { page = 1, limit = 10, status, search } = req.query;
 
     console.log("👥 [getCourseEnrollments]");
     console.log("➡️ CourseId:", courseId);
@@ -452,10 +463,10 @@ const getCourseEnrollments = async (req, res) => {
     }
 
     const query = { courseId: new mongoose.Types.ObjectId(courseId) };
-    if (status) query.status = status;
+    if (status && status !== 'all') query.status = status;
 
+    // 🔥 FIX: Không sử dụng populate, chỉ lấy enrollments
     const enrollments = await Enrollment.find(query)
-      .populate('studentId', 'fullName email profile.avatar')
       .sort({ enrolledAt: -1 })
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))
@@ -463,19 +474,78 @@ const getCourseEnrollments = async (req, res) => {
 
     const total = await Enrollment.countDocuments(query);
 
+    // 🔥 FIX: Lấy thông tin user từ user-service
+    const studentIds = enrollments.map(e => e.studentId);
+    let studentsInfo = [];
+
+    if (studentIds.length > 0) {
+      try {
+        console.log('📡 Fetching students info from user-service:', studentIds);
+        
+        const userServiceUrl = process.env.USER_SERVICE_URL || 'http://user-service:3001';
+       
+const response = await axios.post(
+  `${userServiceUrl}/internal/batch`,  // SỬA /api/users/batch -> /internal/batch
+  { userIds: studentIds },
+  {
+    headers: {
+      'Authorization': req.headers.authorization,
+      'Content-Type': 'application/json'
+    },
+    timeout: 10000
+  }
+);
+
+        if (response.data && response.data.users) {
+          studentsInfo = response.data.users;
+        }
+      } catch (error) {
+        console.error('❌ Error fetching users from user-service:', error.message);
+        // Fallback: tạo thông tin user mặc định
+        studentsInfo = studentIds.map(id => ({
+          _id: id,
+          fullName: 'Unknown Student',
+          email: 'unknown@example.com',
+          profile: { avatar: null }
+        }));
+      }
+    }
+
+    // Tạo map để tra cứu nhanh thông tin student
+    const studentsMap = {};
+    studentsInfo.forEach(student => {
+      studentsMap[student._id] = student;
+    });
+
+    // Kết hợp thông tin enrollment với student
+    const enrollmentsWithStudents = enrollments.map(enrollment => {
+      const studentInfo = studentsMap[enrollment.studentId] || {
+        _id: enrollment.studentId,
+        fullName: 'Unknown Student',
+        email: 'unknown@example.com',
+        profile: { avatar: null }
+      };
+
+      return {
+        ...enrollment,
+        studentId: studentInfo
+      };
+    });
+
     // Thống kê
     const stats = {
       total: await Enrollment.countDocuments({ courseId }),
       active: await Enrollment.countDocuments({ courseId, status: 'active' }),
       completed: await Enrollment.countDocuments({ courseId, status: 'completed' }),
-      cancelled: await Enrollment.countDocuments({ courseId, status: 'cancelled' })
+      cancelled: await Enrollment.countDocuments({ courseId, status: 'cancelled' }),
+      paused: await Enrollment.countDocuments({ courseId, status: 'paused' })
     };
 
     console.log(`📊 Found ${total} enrollments for course ${courseId}`);
 
     res.json({
       success: true,
-      enrollments,
+      enrollments: enrollmentsWithStudents,
       stats,
       pagination: {
         currentPage: Number(page),
@@ -499,10 +569,8 @@ const createEnrollment = async (req, res) => {
     const studentId = new mongoose.Types.ObjectId(req.userId);
 
     console.log("🎯 [createEnrollment]");
-    console.log("➡️ StudentId (from token):", req.userId);
-    console.log("➡️ StudentId (ObjectId):", studentId.toString());
-    console.log("➡️ CourseId (body):", courseId);
-    console.log("➡️ PaymentId (body):", paymentId);
+    console.log("➡️ StudentId:", studentId.toString());
+    console.log("➡️ CourseId:", courseId);
 
     // Validate input
     if (!courseId || !paymentId) {
@@ -532,12 +600,6 @@ const createEnrollment = async (req, res) => {
       courseId: new mongoose.Types.ObjectId(courseId)
     });
 
-    console.log("📌 Query ->", {
-      studentId: studentId.toString(),
-      courseId: courseId.toString()
-    });
-    console.log("📌 existingEnrollment:", existingEnrollment ? existingEnrollment._id.toString() : null);
-
     if (existingEnrollment) {
       return res.status(400).json({ message: 'Bạn đã đăng ký khóa học này rồi' });
     }
@@ -549,7 +611,7 @@ const createEnrollment = async (req, res) => {
     }
 
     // Tạo enrollment mới
-    const enrollment = new Enrollment({
+     const enrollment = new Enrollment({
       studentId,
       courseId: new mongoose.Types.ObjectId(courseId),
       paymentId: new mongoose.Types.ObjectId(paymentId),
@@ -565,10 +627,54 @@ const createEnrollment = async (req, res) => {
     await course.save();
     console.log("📈 Course enrollment count updated:", course.currentEnrollments);
 
+    // 🔥 BACKGROUND JOB: SỬA LỖI NHỎ - THÊM FALLBACK URL
+    console.log("🚀 Starting background job for conversation creation...");
+    
+    process.nextTick(async () => {
+      try {
+        console.log("💬 [Background] Creating instructor conversations...");
+        
+        // ✅ THÊM FALLBACK URL NẾU BIẾN MÔI TRƯỜNG KHÔNG TỒN TẠI
+        await axios.post(
+          `${process.env.CHAT_SERVICE_URL || 'http://chat-service:3004'}/api/chat/conversations/auto-create`,
+          {
+            enrollmentId: enrollment._id.toString(),
+            courseId: courseId,
+            studentId: studentId.toString(),
+            studentRole: 'student',
+            courseTitle: course.title
+          },
+          {
+            headers: {
+              'Authorization': req.headers.authorization,
+              'Content-Type': 'application/json'
+            },
+            timeout: 10000
+          }
+        );
+
+        console.log("✅ [Background] Instructor conversations created successfully");
+      } catch (chatError) {
+        console.warn("⚠️ [Background] Conversation creation failed:", {
+          message: chatError.message,
+          courseId: courseId,
+          studentId: studentId.toString(),
+          // ✅ THÊM DEBUG THÊM
+          stack: chatError.stack
+        });
+      }
+    });
+
     return res.status(201).json({
       success: true,
       message: 'Đăng ký khóa học thành công',
-      enrollment
+      enrollment: {
+        _id: enrollment._id,
+        courseId: enrollment.courseId,
+        studentId: enrollment.studentId,
+        status: enrollment.status,
+        enrolledAt: enrollment.enrolledAt
+      }
     });
 
   } catch (error) {
@@ -584,7 +690,6 @@ const createEnrollment = async (req, res) => {
     });
   }
 };
-
 /**
  * =====================
  *  GET MY ENROLLMENTS (LEGACY)
@@ -750,7 +855,296 @@ const checkEnrollment = async (req, res) => {
     });
   }
 };
+const completeCourseForStudent = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    const instructorId = req.userId;
 
+    console.log("🎓 [completeCourseForStudent]");
+    console.log("➡️ Instructor:", instructorId);
+    console.log("➡️ EnrollmentId:", enrollmentId);
+
+    const enrollment = await Enrollment.findById(enrollmentId)
+      .populate('courseId', 'instructor title');
+
+    if (!enrollment) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Không tìm thấy enrollment' 
+      });
+    }
+
+    // Kiểm tra quyền instructor
+    if (enrollment.courseId.instructor.toString() !== instructorId && req.userRole !== 'admin') {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Bạn không có quyền hoàn thành khóa học cho học viên này' 
+      });
+    }
+
+    enrollment.status = 'completed';
+    enrollment.completedAt = new Date();
+    enrollment.progress.overallProgress = 100;
+    enrollment.progress.lastAccessed = new Date();
+
+    await enrollment.save();
+
+    console.log("✅ Course manually completed for student:", enrollment.studentId);
+
+    res.json({
+      success: true,
+      message: 'Đã đánh dấu hoàn thành khóa học cho học viên',
+      enrollment: {
+        _id: enrollment._id,
+        studentId: enrollment.studentId,
+        status: enrollment.status,
+        completedAt: enrollment.completedAt,
+        progress: enrollment.progress.overallProgress
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Error in completeCourseForStudent:", error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi server khi hoàn thành khóa học',
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * =====================
+ *  AUTO-COMPLETE EXPIRED COURSES (CRON JOB)
+ * =====================
+ */
+const autoCompleteExpiredCourses = async (req, res) => {
+  try {
+    console.log("🔄 [autoCompleteExpiredCourses] Running auto-completion for expired courses...");
+
+    const result = await Enrollment.autoCompleteExpiredCourses();
+
+    res.json({
+      success: true,
+      message: `Đã tự động hoàn thành ${result.completedCount} enrollments cho ${result.processedCourses} khóa học hết hạn`,
+      ...result
+    });
+
+  } catch (error) {
+    console.error("❌ Error in autoCompleteExpiredCourses:", error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi server khi tự động hoàn thành khóa học',
+      error: error.message 
+    });
+  }
+};
+const purchaseDatedLesson = async (req, res) => {
+  try {
+    const { courseId, scheduleId } = req.params;
+    const { paymentId } = req.body;
+    const studentId = new mongoose.Types.ObjectId(req.userId);
+
+    console.log("🛒 [purchaseDatedLesson]");
+    console.log("➡️ StudentId:", studentId.toString());
+    console.log("➡️ CourseId:", courseId);
+    console.log("➡️ ScheduleId:", scheduleId);
+
+    // Validate input
+    if (!courseId || !scheduleId || !paymentId) {
+      return res.status(400).json({ 
+        message: 'Thiếu thông tin bắt buộc: courseId, scheduleId, paymentId' 
+      });
+    }
+
+    // Kiểm tra course và schedule
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: 'Không tìm thấy khóa học' });
+    }
+
+    const schedule = course.datedSchedules.id(scheduleId);
+    if (!schedule) {
+      return res.status(404).json({ message: 'Không tìm thấy lịch học' });
+    }
+
+    // Kiểm tra schedule có available cho individual purchase không
+    if (!schedule.availableForIndividualPurchase) {
+      return res.status(400).json({ 
+        message: 'Lịch học này không được bán riêng lẻ' 
+      });
+    }
+
+    if (!schedule.hasLesson) {
+      return res.status(400).json({ 
+        message: 'Lịch học này chưa có bài học' 
+      });
+    }
+
+    // Kiểm tra lesson
+    const lesson = await Lesson.findOne({ 
+      datedScheduleId: scheduleId,
+      courseId 
+    });
+
+    if (!lesson) {
+      return res.status(404).json({ message: 'Không tìm thấy bài học' });
+    }
+
+    // Kiểm tra lesson có available cho individual purchase không
+    if (!lesson.availableForIndividualPurchase) {
+      return res.status(400).json({ 
+        message: 'Bài học này không được bán riêng lẻ' 
+      });
+    }
+
+    // Tìm hoặc tạo enrollment
+    let enrollment = await Enrollment.findOne({
+      studentId,
+      courseId: new mongoose.Types.ObjectId(courseId)
+    });
+
+    if (enrollment && enrollment.hasFullAccess) {
+      return res.status(400).json({ 
+        message: 'Bạn đã mua toàn bộ khóa học, không cần mua bài học riêng lẻ' 
+      });
+    }
+
+    if (enrollment) {
+      // Kiểm tra đã mua lesson này chưa
+      const alreadyPurchased = enrollment.purchasedLessons.some(
+        purchase => purchase.lessonId && purchase.lessonId.toString() === lesson._id.toString()
+      );
+
+      if (alreadyPurchased) {
+        return res.status(400).json({ 
+          message: 'Bạn đã mua bài học này rồi' 
+        });
+      }
+
+      // Thêm lesson vào purchased
+      enrollment.purchasedLessons.push({
+        lessonId: lesson._id,
+        price: schedule.individualPrice > 0 ? schedule.individualPrice : lesson.price,
+        purchasedAt: new Date()
+      });
+    } else {
+      // Tạo enrollment mới
+      enrollment = new Enrollment({
+        studentId,
+        courseId: new mongoose.Types.ObjectId(courseId),
+        paymentId: new mongoose.Types.ObjectId(paymentId),
+        purchasedLessons: [{
+          lessonId: lesson._id,
+          price: schedule.individualPrice > 0 ? schedule.individualPrice : lesson.price,
+          purchasedAt: new Date()
+        }],
+        enrolledAt: new Date(),
+        status: 'active'
+      });
+    }
+
+    await enrollment.save();
+
+    console.log(`✅ Purchased dated lesson: ${lesson._id} for student: ${studentId}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Mua bài học thành công',
+      enrollment: {
+        _id: enrollment._id,
+        hasFullAccess: enrollment.hasFullAccess,
+        purchasedLessons: enrollment.purchasedLessons
+      },
+      lesson: {
+        _id: lesson._id,
+        title: lesson.title,
+        date: schedule.date,
+        startTime: schedule.startTime
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Error in purchaseDatedLesson:", error);
+    res.status(500).json({ 
+      message: 'Lỗi server khi mua bài học',
+      error: error.message 
+    });
+  }
+};
+
+const getProgressDetails = async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    const studentId = new mongoose.Types.ObjectId(req.userId);
+
+    console.log("📊 [getProgressDetails]");
+    console.log("➡️ StudentId:", studentId.toString());
+    console.log("➡️ EnrollmentId:", enrollmentId);
+
+    const enrollment = await Enrollment.findOne({
+      _id: enrollmentId,
+      studentId
+    }).populate('courseId', 'title')
+      .populate('progress.completedLessons.lessonId', 'title order');
+
+    if (!enrollment) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Không tìm thấy enrollment' 
+      });
+    }
+
+    // Lấy tất cả lessons của khóa học
+    const allLessons = await Lesson.find({ 
+      courseId: enrollment.courseId 
+    }).select('_id title order').sort('order');
+
+    const totalLessons = allLessons.length;
+    const completedLessons = enrollment.progress.completedLessons.length;
+
+    // Tạo danh sách lessons với trạng thái hoàn thành
+    const lessonsWithStatus = allLessons.map(lesson => {
+      const isCompleted = enrollment.progress.completedLessons.some(
+        completed => completed.lessonId.toString() === lesson._id.toString()
+      );
+      
+      return {
+        _id: lesson._id,
+        title: lesson.title,
+        order: lesson.order,
+        isCompleted,
+        completedAt: isCompleted ? 
+          enrollment.progress.completedLessons.find(
+            completed => completed.lessonId.toString() === lesson._id.toString()
+          ).completedAt : null
+      };
+    });
+
+    res.json({
+      success: true,
+      progress: {
+        enrollmentId: enrollment._id,
+        courseId: enrollment.courseId._id,
+        courseTitle: enrollment.courseId.title,
+        overallProgress: enrollment.progress.overallProgress,
+        completedLessons,
+        totalLessons,
+        lessons: lessonsWithStatus,
+        lastAccessed: enrollment.progress.lastAccessed,
+        status: enrollment.status
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Error in getProgressDetails:", error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi server khi lấy chi tiết tiến độ',
+      error: error.message 
+    });
+  }
+};
 // Cập nhật export để bao gồm tất cả các hàm
 module.exports = {
   // Các hàm mới
@@ -765,5 +1159,9 @@ module.exports = {
   createEnrollment,
   getMyEnrollments,
   deleteEnrollment,
-  checkEnrollment
+  checkEnrollment,
+  completeCourseForStudent,
+  autoCompleteExpiredCourses,
+  getProgressDetails,
+  purchaseDatedLesson 
 };

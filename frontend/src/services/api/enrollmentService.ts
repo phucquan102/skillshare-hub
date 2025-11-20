@@ -13,6 +13,7 @@ export interface EnrollmentResponse {
   message: string;
   enrollment?: any;
   error?: string;
+  alreadyPurchased?: boolean;  
 }
 
 export interface EnrollmentData {
@@ -146,115 +147,156 @@ export const enrollmentService = {
    * Mua lesson riêng lẻ
    */
   purchaseLesson: async (courseId: string, lessonId: string, paymentId: string, price: number): Promise<EnrollmentResponse> => {
+  try {
+    console.log('🛒 [EnrollmentService] Purchasing lesson:', { 
+      courseId, 
+      lessonId, 
+      paymentId, 
+      price 
+    });
+
+    // Validate input
+    if (!courseId || !courseId.trim()) {
+      return {
+        success: false,
+        message: 'courseId là bắt buộc'
+      };
+    }
+
+    if (!lessonId || !lessonId.trim()) {
+      return {
+        success: false,
+        message: 'lessonId là bắt buộc'
+      };
+    }
+
+    if (!paymentId || !paymentId.trim()) {
+      return {
+        success: false,
+        message: 'paymentId là bắt buộc'
+      };
+    }
+
+    if (!price || price <= 0) {
+      return {
+        success: false,
+        message: 'Giá lesson phải lớn hơn 0'
+      };
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return {
+        success: false,
+        message: 'Không tìm thấy token xác thực'
+      };
+    }
+
+    const endpoint = `${API_BASE_URL}/api/enrollments/purchase-lesson`;
+    const requestBody = {
+      courseId: courseId.trim(),
+      lessonId: lessonId.trim(),
+      paymentId: paymentId.trim(),
+      price
+    };
+
+    console.log('📤 [EnrollmentService] Sending purchase lesson request:', requestBody);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    console.log('📥 [EnrollmentService] Purchase lesson response status:', response.status);
+
+    const responseText = await response.text();
+    let responseData;
+
     try {
-      console.log('🛒 [EnrollmentService] Purchasing lesson:', { 
-        courseId, 
-        lessonId, 
-        paymentId, 
-        price 
-      });
+      responseData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('❌ [EnrollmentService] Failed to parse purchase lesson response:', responseText);
+      return {
+        success: false,
+        message: 'Lỗi khi xử lý phản hồi từ server'
+      };
+    }
 
-      // Validate input
-      if (!courseId || !courseId.trim()) {
-        return {
-          success: false,
-          message: 'courseId là bắt buộc'
-        };
-      }
+    // 🆕 XỬ LÝ RESPONSE 200 VỚI alreadyPurchased
+    if (response.ok) {
+      console.log('✅ [EnrollmentService] Purchase lesson successful:', responseData);
+      return {
+        success: true,
+        message: responseData.message,
+        enrollment: responseData.enrollment,
+        alreadyPurchased: responseData.alreadyPurchased || false
+      };
+    }
 
-      if (!lessonId || !lessonId.trim()) {
-        return {
-          success: false,
-          message: 'lessonId là bắt buộc'
-        };
-      }
+    // 🆕 XỬ LÝ CÁC LỖI KHÁC
+    console.error('❌ [EnrollmentService] Purchase lesson API Error:', {
+      status: response.status,
+      data: responseData
+    });
 
-      if (!paymentId || !paymentId.trim()) {
-        return {
-          success: false,
-          message: 'paymentId là bắt buộc'
-        };
-      }
+    return {
+      success: false,
+      message: responseData.message || `Lỗi server: ${response.status}`,
+      error: responseData.error
+    };
 
-      if (!price || price <= 0) {
-        return {
-          success: false,
-          message: 'Giá lesson phải lớn hơn 0'
-        };
+  } catch (error: any) {
+    console.error('💥 [EnrollmentService] Purchase lesson unexpected error:', error);
+    return {
+      success: false,
+      message: 'Lỗi kết nối đến server. Vui lòng thử lại sau.',
+      error: error.message
+    };
+  }
+},
+ getProgressDetails: async (enrollmentId: string): Promise<any> => {
+    try {
+      console.log('📊 [EnrollmentService] Getting progress details:', enrollmentId);
+
+      if (!enrollmentId || !enrollmentId.trim()) {
+        throw new Error('enrollmentId là bắt buộc');
       }
 
       const token = localStorage.getItem('token');
       if (!token) {
-        return {
-          success: false,
-          message: 'Không tìm thấy token xác thực'
-        };
+        throw new Error('Không tìm thấy token xác thực');
       }
 
-      const endpoint = `${API_BASE_URL}/api/enrollments/purchase-lesson`;
-      const requestBody: PurchaseLessonData = {
-        courseId: courseId.trim(),
-        lessonId: lessonId.trim(),
-        paymentId: paymentId.trim(),
-        price
-      };
+      const endpoint = `${API_BASE_URL}/api/enrollments/progress-details/${enrollmentId.trim()}`;
 
-      console.log('📤 [EnrollmentService] Sending purchase lesson request:', requestBody);
+      console.log('📤 [EnrollmentService] Sending get progress details request:', endpoint);
 
       const response = await fetch(endpoint, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(requestBody),
       });
 
-      console.log('📥 [EnrollmentService] Purchase lesson response status:', response.status);
-
-      const responseText = await response.text();
-      let responseData;
-
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('❌ [EnrollmentService] Failed to parse purchase lesson response:', responseText);
-        return {
-          success: false,
-          message: 'Lỗi khi xử lý phản hồi từ server'
-        };
-      }
-
       if (!response.ok) {
-        console.error('❌ [EnrollmentService] Purchase lesson API Error:', {
-          status: response.status,
-          data: responseData
-        });
-
-        return {
-          success: false,
-          message: responseData.message || `Lỗi server: ${response.status}`,
-          error: responseData.error
-        };
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
-      console.log('✅ [EnrollmentService] Lesson purchased successfully:', responseData);
-      return {
-        success: true,
-        message: responseData.message || 'Mua bài học thành công',
-        enrollment: responseData.enrollment
-      };
+      const data = await response.json();
+      console.log('✅ [EnrollmentService] Retrieved progress details successfully');
+      return data;
 
     } catch (error: any) {
-      console.error('💥 [EnrollmentService] Purchase lesson unexpected error:', error);
-      return {
-        success: false,
-        message: 'Lỗi kết nối đến server. Vui lòng thử lại sau.',
-        error: error.message
-      };
+      console.error('❌ [EnrollmentService] Get progress details error:', error);
+      throw error;
     }
   },
-
   /**
    * Kiểm tra quyền truy cập lesson
    */

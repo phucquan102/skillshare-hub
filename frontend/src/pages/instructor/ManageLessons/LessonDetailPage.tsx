@@ -27,11 +27,11 @@ const LessonDetailPage: React.FC = () => {
         courseService.getLessonById(lessonId!),
         courseService.getCourseById(courseId!)
       ]);
-      
+
       setLesson(lessonResponse.lesson);
       setCourse(courseResponse.course);
     } catch (err: any) {
-      setError('Không thể tải thông tin bài học');
+      setError('Unable to load lesson information');
       console.error('Error loading lesson:', err);
     } finally {
       setLoading(false);
@@ -41,9 +41,9 @@ const LessonDetailPage: React.FC = () => {
   const handleStartLesson = async () => {
     try {
       await courseService.startLesson(lessonId!);
-      loadLessonAndCourse(); // Reload để cập nhật trạng thái
+      loadLessonAndCourse(); 
     } catch (err: any) {
-      setError('Không thể bắt đầu bài học');
+      setError('Unable to start the lesson');
       console.error('Error starting lesson:', err);
     }
   };
@@ -51,15 +51,15 @@ const LessonDetailPage: React.FC = () => {
   const handleEndLesson = async () => {
     try {
       await courseService.endLesson(lessonId!);
-      loadLessonAndCourse(); // Reload để cập nhật trạng thái
+      loadLessonAndCourse();
     } catch (err: any) {
-      setError('Không thể kết thúc bài học');
+      setError('Unable to end the lesson');
       console.error('Error ending lesson:', err);
     }
   };
 
   if (loading) {
-    return <div className="loading">Đang tải bài học...</div>;
+    return <div className="loading">Loading lesson...</div>;
   }
 
   if (error) {
@@ -67,26 +67,27 @@ const LessonDetailPage: React.FC = () => {
   }
 
   if (!lesson || !course) {
-    return <div className="error">Không tìm thấy bài học</div>;
+    return <div className="error">Lesson not found</div>;
   }
 
   return (
     <div className="lesson-detail-page">
       <div className="page-header">
         <button onClick={() => navigate(-1)} className="back-btn">
-          ← Quay lại
+          ← Back
         </button>
         <h1>{lesson.title}</h1>
+
         <div className="lesson-actions">
           {lesson.lessonType === 'live_online' && (
             <>
               {lesson.isLive ? (
                 <button onClick={handleEndLesson} className="btn btn-danger">
-                  Kết thúc bài học
+                  End Lesson
                 </button>
               ) : (
                 <button onClick={handleStartLesson} className="btn btn-success">
-                  Bắt đầu bài học
+                  Start Lesson
                 </button>
               )}
             </>
@@ -97,32 +98,41 @@ const LessonDetailPage: React.FC = () => {
       <div className="lesson-content">
         <div className="lesson-info">
           <div className="info-card">
-            <h3>Thông tin bài học</h3>
+            <h3>Lesson Information</h3>
+
             <div className="info-grid">
               <div className="info-item">
-                <strong>Mô tả:</strong>
+                <strong>Description:</strong>
                 <p>{lesson.description}</p>
               </div>
+
               <div className="info-item">
-                <strong>Loại bài học:</strong>
-                <span>{lesson.lessonType === 'live_online' ? 'Trực tuyến' : 'Tự học'}</span>
+                <strong>Lesson Type:</strong>
+                <span>{lesson.lessonType === 'live_online' ? 'Live Online' : 'Self-paced'}</span>
               </div>
+
               <div className="info-item">
-                <strong>Thời lượng:</strong>
-                <span>{lesson.duration} phút</span>
+                <strong>Duration:</strong>
+                <span>{lesson.duration} minutes</span>
               </div>
+
               <div className="info-item">
-                <strong>Trạng thái:</strong>
+                <strong>Status:</strong>
                 <span className={`status ${lesson.status}`}>
-                  {lesson.status === 'published' ? 'Đã xuất bản' : 
-                   lesson.status === 'draft' ? 'Bản nháp' : 
-                   lesson.status === 'completed' ? 'Đã hoàn thành' : lesson.status}
+                  {lesson.status === 'published'
+                    ? 'Published'
+                    : lesson.status === 'draft'
+                    ? 'Draft'
+                    : lesson.status === 'completed'
+                    ? 'Completed'
+                    : lesson.status}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Live Meeting Section */}
         <div className="meeting-section">
           {lesson.lessonType === 'live_online' && (
             <LessonMeeting lesson={lesson} user={user} />

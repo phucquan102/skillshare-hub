@@ -9,10 +9,10 @@ const contentSchema = new mongoose.Schema({
   },
   title: { type: String, required: true },
   description: { type: String },
-  url: { type: String }, // URL video, document, etc.
-  duration: { type: Number, default: 0 }, // Duration in minutes
+  url: { type: String },
+  duration: { type: Number, default: 0 },
   order: { type: Number, default: 0 },
-  metadata: mongoose.Schema.Types.Mixed // Flexible field for type-specific data
+  metadata: mongoose.Schema.Types.Mixed
 });
 
 const resourceSchema = new mongoose.Schema({
@@ -23,7 +23,7 @@ const resourceSchema = new mongoose.Schema({
     enum: ['pdf', 'video', 'document', 'link', 'image', 'code'],
     required: true
   },
-  size: { type: Number }, // File size in bytes
+  size: { type: Number },
   description: { type: String }
 });
 
@@ -34,11 +34,21 @@ const lessonSchema = new mongoose.Schema({
     required: true
   },
   
-  // ========== LIÊN KẾT VỚI SCHEDULE ==========
+  // 🆕 CẬP NHẬT: Hỗ trợ cả scheduleIndex cũ và datedScheduleId mới
   scheduleIndex: {
     type: Number,
-    required: true,
-    min: 0
+    min: 0,
+    required: function() {
+      return !this.datedScheduleId; // Chỉ required nếu không có datedScheduleId
+    }
+  },
+  
+  datedScheduleId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Course.datedSchedules',
+    required: function() {
+      return !this.scheduleIndex; // Chỉ required nếu không có scheduleIndex
+    }
   },
   
   title: {
@@ -61,15 +71,34 @@ const lessonSchema = new mongoose.Schema({
     min: 1
   },
   
+  // 🆕 THÊM: Ngày và giờ cụ thể (lấy từ dated schedule hoặc tự nhập)
+  actualDate: { 
+    type: Date 
+  },
+  actualStartTime: { 
+    type: String,
+    validate: {
+      validator: function(v) {
+        return !v || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
+      },
+      message: 'Start time must be in HH:mm format'
+    }
+  },
+  actualEndTime: { 
+    type: String,
+    validate: {
+      validator: function(v) {
+        return !v || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
+      },
+      message: 'End time must be in HH:mm format'
+    }
+  },
+  
   // ========== PRICING & ACCESS ==========
   price: {
     type: Number,
     min: 0,
-    default: 0,
-    required: function() {
-      // Validation sẽ được xử lý ở controller
-      return false;
-    }
+    default: 0
   },
   isPreview: {
     type: Boolean,
@@ -80,18 +109,23 @@ const lessonSchema = new mongoose.Schema({
     default: false
   },
   
+  // 🆕 THÊM: Có được bán riêng không
+  availableForIndividualPurchase: {
+    type: Boolean,
+    default: false
+  },
+  
   // ========== LEARNING CONTENT ==========
   contents: [contentSchema],
   resources: [resourceSchema],
   
-  // ========== ONLINE LEARNING - THÔNG TIN BUỔI HỌC ONLINE ==========
+  // ========== ONLINE LEARNING ==========
   lessonType: {
     type: String,
     enum: ['self_paced', 'live_online', 'hybrid'],
-    default: 'live_online' // Mặc định là học online trực tiếp
+    default: 'live_online'
   },
   
-  // Thông tin phòng học online (có thể ghi đè từ course schedule)
   meetingUrl: { 
     type: String,
     validate: {
@@ -104,7 +138,6 @@ const lessonSchema = new mongoose.Schema({
   meetingId: { type: String },
   meetingPassword: { type: String },
   
-  // ========== CÁC TRƯỜNG MỚI CHO JITSI MEETING ==========
   meetingData: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
@@ -114,11 +147,6 @@ const lessonSchema = new mongoose.Schema({
     default: false
   },
   
-  // Thời gian thực tế của buổi học (có thể khác với schedule)
-  actualStartTime: { type: Date },
-  actualEndTime: { type: Date },
-  
-  // Link ghi hình buổi học
   recordingUrl: { 
     type: String,
     validate: {
@@ -146,7 +174,7 @@ const lessonSchema = new mongoose.Schema({
     default: 'medium'
   },
   estimatedStudyTime: {
-    type: Number, // in minutes
+    type: Number,
     default: 0
   },
   tags: [String],
@@ -162,7 +190,6 @@ const lessonSchema = new mongoose.Schema({
     default: true
   },
   
-  // Analytics
   viewCount: {
     type: Number,
     default: 0
@@ -174,32 +201,27 @@ const lessonSchema = new mongoose.Schema({
     max: 100
   },
 
-  // ========== THÔNG TIN BỔ SUNG CHO HỆ THỐNG MỚI ==========
-  // Số lượng học viên tối đa cho buổi học này
+  // ========== THÔNG TIN BỔ SUNG ==========
   maxParticipants: {
     type: Number,
     default: 0
   },
   
-  // Số lượng học viên đã đăng ký
   currentParticipants: {
     type: Number,
     default: 0
   },
   
-  // Thời hạn đăng ký trước buổi học (số phút)
   registrationDeadline: {
     type: Number,
-    default: 60 // 60 phút trước khi buổi học bắt đầu
+    default: 60
   },
   
-  // Thông tin instructor cho buổi học cụ thể (nếu có co-instructor)
   assignedInstructor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
   
-  // Metadata bổ sung
   metadata: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
@@ -211,17 +233,19 @@ const lessonSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Indexes
+// ========== INDEXES ==========
 lessonSchema.index({ courseId: 1, order: 1 });
 lessonSchema.index({ courseId: 1, status: 1 });
 lessonSchema.index({ courseId: 1, scheduleIndex: 1 });
+lessonSchema.index({ datedScheduleId: 1 });
 lessonSchema.index({ isPreview: 1 });
 lessonSchema.index({ isFree: 1 });
 lessonSchema.index({ lessonType: 1 });
-lessonSchema.index({ 'actualStartTime': 1 });
-lessonSchema.index({ isMeetingActive: 1 }); // Thêm index cho trường mới
+lessonSchema.index({ 'actualDate': 1 });
+lessonSchema.index({ isMeetingActive: 1 });
+lessonSchema.index({ availableForIndividualPurchase: 1 });
 
-// Virtuals
+// ========== VIRTUALS ==========
 lessonSchema.virtual('totalDuration').get(function() {
   if (this.contents && this.contents.length > 0) {
     return this.contents.reduce((total, content) => total + (content.duration || 0), 0);
@@ -234,106 +258,154 @@ lessonSchema.virtual('scheduleInfo', {
   ref: 'Course',
   localField: 'courseId',
   foreignField: '_id',
-  justOne: true,
-  options: {
-    select: { schedules: { $slice: [this.scheduleIndex, 1] } }
-  }
+  justOne: true
+});
+
+// 🆕 THÊM: Virtual để lấy thông tin dated schedule
+lessonSchema.virtual('datedScheduleInfo', {
+  ref: 'Course',
+  localField: 'datedScheduleId',
+  foreignField: 'datedSchedules._id',
+  justOne: true
 });
 
 // Virtual để kiểm tra xem lesson có đang diễn ra không
 lessonSchema.virtual('isLive').get(function() {
-  if (this.lessonType !== 'live_online' || !this.actualStartTime || !this.actualEndTime) {
+  if (this.lessonType !== 'live_online') {
     return false;
   }
   
-  const now = new Date();
-  const startTime = new Date(this.actualStartTime);
-  const endTime = new Date(this.actualEndTime);
+  // Nếu có actualDate và actualStartTime, actualEndTime
+  if (this.actualDate && this.actualStartTime && this.actualEndTime) {
+    const now = new Date();
+    const lessonDate = new Date(this.actualDate);
+    const startTime = new Date(lessonDate.toDateString() + ' ' + this.actualStartTime);
+    const endTime = new Date(lessonDate.toDateString() + ' ' + this.actualEndTime);
+    
+    return now >= startTime && now <= endTime;
+  }
   
-  return now >= startTime && now <= endTime;
+  return this.isMeetingActive;
 });
 
 // Virtual để kiểm tra xem lesson sắp diễn ra
 lessonSchema.virtual('isUpcoming').get(function() {
-  if (this.lessonType !== 'live_online' || !this.actualStartTime) {
+  if (this.lessonType !== 'live_online') {
     return false;
   }
   
-  const now = new Date();
-  const startTime = new Date(this.actualStartTime);
+  if (this.actualDate && this.actualStartTime) {
+    const now = new Date();
+    const lessonDate = new Date(this.actualDate);
+    const startTime = new Date(lessonDate.toDateString() + ' ' + this.actualStartTime);
+    
+    return now < startTime;
+  }
   
-  return now < startTime;
+  return false;
 });
 
 // Virtual để kiểm tra xem lesson đã kết thúc
 lessonSchema.virtual('isCompleted').get(function() {
-  if (this.lessonType !== 'live_online' || !this.actualEndTime) {
+  if (this.lessonType !== 'live_online') {
     return false;
   }
   
-  const now = new Date();
-  const endTime = new Date(this.actualEndTime);
+  if (this.actualDate && this.actualEndTime) {
+    const now = new Date();
+    const lessonDate = new Date(this.actualDate);
+    const endTime = new Date(lessonDate.toDateString() + ' ' + this.actualEndTime);
+    
+    return now > endTime;
+  }
   
-  return now > endTime;
+  return this.status === 'completed';
 });
 
 lessonSchema.virtual('hasRecording').get(function() {
   return !!this.recordingUrl;
 });
 
-// Virtual để kiểm tra xem lesson còn chỗ trống
 lessonSchema.virtual('hasAvailableSpots').get(function() {
-  if (this.maxParticipants === 0) return true; // Không giới hạn
+  if (this.maxParticipants === 0) return true;
   return this.currentParticipants < this.maxParticipants;
 });
 
-// Virtual để kiểm tra xem còn thời gian đăng ký
 lessonSchema.virtual('canRegister').get(function() {
-  if (!this.actualStartTime) return true;
+  if (!this.actualDate || !this.actualStartTime) return true;
   
   const now = new Date();
-  const startTime = new Date(this.actualStartTime);
+  const lessonDate = new Date(this.actualDate);
+  const startTime = new Date(lessonDate.toDateString() + ' ' + this.actualStartTime);
   const deadline = new Date(startTime.getTime() - (this.registrationDeadline * 60 * 1000));
   
   return now < deadline;
 });
 
-// ========== VIRTUAL MỚI CHO MEETING ==========
-lessonSchema.virtual('canStartMeeting').get(function() {
-  // Instructor có thể bắt đầu meeting nếu lesson là live_online và chưa active
-  return this.lessonType === 'live_online' && !this.isMeetingActive;
+// 🆕 THÊM: Virtual để kiểm tra xem lesson có thể mua riêng không
+lessonSchema.virtual('canBePurchasedIndividually').get(function() {
+  return this.availableForIndividualPurchase && this.price > 0;
 });
 
-lessonSchema.virtual('canJoinMeeting').get(function() {
-  // Có thể join meeting nếu meeting đang active
-  return this.lessonType === 'live_online' && this.isMeetingActive;
+// 🆕 THÊM: Virtual để lấy thông tin schedule type
+lessonSchema.virtual('scheduleType').get(function() {
+  if (this.datedScheduleId) {
+    return 'dated';
+  } else if (this.scheduleIndex !== undefined) {
+    return 'weekly';
+  }
+  return 'unscheduled';
 });
 
-lessonSchema.virtual('meetingStatus').get(function() {
-  if (this.lessonType !== 'live_online') return 'not_live';
-  if (this.isMeetingActive) return 'active';
-  if (this.actualStartTime && new Date() < new Date(this.actualStartTime)) return 'scheduled';
-  if (this.actualEndTime && new Date() > new Date(this.actualEndTime)) return 'ended';
-  return 'ready';
-});
-
-// Pre-save middleware
-lessonSchema.pre('save', function(next) {
+// ========== PRE-SAVE MIDDLEWARE ==========
+lessonSchema.pre('save', async function(next) {
   // Auto-calculate estimatedStudyTime from contents
   if (this.isModified('contents')) {
     this.estimatedStudyTime = this.totalDuration;
   }
 
-  // 🎯 FIX: Chỉ validate khi cả start và end time đều có giá trị VÀ end time phải sau start time
+  // 🆕 THÊM: Nếu có datedScheduleId, lấy thông tin date và time từ schedule
+  if (this.datedScheduleId && this.isNew) {
+    try {
+      const Course = mongoose.model('Course');
+      const course = await Course.findOne({ 
+        'datedSchedules._id': this.datedScheduleId 
+      });
+      
+      if (course) {
+        const schedule = course.datedSchedules.id(this.datedScheduleId);
+        if (schedule) {
+          // Copy thông tin từ schedule sang lesson
+          this.actualDate = schedule.date;
+          this.actualStartTime = schedule.startTime;
+          this.actualEndTime = schedule.endTime;
+          
+          // Copy thông tin giá nếu chưa có
+          if (!this.price && schedule.individualPrice > 0) {
+            this.price = schedule.individualPrice;
+          }
+          
+          // Copy thông tin individual purchase
+          if (this.availableForIndividualPurchase === undefined) {
+            this.availableForIndividualPurchase = schedule.availableForIndividualPurchase;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching dated schedule info:', error);
+    }
+  }
+
+  // Validate actual times
   if (this.actualStartTime && this.actualEndTime) {
-    const start = new Date(this.actualStartTime);
-    const end = new Date(this.actualEndTime);
+    const start = new Date(`2000-01-01T${this.actualStartTime}`);
+    const end = new Date(`2000-01-01T${this.actualEndTime}`);
     
     if (end <= start) {
       return next(new Error('End time must be after start time for lessons'));
     }
 
-    // Auto-calculate duration if not provided (tính bằng phút)
+    // Auto-calculate duration if not provided
     if (!this.duration) {
       this.duration = Math.round((end - start) / (1000 * 60));
     }
@@ -344,7 +416,7 @@ lessonSchema.pre('save', function(next) {
     this.estimatedStudyTime = this.duration || 60;
   }
 
-  // Set default price based on course pricing
+  // Set default price
   if (this.price === undefined || this.price === null) {
     this.price = 0;
   }
@@ -354,28 +426,46 @@ lessonSchema.pre('save', function(next) {
     this.status = 'draft';
   }
 
-  // Đảm bảo scheduleIndex không âm
-  if (this.scheduleIndex < 0) {
-    return next(new Error('Schedule index cannot be negative'));
+  // Validate schedule reference
+  if (!this.datedScheduleId && (this.scheduleIndex === undefined || this.scheduleIndex === null)) {
+    return next(new Error('Lesson must have either datedScheduleId or scheduleIndex'));
   }
   
   next();
 });
-// Post-save hook để đồng bộ với course
+
+// 🆕 THÊM: Post-save hook để đồng bộ với course dated schedule
 lessonSchema.post('save', async function(doc, next) {
   try {
-    // Cập nhật thông tin lesson trong course nếu cần
     const Course = mongoose.model('Course');
-    await Course.findByIdAndUpdate(doc.courseId, { 
-      $addToSet: { lessons: doc._id } 
-    });
+    
+    // Nếu lesson có datedScheduleId, cập nhật schedule
+    if (doc.datedScheduleId) {
+      await Course.findOneAndUpdate(
+        { 
+          'datedSchedules._id': doc.datedScheduleId 
+        },
+        { 
+          $set: { 
+            'datedSchedules.$.hasLesson': true,
+            'datedSchedules.$.lessonId': doc._id
+          },
+          $addToSet: { lessons: doc._id }
+        }
+      );
+    } else if (doc.scheduleIndex !== undefined) {
+      // Cập nhật cho schedule cũ
+      await Course.findByIdAndUpdate(doc.courseId, { 
+        $addToSet: { lessons: doc._id } 
+      });
+    }
   } catch (error) {
     console.error('Error updating course with lesson:', error);
   }
   next();
 });
 
-// Static methods
+// ========== STATIC METHODS ==========
 lessonSchema.statics.findByCourse = function(courseId) {
   return this.find({ courseId, status: { $ne: 'cancelled' }, isActive: true })
     .sort({ order: 1 })
@@ -407,17 +497,53 @@ lessonSchema.statics.findByScheduleIndex = function(courseId, scheduleIndex) {
   });
 };
 
+// 🆕 THÊM: Static method để tìm lesson bằng datedScheduleId
+lessonSchema.statics.findByDatedScheduleId = function(courseId, datedScheduleId) {
+  return this.findOne({
+    courseId,
+    datedScheduleId,
+    isActive: true
+  });
+};
+
 lessonSchema.statics.findUpcomingLessons = function() {
   const now = new Date();
   return this.find({
     lessonType: 'live_online',
     status: 'published',
     isActive: true,
-    actualStartTime: { $gt: now }
-  }).sort({ actualStartTime: 1 });
+    $or: [
+      { actualDate: { $gt: now } },
+      { 
+        actualDate: { $exists: false },
+        isMeetingActive: false 
+      }
+    ]
+  }).sort({ actualDate: 1, order: 1 });
 };
 
-// ========== STATIC METHODS MỚI CHO MEETING ==========
+// 🆕 THÊM: Static method để tìm lessons có thể mua riêng
+lessonSchema.statics.findPurchasableLessons = function(courseId = null) {
+  const query = {
+    availableForIndividualPurchase: true,
+    price: { $gt: 0 },
+    status: 'published',
+    isActive: true,
+    $or: [
+      { actualDate: { $gte: new Date() } },
+      { actualDate: { $exists: false } }
+    ]
+  };
+  
+  if (courseId) {
+    query.courseId = courseId;
+  }
+  
+  return this.find(query)
+    .populate('courseId', 'title instructor pricingType')
+    .sort({ actualDate: 1, order: 1 });
+};
+
 lessonSchema.statics.findActiveMeetings = function() {
   return this.find({
     lessonType: 'live_online',
@@ -433,7 +559,7 @@ lessonSchema.statics.findByMeetingId = function(meetingId) {
   });
 };
 
-// Instance methods
+// ========== INSTANCE METHODS ==========
 lessonSchema.methods.incrementViewCount = function() {
   this.viewCount += 1;
   return this.save();
@@ -474,12 +600,14 @@ lessonSchema.methods.updateMeetingInfo = function(meetingData) {
   return this.save();
 };
 
-// ========== INSTANCE METHODS MỚI CHO MEETING ==========
 lessonSchema.methods.startMeeting = function(meetingInfo = {}) {
   this.isMeetingActive = true;
-  this.actualStartTime = new Date();
+  this.actualStartTime = this.actualStartTime || new Date().toTimeString().slice(0, 5);
   
-  // Cập nhật thông tin meeting nếu có
+  if (!this.actualDate) {
+    this.actualDate = new Date();
+  }
+  
   if (meetingInfo.meetingUrl) this.meetingUrl = meetingInfo.meetingUrl;
   if (meetingInfo.meetingId) this.meetingId = meetingInfo.meetingId;
   if (meetingInfo.meetingData) this.meetingData = meetingInfo.meetingData;
@@ -489,7 +617,7 @@ lessonSchema.methods.startMeeting = function(meetingInfo = {}) {
 
 lessonSchema.methods.endMeeting = function(recordingUrl = null) {
   this.isMeetingActive = false;
-  this.actualEndTime = new Date();
+  this.actualEndTime = this.actualEndTime || new Date().toTimeString().slice(0, 5);
   if (recordingUrl) {
     this.recordingUrl = recordingUrl;
   }
@@ -504,13 +632,14 @@ lessonSchema.methods.getMeetingInfo = function() {
     meetingData: this.meetingData,
     isMeetingActive: this.isMeetingActive,
     actualStartTime: this.actualStartTime,
-    actualEndTime: this.actualEndTime
+    actualEndTime: this.actualEndTime,
+    actualDate: this.actualDate
   };
 };
 
 lessonSchema.methods.completeLesson = function(recordingUrl = null) {
   this.status = 'completed';
-  this.actualEndTime = new Date();
+  this.actualEndTime = this.actualEndTime || new Date().toTimeString().slice(0, 5);
   this.isMeetingActive = false;
   if (recordingUrl) {
     this.recordingUrl = recordingUrl;
@@ -524,13 +653,84 @@ lessonSchema.methods.cancelLesson = function() {
   return this.save();
 };
 
+// 🆕 THÊM: Method để lấy thông tin schedule
+lessonSchema.methods.getScheduleDetails = async function() {
+  try {
+    const Course = mongoose.model('Course');
+    const course = await Course.findById(this.courseId);
+    
+    if (!course) {
+      return null;
+    }
+    
+    if (this.datedScheduleId) {
+      const schedule = course.datedSchedules.id(this.datedScheduleId);
+      if (schedule) {
+        const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        const scheduleDate = new Date(schedule.date);
+        const dayOfWeek = scheduleDate.getDay();
+        
+        return {
+          type: 'dated',
+          _id: schedule._id,
+          date: schedule.date,
+          dayOfWeek: dayOfWeek,
+          dayName: dayNames[dayOfWeek],
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          timezone: schedule.timezone,
+          meetingPlatform: schedule.meetingPlatform,
+          individualPrice: schedule.individualPrice,
+          availableForIndividualPurchase: schedule.availableForIndividualPurchase
+        };
+      }
+    } else if (this.scheduleIndex !== undefined && course.schedules[this.scheduleIndex]) {
+      const schedule = course.schedules[this.scheduleIndex];
+      const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+      
+      return {
+        type: 'weekly',
+        index: this.scheduleIndex,
+        dayOfWeek: schedule.dayOfWeek,
+        dayName: dayNames[schedule.dayOfWeek],
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        timezone: schedule.timezone,
+        meetingPlatform: schedule.meetingPlatform
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting schedule details:', error);
+    return null;
+  }
+};
+
 // Middleware để tự động xóa lesson khỏi course khi bị xóa
 lessonSchema.post('remove', async function(doc, next) {
   try {
     const Course = mongoose.model('Course');
+    
+    // Xóa lesson khỏi course lessons array
     await Course.findByIdAndUpdate(doc.courseId, {
       $pull: { lessons: doc._id }
     });
+    
+    // Nếu có datedScheduleId, cập nhật schedule
+    if (doc.datedScheduleId) {
+      await Course.findOneAndUpdate(
+        { 
+          'datedSchedules._id': doc.datedScheduleId 
+        },
+        { 
+          $set: { 
+            'datedSchedules.$.hasLesson': false,
+            'datedSchedules.$.lessonId': null
+          }
+        }
+      );
+    }
   } catch (error) {
     console.error('Error removing lesson from course:', error);
   }

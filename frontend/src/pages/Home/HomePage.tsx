@@ -357,7 +357,7 @@ const HomePage: React.FC = () => {
             ) : (
               <>
                 <span className="text-xl">💬</span>
-                <span className="text-sm font-semibold">Chat với AI</span>
+                <span className="text-sm font-semibold">Chat with AI</span>
               </>
             )}
           </button>

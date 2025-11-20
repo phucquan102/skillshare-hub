@@ -48,7 +48,7 @@ import InstructorLessonStartPage from '../pages/instructor/InstructorLessonStart
 import AIChatPage from '../pages/Chat/AIChatPage/AIChatPage';
 import { ChatPage } from '../pages/Chat/ChatPage/ChatPage';
 
-// 🆕 THÊM IMPORT NÀY
+// Components
 import InstructorStudentList from '../components/instructor/StudentList/InstructorStudentList';
 
 const AppRouter: React.FC = () => {

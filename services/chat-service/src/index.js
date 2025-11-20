@@ -71,6 +71,7 @@ const startServer = async () => {
   app.set('io', io);
 
   server.listen(PORT, () => {
+    console.log(`🔌 Socket service initialized`);  
     console.log(`Chat service running on port ${PORT}`);
   });
 };

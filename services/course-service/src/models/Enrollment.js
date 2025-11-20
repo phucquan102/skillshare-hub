@@ -110,15 +110,17 @@ enrollmentSchema.methods.hasAccessToLesson = function(lessonId) {
 };
 
 // Method to mark lesson as completed
-enrollmentSchema.methods.markLessonCompleted = function(lessonId, progress = 100) {
+enrollmentSchema.methods.markLessonCompleted = async function(lessonId, progress = 100) {
   const existingIndex = this.progress.completedLessons.findIndex(
     item => item.lessonId && item.lessonId.toString() === lessonId.toString()
   );
   
   if (existingIndex >= 0) {
+    // Update existing completion
     this.progress.completedLessons[existingIndex].progress = progress;
     this.progress.completedLessons[existingIndex].completedAt = new Date();
   } else {
+    // Add new completion
     this.progress.completedLessons.push({
       lessonId,
       progress,
@@ -127,25 +129,101 @@ enrollmentSchema.methods.markLessonCompleted = function(lessonId, progress = 100
   }
   
   // Update overall progress
-  this.updateOverallProgress();
+  await this.updateOverallProgress();
   
   return this.save();
 };
 
 // Method to update overall progress
-enrollmentSchema.methods.updateOverallProgress = function() {
-  // This should be calculated based on total lessons in course
-  // For now, we'll use a simple calculation
-  if (this.progress.completedLessons.length > 0) {
-    const totalProgress = this.progress.completedLessons.reduce(
-      (sum, lesson) => sum + lesson.progress, 0
-    );
-    this.progress.overallProgress = Math.min(100, 
-      Math.round(totalProgress / this.progress.completedLessons.length)
-    );
+enrollmentSchema.methods.updateOverallProgress = async function() {
+  try {
+    // Lấy tổng số lessons trong khóa học
+    const totalLessons = await mongoose.model('Lesson').countDocuments({
+      courseId: this.courseId
+    });
+    
+    if (totalLessons > 0) {
+      // Tính phần trăm dựa trên số lesson đã hoàn thành
+      const completedCount = this.progress.completedLessons.length;
+      this.progress.overallProgress = Math.min(100, 
+        Math.round((completedCount / totalLessons) * 100)
+      );
+    } else {
+      this.progress.overallProgress = 0;
+    }
+    
+    this.progress.lastAccessed = new Date();
+    
+    // Tự động hoàn thành khóa học nếu đã hoàn thành tất cả lessons
+    if (this.progress.overallProgress === 100 && this.status === 'active') {
+      this.status = 'completed';
+      this.completedAt = new Date();
+    }
+    
+  } catch (error) {
+    console.error('Error updating overall progress:', error);
+    this.progress.overallProgress = 0;
   }
-  
-  this.progress.lastAccessed = new Date();
 };
 
+// THÊM: Static method để tự động hoàn thành khóa học đã hết hạn
+enrollmentSchema.statics.autoCompleteExpiredCourses = async function() {
+  try {
+    const now = new Date();
+    
+    // Tìm các khóa học đã hết hạn
+    const expiredCourses = await mongoose.model('Course').find({
+      endDate: { $lt: now },
+      status: 'published'
+    });
+
+    let completedCount = 0;
+    
+    for (const course of expiredCourses) {
+      // Cập nhật tất cả enrollment active của khóa học này thành completed
+      const result = await this.updateMany(
+        {
+          courseId: course._id,
+          status: 'active'
+        },
+        {
+          status: 'completed',
+          completedAt: now,
+          $set: {
+            'progress.overallProgress': 100,
+            'progress.lastAccessed': now
+          }
+        }
+      );
+      
+      completedCount += result.modifiedCount;
+      console.log(`✅ Auto-completed ${result.modifiedCount} enrollments for course: ${course.title}`);
+    }
+    
+    return { completedCount, processedCourses: expiredCourses.length };
+  } catch (error) {
+    console.error('❌ Error in autoCompleteExpiredCourses:', error);
+    throw error;
+  }
+};
+
+// THÊM: Method để kiểm tra và cập nhật hoàn thành dựa trên progress
+enrollmentSchema.methods.checkAndUpdateCompletion = async function() {
+  const course = await mongoose.model('Course').findById(this.courseId);
+  if (!course) return false;
+
+  const now = new Date();
+  
+  // Kiểm tra nếu khóa học đã hết hạn
+  if (new Date(course.endDate) < now) {
+    this.status = 'completed';
+    this.completedAt = now;
+    this.progress.overallProgress = 100;
+    this.progress.lastAccessed = now;
+    await this.save();
+    return true;
+  }
+  
+  return false;
+};
 module.exports = mongoose.model('Enrollment', enrollmentSchema);

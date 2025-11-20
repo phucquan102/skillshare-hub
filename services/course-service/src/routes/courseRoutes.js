@@ -23,6 +23,10 @@ router.put('/:courseId', authMiddleware, instructorMiddleware, courseController.
 router.patch('/:courseId', authMiddleware, instructorMiddleware, courseController.editCourse);
 router.delete('/:courseId', authMiddleware, instructorMiddleware, courseController.deleteCourse);
 router.patch('/:courseId/status', authMiddleware, instructorMiddleware, courseController.updateCourseStatus);
+router.get('/:courseId/schedules/available-by-type', 
+  authMiddleware, 
+  courseController.getAvailableSchedulesByType
+);
 
 // Lesson CRUD
 router.post('/:courseId/lessons', authMiddleware, instructorMiddleware, courseController.createLesson);
@@ -30,7 +34,13 @@ router.put('/lessons/:lessonId', authMiddleware, instructorMiddleware, courseCon
 router.delete('/lessons/:lessonId', authMiddleware, instructorMiddleware, courseController.deleteLesson);
 router.get('/lessons/:lessonId', authMiddleware, courseController.getLessonById);
 router.get('/:courseId/lessons', authMiddleware, courseController.getLessonsByCourse);
-
+ 
+router.get('/lessons/:lessonId/detailed', authMiddleware, courseController.getLessonById);
+// 🆕 THÊM ROUTES MỚI CHO LESSON DETAIL
+router.get('/lessons/:lessonId/preview', authMiddleware, courseController.getLessonPreview);
+router.get('/lessons/:lessonId/access', authMiddleware, courseController.checkLessonAccess);
+router.get('/lessons/:lessonId/contents', authMiddleware, courseController.getLessonContents);
+router.get('/lessons/:lessonId/preview', courseController.getLessonPreview);
 // Lesson Meeting
 router.post('/lessons/:lessonId/meeting/start', authMiddleware, instructorMiddleware, courseController.startLessonMeeting);
 router.get('/lessons/:lessonId/meeting/join', authMiddleware, courseController.joinLessonMeeting);

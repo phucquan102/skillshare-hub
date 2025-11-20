@@ -85,7 +85,7 @@ const StudentLessonList: React.FC = () => {
     return (
       <div className={styles.loadingContainer}>
         <div className={styles.spinner}></div>
-        <p>Đang tải nội dung khóa học...</p>
+        <p>Loading course content...</p>
       </div>
     );
   }
@@ -93,9 +93,9 @@ const StudentLessonList: React.FC = () => {
   if (error || !progress) {
     return (
       <div className={styles.errorContainer}>
-        <h3>Lỗi</h3>
-        <p>{error || 'Không tìm thấy thông tin khóa học'}</p>
-        <button onClick={handleBackToCourses}>Quay lại danh sách khóa học</button>
+        <h3>Error</h3>
+        <p>{error || 'Course information not found'}</p>
+        <button onClick={handleBackToCourses}>Back to courses</button>
       </div>
     );
   }
@@ -103,9 +103,9 @@ const StudentLessonList: React.FC = () => {
   if (!courseInfo) {
     return (
       <div className={styles.errorContainer}>
-        <h3>Lỗi</h3>
-        <p>Không tìm thấy thông tin khóa học</p>
-        <button onClick={handleBackToCourses}>Quay lại danh sách khóa học</button>
+        <h3>Error</h3>
+        <p>Course information not found</p>
+        <button onClick={handleBackToCourses}>Back to courses</button>
       </div>
     );
   }
@@ -116,7 +116,7 @@ const StudentLessonList: React.FC = () => {
     <div className={styles.container}>
       <div className={styles.header}>
         <button onClick={handleBackToCourses} className={styles.backButton}>
-          ← Quay lại
+          ← Back
         </button>
         <h1 className={styles.title}>{courseInfo.title}</h1>
         <p className={styles.description}>{courseInfo.description}</p>
@@ -126,15 +126,15 @@ const StudentLessonList: React.FC = () => {
         <div className={styles.progressCard}>
           <ProgressCircle progress={progress.overallProgress} size={100} />
           <div className={styles.progressInfo}>
-            <h3>Tiến độ khóa học</h3>
+            <h3>Course Progress</h3>
             <p>
-              {progress.completedLessons} / {progress.totalLessons} bài học đã hoàn thành
+              {progress.completedLessons} / {progress.totalLessons} lessons completed
             </p>
             <div className={styles.progressStats}>
-              <span>{progress.overallProgress}% hoàn thành</span>
+              <span>{progress.overallProgress}% completed</span>
               <span>•</span>
               <span>
-                {progress.hasFullAccess ? 'Toàn quyền truy cập' : `${progress.purchasedLessons} bài đã mua`}
+                {progress.hasFullAccess ? 'Full access' : `${progress.purchasedLessons} purchased lessons`}
               </span>
             </div>
           </div>
@@ -142,7 +142,7 @@ const StudentLessonList: React.FC = () => {
       </div>
 
       <div className={styles.lessonsSection}>
-        <h2 className={styles.sectionTitle}>Danh sách bài học</h2>
+        <h2 className={styles.sectionTitle}>Lesson List</h2>
         <div className={styles.lessonsList}>
           {uniqueLessons.length > 0 ? (
             uniqueLessons.map((lesson, index) => (
@@ -164,37 +164,37 @@ const StudentLessonList: React.FC = () => {
                 <div className={styles.lessonContent}>
                   <h3 className={styles.lessonTitle}>{lesson.title}</h3>
                   <div className={styles.lessonMeta}>
-                    <span className={styles.duration}>{lesson.duration} phút</span>
+                    <span className={styles.duration}>{lesson.duration} minutes</span>
                     {lesson.lessonType === 'live_online' && (
-                      <span className={styles.liveBadge}>Trực tiếp</span>
+                      <span className={styles.liveBadge}>Live</span>
                     )}
                     {lesson.isPreview && (
-                      <span className={styles.previewBadge}>Xem trước</span>
+                      <span className={styles.previewBadge}>Preview</span>
                     )}
                   </div>
                 </div>
 
                 <div className={styles.lessonStatus}>
                   {!lesson.hasAccess && (
-                    <span className={styles.lockedText}>Khóa</span>
+                    <span className={styles.lockedText}>Locked</span>
                   )}
                   {lesson.hasAccess && lesson.canJoin && (
                     <button 
                       className={styles.joinButton}
                       onClick={(e) => handleJoinLesson(e, lesson)}
                     >
-                      Tham gia
+                      Join
                     </button>
                   )}
                   {lesson.hasAccess && !lesson.canJoin && (
-                    <span className={styles.accessText}>Có thể truy cập</span>
+                    <span className={styles.accessText}>Accessible</span>
                   )}
                 </div>
               </div>
             ))
           ) : (
             <div className={styles.emptyLessons}>
-              <p>Không có bài học nào trong khóa học này.</p>
+              <p>No lessons in this course.</p>
             </div>
           )}
         </div>

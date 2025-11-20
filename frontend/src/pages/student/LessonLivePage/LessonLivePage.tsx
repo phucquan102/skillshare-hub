@@ -118,17 +118,17 @@ const LessonLivePage: React.FC = () => {
 
   // 🌀 Loading
   if (loading) {
-    return (
+     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <h3 className="text-xl font-semibold text-gray-900">Đang tải lớp học...</h3>
+          <h3 className="text-xl font-semibold text-gray-900">Loading class...</h3>
         </div>
       </div>
     );
   }
 
-  // ❌ Error
+  /* Error / missing data */
   if (error || !lesson || !course) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -136,20 +136,20 @@ const LessonLivePage: React.FC = () => {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <FiAlertCircle className="w-8 h-8 text-red-500" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Không thể tham gia lớp học</h3>
-          <p className="text-gray-600 mb-6">{error || 'Lớp học không tồn tại'}</p>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Unable to join the class</h3>
+          <p className="text-gray-600 mb-6">{error || 'Class not found'}</p>
           <button 
             onClick={() => navigate('/courses')}
             className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors"
           >
-            Quay lại danh sách khóa học
+            Back to courses
           </button>
         </div>
       </div>
     );
   }
 
-  // 🧠 Main UI
+  /* Main UI with Jitsi container */
   return (
     <div className="min-h-screen bg-gray-900">
       {/* Header */}
@@ -161,7 +161,7 @@ const LessonLivePage: React.FC = () => {
               className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
             >
               <FiArrowLeft className="w-5 h-5" />
-              <span>Quay lại khóa học</span>
+              <span>Back to course</span>
             </button>
           </div>
 
@@ -173,17 +173,17 @@ const LessonLivePage: React.FC = () => {
           <div className="flex items-center gap-4 text-gray-300">
             <div className="flex items-center gap-2">
               <FiClock className="w-4 h-4" />
-              <span>{lesson.duration} phút</span>
+              <span>{lesson.duration} minutes</span>
             </div>
             <div className="flex items-center gap-2">
               <FiUsers className="w-4 h-4" />
-              <span>Đang tham gia</span>
+              <span>Participants</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 🧠 Jitsi Meeting Container */}
+      {/* Jitsi Meeting Container */}
       <div ref={jitsiContainerRef} style={{ width: '100%', height: 'calc(100vh - 72px)' }} />
     </div>
   );

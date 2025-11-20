@@ -1,6 +1,7 @@
 // components/Payment/PaymentForm.tsx
 import React, { useState, useRef, FormEvent } from 'react';
 import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js';
+import { useNavigate } from 'react-router-dom'; // 🆕 THÊM
 import { paymentService } from '../../../services/api/paymentService';
 import { enrollmentService, EnrollmentResponse } from '../../../services/api/enrollmentService';
 
@@ -33,6 +34,7 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
 }) => {
   const stripe = useStripe();
   const elements = useElements();
+  const navigate = useNavigate(); // 🆕 THÊM
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isReady, setIsReady] = useState(false);
@@ -133,7 +135,17 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
               amount
             );
             
-            if (!enrollmentResult.success) {
+            // 🆕 SỬA: Xử lý trường hợp đã mua lesson
+            if (enrollmentResult.alreadyPurchased) {
+              console.log('ℹ️ Lesson already purchased, granting access');
+              setErrorMessage('Bạn đã sở hữu bài học này. Đang chuyển hướng...');
+              
+              // 🆕 THÊM: Chuyển hướng đến lesson sau 2 giây
+              setTimeout(() => {
+                navigate(`/student/lessons/${lessonId}`);
+              }, 2000);
+              return;
+            } else if (!enrollmentResult.success) {
               console.warn('⚠️ Lesson purchase warning:', enrollmentResult.message);
             } else {
               console.log('✅ Lesson purchased successfully');
@@ -159,7 +171,12 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
       const successMessages: string[] = ['Thanh toán thành công!'];
       
       if (paymentType === 'lesson_payment') {
-        successMessages.push('Bạn đã mua bài học thành công và có thể tham gia học ngay.');
+        // 🆕 SỬA: Thông báo khác nhau tùy trường hợp
+        if (enrollmentResult?.alreadyPurchased) {
+          successMessages.push('Bạn đã sở hữu bài học này.');
+        } else {
+          successMessages.push('Bạn đã mua bài học thành công và có thể tham gia học ngay.');
+        }
       } else if (!isInstructorFee) {
         successMessages.push('Bạn đã đăng ký khóa học thành công.');
       }
@@ -168,7 +185,7 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
         successMessages.push('Lưu ý: Có vấn đề khi cập nhật hồ sơ thanh toán.');
       }
       
-      if (enrollmentResult && !enrollmentResult.success) {
+      if (enrollmentResult && !enrollmentResult.success && !enrollmentResult.alreadyPurchased) {
         successMessages.push(`Lưu ý: ${enrollmentResult.message}`);
       }
 
@@ -177,8 +194,15 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
 
       console.log('✅ Payment process completed successfully', { paymentType });
       
+      // 🆕 SỬA: Chuyển hướng sau khi xử lý
       setTimeout(() => {
-        onSuccess();
+        if (paymentType === 'lesson_payment' && lessonId) {
+          // Chuyển hướng đến lesson detail
+          navigate(`/student/lessons/${lessonId}`);
+        } else {
+          // Gọi callback onSuccess cho các trường hợp khác
+          onSuccess();
+        }
       }, 3000);
 
     } catch (err: any) {
@@ -278,19 +302,21 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
       {/* Status Messages */}
       {errorMessage && (
         <div className={`p-4 rounded-lg ${
-          errorMessage.includes('thành công') 
+          errorMessage.includes('thành công') || errorMessage.includes('sở hữu')
             ? 'bg-green-100 border border-green-400 text-green-700'
             : 'bg-red-100 border border-red-400 text-red-700'
         }`}>
           <div className="flex items-start">
-            {errorMessage.includes('thành công') ? (
+            {errorMessage.includes('thành công') || errorMessage.includes('sở hữu') ? (
               <span className="text-green-500 mr-2 mt-0.5">✅</span>
             ) : (
               <span className="text-red-500 mr-2 mt-0.5">⚠️</span>
             )}
             <div>
               <span className="font-medium">
-                {errorMessage.includes('thành công') ? 'Thành công!' : 'Lỗi:'}
+                {errorMessage.includes('thành công') || errorMessage.includes('sở hữu') 
+                  ? 'Thành công!' 
+                  : 'Lỗi:'}
               </span>
               <span className="ml-1">{errorMessage}</span>
             </div>

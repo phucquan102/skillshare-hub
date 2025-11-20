@@ -332,75 +332,144 @@ export const instructorService = {
 
   // ========== STUDENT LIST METHODS ==========
 
-  /**
-   * Lấy danh sách học viên của một khóa học
-   * GET /api/courses/:courseId/students
-   */
-  async getStudentsByCourse(
-    courseId: string,
-    filters?: StudentListFilters
-  ): Promise<InstructorStudentListResponse> {
-    try {
-      const page = filters?.page || 1;
-      const limit = filters?.limit || 10;
-      const status = filters?.status || 'all';
-      const search = filters?.search || '';
+ /**
+ * Lấy danh sách học viên của một khóa học
+ * Sử dụng endpoint thực tế từ backend
+ */
+async getStudentsByCourse(
+  courseId: string,
+  filters?: StudentListFilters
+): Promise<InstructorStudentListResponse> {
+  try {
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 10;
+    const status = filters?.status || 'all';
+    const search = filters?.search || '';
 
-      console.log('👥 [InstructorService] Getting students for course:', {
-        courseId,
-        page,
-        limit,
-        status,
-        search
-      });
+    console.log('👥 [InstructorService] Getting students for course:', {
+      courseId,
+      page,
+      limit,
+      status,
+      search
+    });
 
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Không tìm thấy token xác thực');
-      }
-
-      const params = new URLSearchParams();
-      params.append('page', page.toString());
-      params.append('limit', limit.toString());
-      if (status && status !== 'all') {
-        params.append('status', status);
-      }
-      if (search && search.trim()) {
-        params.append('search', search.trim());
-      }
-
-      const endpoint = `${API_BASE_URL}/api/courses/${courseId}/students?${params}`;
-
-      console.log('📤 [InstructorService] Sending get students request:', endpoint);
-
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [InstructorService] Error response:', response.status, errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data: InstructorStudentListResponse = await response.json();
-      console.log('✅ [InstructorService] Students retrieved successfully:', {
-        count: data.students.length,
-        total: data.pagination.totalStudents
-      });
-
-      return data;
-
-    } catch (error: any) {
-      console.error('❌ [InstructorService] Get students error:', error);
-      throw error;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Không tìm thấy token xác thực');
     }
-  },
 
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    if (status && status !== 'all') {
+      params.append('status', status);
+    }
+    if (search && search.trim()) {
+      params.append('search', search.trim());
+    }
+
+    // 🔥 SỬA: Sử dụng endpoint chính xác từ backend
+    const endpoint = `${API_BASE_URL}/api/enrollments/course/${courseId}/enrollments?${params}`;
+
+    console.log('📤 [InstructorService] Sending request to:', endpoint);
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [InstructorService] Error response:', response.status, errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const responseData = await response.json();
+    console.log('✅ [InstructorService] API response:', responseData);
+
+    // 🔥 CHUYỂN ĐỔI: Từ định dạng backend sang định dạng frontend
+    // Backend trả về { enrollments, stats, pagination }
+    // Frontend cần { students, stats, pagination }
+    
+    const students: InstructorStudent[] = responseData.enrollments.map((enrollment: any) => ({
+      enrollmentId: enrollment._id,
+      student: {
+        userId: enrollment.studentId?._id || enrollment.studentId,
+        email: enrollment.studentId?.email || 'N/A',
+        fullName: enrollment.studentId?.fullName || 'Unknown Student',
+        avatar: enrollment.studentId?.profile?.avatar || enrollment.studentId?.avatar || '',
+        phoneNumber: enrollment.studentId?.phoneNumber || ''
+      },
+      enrollment: {
+        status: enrollment.status,
+        enrolledAt: enrollment.enrolledAt,
+        completedAt: enrollment.completedAt
+      },
+      progress: {
+        progressPercentage: enrollment.progress?.overallProgress || 0,
+        completedLessons: enrollment.progress?.completedLessons?.length || 0,
+        totalLessons: 0, // Cần tính từ course
+        lastAccessed: enrollment.progress?.lastAccessed || enrollment.enrolledAt
+      }
+    }));
+
+    // Tính totalLessons cho mỗi student (cần gọi API khác hoặc optimize)
+    // Tạm thời để 0, có thể cải thiện sau
+
+    const result: InstructorStudentListResponse = {
+      success: true,
+      students: students,
+      stats: responseData.stats || {
+        total: 0,
+        active: 0,
+        completed: 0,
+        cancelled: 0,
+        paused: 0
+      },
+      pagination: responseData.pagination || {
+        currentPage: page,
+        totalPages: 0,
+        totalStudents: 0,
+        hasNext: false,
+        hasPrev: false
+      }
+    };
+
+    console.log('✅ [InstructorService] Transformed data:', {
+      studentsCount: result.students.length,
+      stats: result.stats
+    });
+
+    return result;
+
+  } catch (error: any) {
+    console.error('❌ [InstructorService] Get students error:', error);
+    
+    // Fallback: trả về dữ liệu rỗng
+    return {
+      success: true,
+      students: [],
+      stats: {
+        total: 0,
+        active: 0,
+        completed: 0,
+        cancelled: 0,
+        paused: 0
+      },
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        totalStudents: 0,
+        hasNext: false,
+        hasPrev: false
+      }
+    };
+  }
+},
   /**
    * Lấy chi tiết tiến độ học tập của một học viên
    * GET /api/courses/:courseId/students/:studentId/progress
@@ -478,7 +547,7 @@ export const instructorService = {
     }
 
     // 🔥 FIX: Sửa endpoint từ /api/courses/my-courses thành /api/courses/my-courses
-    const endpoint = `${API_BASE_URL}/api/courses/my-courses?${params}`;
+    const endpoint = `${API_BASE_URL}/api/courses/my?${params}`;
 
     console.log('📤 [InstructorService] Sending get my courses request:', endpoint);
 

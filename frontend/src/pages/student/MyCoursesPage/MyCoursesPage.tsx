@@ -9,9 +9,9 @@ const MyCoursesPage: React.FC = () => {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Khóa học của tôi</h1>
+        <h1 className={styles.title}>My Courses</h1>
         <p className={styles.subtitle}>
-          Chào {user?.fullName}, đây là tất cả khóa học bạn đã đăng ký
+          Hello {user?.fullName}, here are all the courses you have enrolled in.
         </p>
       </div>
 

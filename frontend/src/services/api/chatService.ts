@@ -1,4 +1,4 @@
-// src/services/api/chatService.ts - UPDATED WITH DEBUG
+// src/services/api/chatService.ts - FULLY FIXED
 
 import { 
   Conversation, 
@@ -42,10 +42,10 @@ export const chatService = {
   },
 
   // ========================
-  // 🎓 Course Chat Functions - FIXED WITH DEBUG
+  // 🎓 Course Chat Functions - FIXED
   // ========================
 
-  // ✅ FIX 1: Lấy danh sách instructors của khóa học
+  // ✅ FIX: Lấy danh sách instructors từ Course Service
   getCourseInstructors: async (courseId: string): Promise<{ 
     instructors: any[]; 
     courseTitle: string 
@@ -54,46 +54,54 @@ export const chatService = {
       console.log('🎯 [chatService.getCourseInstructors] Starting...');
       console.log('   courseId:', courseId);
       
-      // ✅ DEBUG: Log endpoint
-      const endpoint = `/chat/courses/${courseId}/instructors`;
+      if (!courseId) {
+        console.warn('⚠️ No courseId provided');
+        return { instructors: [], courseTitle: 'Unknown' };
+      }
+
+      // ✅ FIX: Gọi endpoint từ Course Service thay vì Chat Service
+      const endpoint = `/courses/${courseId}`;
       console.log('   endpoint:', endpoint);
+      console.log('📤 Making API request to Course Service...');
       
-      // ✅ DEBUG: Log request config
-      console.log('   method: GET');
-      console.log('   headers:', { 'Content-Type': 'application/json' });
-      
-      console.log('📤 Making API request...');
       const response = await api.get(endpoint);
       
       console.log('✅ Response received:');
       console.log('   status:', response.status);
-      console.log('   statusText:', response.statusText);
-      console.log('   data:', JSON.stringify(response.data, null, 2));
+      console.log('   data keys:', Object.keys(response.data).slice(0, 5));
       
-      // ✅ DEBUG: Validate response structure
-      if (!response.data) {
-        console.error('❌ Response data is empty!');
-        return { instructors: [], courseTitle: 'Unknown' };
+      // ✅ Extract instructors from response
+      const course = response.data.data || response.data;
+      
+      let instructors = [];
+      let courseTitle = '';
+
+      // Try different field names for instructors
+      if (course.instructorIds && Array.isArray(course.instructorIds)) {
+        console.log('✅ Found instructorIds (array)');
+        instructors = course.instructorIds;
+      } else if (course.instructors && Array.isArray(course.instructors)) {
+        console.log('✅ Found instructors (array)');
+        instructors = course.instructors;
+      } else if (course.instructor && Array.isArray(course.instructor)) {
+        console.log('✅ Found instructor (array)');
+        instructors = course.instructor;
+      } else if (course.createdBy) {
+        console.log('✅ Found createdBy, wrapping as array');
+        instructors = [course.createdBy];
       }
-      
-      if (!response.data.instructors) {
-        console.warn('⚠️ Response missing "instructors" field');
-        console.warn('   Available fields:', Object.keys(response.data));
-        
-        // Try alternate field names
-        if (Array.isArray(response.data)) {
-          console.log('✅ Response is direct array, using as instructors');
-          return { instructors: response.data, courseTitle: 'Unknown' };
-        }
-        
-        if (response.data.data && Array.isArray(response.data.data)) {
-          console.log('✅ Found data in response.data.data');
-          return { instructors: response.data.data, courseTitle: response.data.courseTitle || 'Unknown' };
-        }
-      }
-      
+
+      // Try different field names for course title
+      courseTitle = course.title || course.name || course.courseName || 'Unknown Course';
+
       console.log('✅ [chatService.getCourseInstructors] Success');
-      return response.data;
+      console.log('   instructors count:', instructors.length);
+      console.log('   courseTitle:', courseTitle);
+
+      return { 
+        instructors: instructors || [], 
+        courseTitle 
+      };
       
     } catch (error: any) {
       console.error('❌ [chatService.getCourseInstructors] Error:');
@@ -104,17 +112,15 @@ export const chatService = {
       if (error.response) {
         console.error('   HTTP Status:', error.response.status);
         console.error('   Response data:', error.response.data);
-        console.error('   Response headers:', error.response.headers);
       }
       
       // Log request details
       if (error.config) {
         console.error('   Request URL:', error.config.url);
         console.error('   Request method:', error.config.method);
-        console.error('   Request headers:', error.config.headers);
       }
       
-      // Return empty result instead of throwing
+      console.warn('⚠️ Returning empty instructors array');
       return { instructors: [], courseTitle: 'Unknown' };
     }
   },
@@ -152,8 +158,18 @@ export const chatService = {
     conversations: Conversation[]; 
     total: number 
   }> => {
-    const response = await api.get(`/chat/courses/${courseId}/conversations`);
-    return response.data;
+    try {
+      const response = await api.get(`/chat/courses/${courseId}/conversations`);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ [chatService.getCourseConversations] Error:', error.message);
+      // Return empty conversations array on error
+      return {
+        courseId,
+        conversations: [],
+        total: 0
+      };
+    }
   },
 
   createInstructorConversation: async (courseId: string, instructorId: string): Promise<{ 
@@ -166,10 +182,12 @@ export const chatService = {
       console.log('   instructorId:', instructorId);
 
       const endpoint = `/chat/courses/${courseId}/instructors/${instructorId}/conversation`;
+      console.log('   endpoint:', endpoint);
       
       const response = await api.post(endpoint);
       
       console.log('✅ [chatService.createInstructorConversation] Success');
+      console.log('   conversation id:', response.data.conversation?._id);
       return response.data;
     } catch (error: any) {
       console.error('❌ [chatService.createInstructorConversation] Error:');
@@ -187,6 +205,8 @@ export const chatService = {
 
   findOrCreateDirectConversation: async (participantId: string): Promise<Conversation> => {
     try {
+      console.log('🔍 [chatService.findOrCreateDirectConversation] Looking for:', participantId);
+      
       const { conversations } = await chatService.getConversations();
       const existingConversation = conversations.find(conv => 
         conv.type === 'direct' && 
@@ -194,17 +214,20 @@ export const chatService = {
       );
       
       if (existingConversation) {
+        console.log('✅ Found existing conversation:', existingConversation._id);
         return existingConversation;
       }
 
+      console.log('🆕 Creating new direct conversation');
       const { conversation } = await chatService.createConversation({
         type: 'direct',
         participantIds: [participantId]
       });
       
+      console.log('✅ Created conversation:', conversation._id);
       return conversation;
     } catch (error) {
-      console.error('Error finding or creating conversation:', error);
+      console.error('❌ Error finding or creating conversation:', error);
       throw error;
     }
   },
@@ -218,17 +241,19 @@ export const chatService = {
       console.log('   courseId:', courseId);
       console.log('   courseTitle:', courseTitle);
 
-      const { conversations } = await chatService.getCourseConversations(courseId);
-      if (conversations.length > 0) {
-        console.log('✅ Found existing conversation:', conversations[0].title);
-        return conversations[0];
+      const courseConversations = await chatService.getCourseConversations(courseId);
+      
+      if (courseConversations.conversations && courseConversations.conversations.length > 0) {
+        console.log('✅ Found existing course conversation:', courseConversations.conversations[0].title);
+        return courseConversations.conversations[0];
       }
 
+      console.log('🆕 Creating new course conversation');
       const { conversation } = await chatService.createCourseConversation(courseId, courseTitle);
-      console.log('✅ Created new conversation:', conversation.title);
+      console.log('✅ Created course conversation:', conversation.title);
       return conversation;
     } catch (error) {
-      console.error('Error finding or creating course conversation:', error);
+      console.error('❌ Error finding or creating course conversation:', error);
       throw error;
     }
   },
@@ -245,17 +270,19 @@ export const chatService = {
       console.log('   courseId:', courseId);
       console.log('   courseTitle:', courseTitle);
 
+      // ✅ Fetch both course conversation and instructors in parallel
       const [courseConversation, instructorsData] = await Promise.all([
         chatService.findOrCreateCourseConversation(courseId, courseTitle),
         chatService.getCourseInstructors(courseId)
       ]);
 
       console.log('✅ [chatService.initializeCourseChat] Complete');
-      console.log('   instructors:', instructorsData.instructors.length);
+      console.log('   conversation id:', courseConversation._id);
+      console.log('   instructors count:', instructorsData.instructors.length);
 
       return {
         courseConversation,
-        instructors: instructorsData.instructors
+        instructors: instructorsData.instructors || []
       };
     } catch (error) {
       console.error('❌ [chatService.initializeCourseChat] Error:', error);

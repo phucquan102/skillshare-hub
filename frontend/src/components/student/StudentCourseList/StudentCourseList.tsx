@@ -32,6 +32,7 @@ const StudentCourseList: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching student courses with filters:', filters);
       const response: StudentCourseResponse = await getStudentCourses(
         filters.page, 
         filters.limit, 
@@ -54,12 +55,12 @@ const StudentCourseList: React.FC = () => {
           cancelled: 0
         });
       } else {
-        // Sửa: response.message có thể undefined, nên dùng fallback
-        setError(response.message || 'Có lỗi xảy ra khi tải dữ liệu');
+        // Use fallback if response.message is undefined
+        setError(response.message || 'An error occurred while loading data');
       }
     } catch (err: any) {
       console.error('Error fetching courses:', err);
-      setError(err.message || 'Không thể kết nối đến server');
+      setError(err.message || 'Unable to connect to server');
       setCourses([]);
     } finally {
       setLoading(false);
@@ -68,6 +69,7 @@ const StudentCourseList: React.FC = () => {
 
   useEffect(() => {
     fetchCourses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   const handleFilterChange = (status: string) => {
@@ -86,7 +88,7 @@ const StudentCourseList: React.FC = () => {
     return (
       <div className={styles.loadingContainer}>
         <div className={styles.spinner}></div>
-        <p>Đang tải khóa học...</p>
+        <p>Loading courses...</p>
       </div>
     );
   }
@@ -99,19 +101,19 @@ const StudentCourseList: React.FC = () => {
           className={`${styles.tab} ${filters.status === 'all' ? styles.active : ''}`}
           onClick={() => handleFilterChange('all')}
         >
-          Tất cả ({stats.total})
+          All ({stats.total})
         </button>
         <button
           className={`${styles.tab} ${filters.status === 'active' ? styles.active : ''}`}
           onClick={() => handleFilterChange('active')}
         >
-          Đang học ({stats.active})
+          Active ({stats.active})
         </button>
         <button
           className={`${styles.tab} ${filters.status === 'completed' ? styles.active : ''}`}
           onClick={() => handleFilterChange('completed')}
         >
-          Đã hoàn thành ({stats.completed})
+          Completed ({stats.completed})
         </button>
       </div>
 
@@ -119,7 +121,7 @@ const StudentCourseList: React.FC = () => {
       {error && (
         <div className={styles.errorContainer}>
           <p>{error}</p>
-          <button onClick={handleRetry}>Thử lại</button>
+          <button onClick={handleRetry}>Retry</button>
         </div>
       )}
 
@@ -135,8 +137,8 @@ const StudentCourseList: React.FC = () => {
           {/* Empty State */}
           {courses.length === 0 && !loading && (
             <div className={styles.emptyState}>
-              <h3>Không có khóa học nào</h3>
-              <p>Bạn chưa đăng ký khóa học nào hoặc không có khóa học phù hợp với bộ lọc.</p>
+              <h3>No courses found</h3>
+              <p>You have not enrolled in any courses yet or no courses match the selected filter.</p>
             </div>
           )}
 
@@ -148,11 +150,11 @@ const StudentCourseList: React.FC = () => {
                 onClick={() => handlePageChange(pagination.currentPage - 1)}
                 className={styles.paginationButton}
               >
-                Trước
+                Previous
               </button>
               
               <span className={styles.pageInfo}>
-                Trang {pagination.currentPage} / {pagination.totalPages}
+                Page {pagination.currentPage} / {pagination.totalPages}
               </span>
               
               <button
@@ -160,7 +162,7 @@ const StudentCourseList: React.FC = () => {
                 onClick={() => handlePageChange(pagination.currentPage + 1)}
                 className={styles.paginationButton}
               >
-                Sau
+                Next
               </button>
             </div>
           )}
