@@ -138,13 +138,13 @@ enrollmentSchema.methods.markLessonCompleted = async function(lessonId, progress
 enrollmentSchema.methods.updateOverallProgress = async function() {
   try {
     // Lấy tổng số lessons trong khóa học
-    const totalLessons = await mongoose.model('Lesson').countDocuments({
-      courseId: this.courseId
-    });
+    const Course = mongoose.model('Course');
+    const course = await Course.findById(this.courseId).populate('lessons');
     
-    if (totalLessons > 0) {
+    if (course && course.lessons && course.lessons.length > 0) {
       // Tính phần trăm dựa trên số lesson đã hoàn thành
       const completedCount = this.progress.completedLessons.length;
+      const totalLessons = course.lessons.length;
       this.progress.overallProgress = Math.min(100, 
         Math.round((completedCount / totalLessons) * 100)
       );
@@ -209,13 +209,14 @@ enrollmentSchema.statics.autoCompleteExpiredCourses = async function() {
 
 // THÊM: Method để kiểm tra và cập nhật hoàn thành dựa trên progress
 enrollmentSchema.methods.checkAndUpdateCompletion = async function() {
-  const course = await mongoose.model('Course').findById(this.courseId);
+  const Course = mongoose.model('Course');
+  const course = await Course.findById(this.courseId);
   if (!course) return false;
 
   const now = new Date();
   
   // Kiểm tra nếu khóa học đã hết hạn
-  if (new Date(course.endDate) < now) {
+  if (course.endDate && new Date(course.endDate) < now) {
     this.status = 'completed';
     this.completedAt = now;
     this.progress.overallProgress = 100;
@@ -226,4 +227,126 @@ enrollmentSchema.methods.checkAndUpdateCompletion = async function() {
   
   return false;
 };
+
+// 🆕 THÊM: Method để lấy thông tin progress chi tiết (dùng cho studentController)
+enrollmentSchema.methods.getDetailedProgress = async function() {
+  const Course = mongoose.model('Course');
+  const Lesson = mongoose.model('Lesson');
+  
+  const course = await Course.findById(this.courseId)
+    .populate('lessons', 'title order duration scheduleIndex lessonType meetingUrl actualStartTime actualEndTime status isPreview isFree')
+    .lean();
+
+  if (!course) {
+    return null;
+  }
+
+  const lessons = course.lessons.map(lesson => {
+    const isCompleted = this.progress.completedLessons.some(
+      completed => completed.lessonId && completed.lessonId.toString() === lesson._id.toString()
+    );
+    
+    const hasAccess = this.hasFullAccess || 
+      this.purchasedLessons.some(purchase => 
+        purchase.lessonId && purchase.lessonId.toString() === lesson._id.toString()
+      );
+
+    return {
+      _id: lesson._id,
+      title: lesson.title,
+      order: lesson.order,
+      duration: lesson.duration,
+      scheduleIndex: lesson.scheduleIndex,
+      lessonType: lesson.lessonType,
+      meetingUrl: lesson.meetingUrl,
+      actualStartTime: lesson.actualStartTime,
+      actualEndTime: lesson.actualEndTime,
+      status: lesson.status,
+      isPreview: lesson.isPreview,
+      isFree: lesson.isFree,
+      hasAccess,
+      isCompleted,
+      canJoin: hasAccess && lesson.lessonType === 'live_online' && lesson.meetingUrl,
+      progress: isCompleted ? 100 : 0
+    };
+  });
+
+  // Sort lessons by order
+  lessons.sort((a, b) => a.order - b.order);
+
+  return {
+    enrollmentId: this._id,
+    overallProgress: this.progress.overallProgress,
+    completedLessons: this.progress.completedLessons.length,
+    totalLessons: lessons.length,
+    hasFullAccess: this.hasFullAccess,
+    purchasedLessons: this.purchasedLessons.length,
+    enrolledAt: this.enrolledAt,
+    lastAccessed: this.progress.lastAccessed,
+    lessons
+  };
+};
+
+// 🆕 THÊM: Method để lấy lessons có quyền truy cập (dùng cho learning schedule)
+enrollmentSchema.methods.getAccessibleLessons = async function() {
+  const Lesson = mongoose.model('Lesson');
+  let lessons = [];
+
+  try {
+    if (this.hasFullAccess) {
+      // Student mua full course - lấy tất cả lessons
+      lessons = await Lesson.find({
+        courseId: this.courseId,
+        status: { $in: ['published', 'completed'] }
+      }).sort({ order: 1 });
+    } else {
+      // Student mua lesson riêng lẻ - chỉ lấy lessons đã mua
+      const purchasedLessonIds = this.purchasedLessons.map(p => p.lessonId);
+      if (purchasedLessonIds.length > 0) {
+        lessons = await Lesson.find({
+          _id: { $in: purchasedLessonIds },
+          status: { $in: ['published', 'completed'] }
+        }).sort({ order: 1 });
+      }
+    }
+  } catch (error) {
+    console.error("Error in getAccessibleLessons:", error);
+  }
+
+  return lessons;
+};
+
+// 🆕 THÊM: Middleware để tự động cập nhật progress trước khi save
+enrollmentSchema.pre('save', function(next) {
+  if (this.isModified('progress.completedLessons') || this.isNew) {
+    this.progress.lastAccessed = new Date();
+  }
+  next();
+});
+
+// 🆕 THÊM: Static method để tìm enrollment với đầy đủ thông tin
+enrollmentSchema.statics.findByStudentAndCourse = function(studentId, courseId) {
+  return this.findOne({ studentId, courseId })
+    .populate('progress.completedLessons.lessonId')
+    .populate('purchasedLessons.lessonId');
+};
+
+// 🆕 THÊM: Static method để lấy tất cả enrollments của student với thông tin đầy đủ
+enrollmentSchema.statics.findByStudentId = function(studentId, options = {}) {
+  const { status, page = 1, limit = 10 } = options;
+  
+  const query = { studentId };
+  if (status && status !== 'all') {
+    query.status = status;
+  }
+
+  return this.find(query)
+    .populate('courseId', 'title thumbnail description instructor category level pricingType fullCoursePrice currentEnrollments maxStudents status ratings lessons')
+    .populate('progress.completedLessons.lessonId', 'title order duration')
+    .sort({ enrolledAt: -1 })
+    .limit(Number(limit))
+    .skip((Number(page) - 1) * Number(limit))
+    .lean();
+};
+
 module.exports = mongoose.model('Enrollment', enrollmentSchema);

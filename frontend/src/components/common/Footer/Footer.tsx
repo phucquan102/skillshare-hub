@@ -7,7 +7,7 @@ const Footer: React.FC = () => {
         {/* Logo + Intro */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <img src="/logo.svg" alt="Logo" className="w-6 h-6" />
+            <img src="/logo123.png" alt="Logo" className="w-6 h-6" />
             <span className="font-bold text-lg text-emerald-600">SkillShare Hub</span>
           </div>
           <p>

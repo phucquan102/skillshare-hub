@@ -1098,69 +1098,120 @@ getAvailableSchedulesByType: async (req, res) => {
     }
   },
 
-  getLessonsByCourse: async (req, res) => {
-    try {
-      const { courseId } = req.params;
-      const { page = 1, limit = 10 } = req.query;
+ getLessonsByCourse: async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
-      if (!mongoose.Types.ObjectId.isValid(courseId)) {
-        return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
-      }
+    console.log('📚 [getLessonsByCourse] Fetching lessons for course:', courseId);
 
-      const course = await Course.findById(courseId);
-      if (!course) {
-        return res.status(404).json({ message: 'Không tìm thấy khóa học' });
-      }
-
-      // Chỉ admin, instructor, hoặc student đã đăng ký mới có quyền xem
-      const enrollment = await Enrollment.findOne({ userId: req.userId, courseId });
-      if (req.userRole !== 'admin' && 
-          course.instructor.toString() !== req.userId && 
-          !enrollment) {
-        return res.status(403).json({ message: 'Bạn không có quyền xem danh sách bài học' });
-      }
-
-      const lessons = await Lesson.find({ courseId })
-        .sort({ order: 1 })
-        .limit(Number(limit))
-        .skip((Number(page) - 1) * Number(limit))
-        .lean();
-
-      const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-
-      // 🎯 THÊM: Lấy thông tin schedule cho mỗi lesson
-      const lessonsWithSchedule = lessons.map(lesson => {
-        const schedule = course.schedules.id(lesson.scheduleId);
-        return {
-          ...lesson,
-          schedule: schedule ? {
-            _id: schedule._id,
-            date: schedule.date,
-            dayOfWeek: schedule.dayOfWeek,
-            dayName: dayNames[schedule.dayOfWeek],
-            startTime: schedule.startTime,
-            endTime: schedule.endTime,
-            timezone: schedule.timezone
-          } : null
-        };
-      });
-
-      const total = await Lesson.countDocuments({ courseId });
-
-      res.json({
-        lessons: lessonsWithSchedule,
-        pagination: {
-          currentPage: Number(page),
-          totalPages: Math.ceil(total / Number(limit)),
-          totalLessons: total
-        }
-      });
-    } catch (error) {
-      console.error('Get lessons by course error:', error);
-      res.status(500).json({ message: 'Lỗi server', error: error.message });
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
     }
-  },
 
+    // ✅ FIX: Chỉ lấy course để lấy schedule info, KHÔNG populate lessons
+    const course = await Course.findById(courseId).select('schedules datedSchedules title instructor');
+    if (!course) {
+      return res.status(404).json({ message: 'Không tìm thấy khóa học' });
+    }
+
+    // Kiểm tra quyền truy cập
+    const enrollment = await Enrollment.findOne({ userId: req.userId, courseId });
+    if (req.userRole !== 'admin' && 
+        course.instructor.toString() !== req.userId && 
+        !enrollment) {
+      return res.status(403).json({ message: 'Bạn không có quyền xem danh sách bài học' });
+    }
+
+    // ✅ FIX: Lấy lessons RIÊNG từ collection Lesson
+    const lessons = await Lesson.find({ 
+      courseId,
+      isActive: true 
+    })
+    .sort({ order: 1 })
+    .limit(Number(limit))
+    .skip((Number(page) - 1) * Number(limit))
+    .lean();
+
+    const total = await Lesson.countDocuments({ 
+      courseId,
+      isActive: true 
+    });
+
+    console.log(`✅ Found ${lessons.length} lessons (total: ${total}) for course ${courseId}`);
+
+    const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+    // 🆕 Tạo map cho dated schedules
+    let datedSchedulesMap = {};
+    if (course.datedSchedules && course.datedSchedules.length > 0) {
+      course.datedSchedules.forEach(schedule => {
+        datedSchedulesMap[schedule._id.toString()] = schedule;
+      });
+    }
+
+    // Kết hợp lesson với schedule info
+    const lessonsWithSchedule = lessons.map(lesson => {
+      let scheduleInfo = null;
+      
+      // 🆕 Xử lý dated schedule
+      if (lesson.datedScheduleId && datedSchedulesMap[lesson.datedScheduleId]) {
+        const schedule = datedSchedulesMap[lesson.datedScheduleId];
+        const scheduleDate = new Date(schedule.date);
+        const dayOfWeek = scheduleDate.getDay();
+        
+        scheduleInfo = {
+          _id: schedule._id,
+          date: schedule.date,
+          dayOfWeek: dayOfWeek,
+          dayName: dayNames[dayOfWeek],
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          timezone: schedule.timezone,
+          meetingPlatform: schedule.meetingPlatform,
+          scheduleType: 'dated'
+        };
+      }
+      // 🆕 Xử lý weekly schedule (cũ)
+      else if (lesson.scheduleIndex !== undefined && course.schedules[lesson.scheduleIndex]) {
+        const schedule = course.schedules[lesson.scheduleIndex];
+        scheduleInfo = {
+          _id: schedule._id,
+          date: schedule.date,
+          dayOfWeek: schedule.dayOfWeek,
+          dayName: dayNames[schedule.dayOfWeek],
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          timezone: schedule.timezone,
+          meetingPlatform: schedule.meetingPlatform,
+          scheduleType: 'weekly'
+        };
+      }
+
+      return {
+        ...lesson,
+        scheduleInfo
+      };
+    });
+
+    res.json({
+      success: true,
+      lessons: lessonsWithSchedule,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(total / Number(limit)),
+        totalLessons: total
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get lessons by course error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi server', 
+      error: error.message 
+    });
+  }
+},
   rejectCourse: async (req, res) => {
     try {
       const { courseId } = req.params;
@@ -1317,95 +1368,117 @@ getCourses: async (req, res) => {
   }
 },
 
- getCourseById: async (req, res) => {
+getCourseById: async (req, res) => {
   try {
     const { courseId } = req.params;
 
     console.log('🔍 [getCourseById] Fetching course:', courseId);
-    console.log('🔍 Request from user:', req.userId || 'public', 'role:', req.userRole || 'public');
 
     if (!mongoose.Types.ObjectId.isValid(courseId)) {
       return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
     }
 
-    // 1. Lấy course, không cần populate instructor ở đây
-    const course = await Course.findById(courseId).populate('lessons').lean();
+    // ✅ FIX: KHÔNG populate lessons ở đây
+    const course = await Course.findById(courseId).lean();
     if (!course) {
-      console.log('⚠️ Course not found in DB:', courseId);
       return res.status(404).json({ message: 'Không tìm thấy khóa học' });
     }
 
-    console.log('📚 Course found:', {
-      _id: course._id,
-      title: course.title,
-      instructor: course.instructor,
-      coInstructors: course.coInstructors,
-      status: course.status,
-      // 🆕 THÊM: Log dates để debug
-      startDate: course.startDate,
-      endDate: course.endDate,
-      hasStartDate: !!course.startDate,
-      hasEndDate: !!course.endDate
+    console.log('📚 Course found, now fetching lessons separately...');
+
+    // ✅ FIX: Lấy lessons RIÊNG từ collection Lesson
+    const lessons = await Lesson.find({ 
+      courseId: courseId,
+      isActive: true 
+    })
+    .select('title description order duration lessonType price status datedScheduleId scheduleIndex')
+    .sort({ order: 1 })
+    .lean();
+
+    console.log(`✅ Found ${lessons.length} lessons for course ${courseId}`);
+
+    // 🆕 THÊM: Lấy thông tin dated schedules nếu có
+    let datedSchedulesMap = {};
+    if (course.datedSchedules && course.datedSchedules.length > 0) {
+      course.datedSchedules.forEach(schedule => {
+        datedSchedulesMap[schedule._id.toString()] = schedule;
+      });
+    }
+
+    // Kết hợp lesson với schedule info
+    const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    
+    const lessonsWithDetails = lessons.map(lesson => {
+      let scheduleInfo = null;
+      
+      // 🆕 Xử lý dated schedule
+      if (lesson.datedScheduleId && datedSchedulesMap[lesson.datedScheduleId]) {
+        const schedule = datedSchedulesMap[lesson.datedScheduleId];
+        const scheduleDate = new Date(schedule.date);
+        const dayOfWeek = scheduleDate.getDay();
+        
+        scheduleInfo = {
+          _id: schedule._id,
+          date: schedule.date,
+          dayOfWeek: dayOfWeek,
+          dayName: dayNames[dayOfWeek],
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          timezone: schedule.timezone,
+          meetingPlatform: schedule.meetingPlatform,
+          scheduleType: 'dated'
+        };
+      }
+      // 🆕 Xử lý weekly schedule (cũ)
+      else if (lesson.scheduleIndex !== undefined && course.schedules[lesson.scheduleIndex]) {
+        const schedule = course.schedules[lesson.scheduleIndex];
+        scheduleInfo = {
+          _id: schedule._id,
+          date: schedule.date,
+          dayOfWeek: schedule.dayOfWeek,
+          dayName: dayNames[schedule.dayOfWeek],
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          timezone: schedule.timezone,
+          meetingPlatform: schedule.meetingPlatform,
+          scheduleType: 'weekly'
+        };
+      }
+
+      return {
+        ...lesson,
+        scheduleInfo
+      };
     });
 
-    // 🆕 THÊM: Format dates để trả về frontend
-    const courseWithDates = {
+    // Lấy thông tin instructor
+    const instructorInfo = await getInstructorInfo(course.instructor);
+    
+    // Format response
+    const courseWithDetails = {
       ...course,
-      // Format dates thành ISO string để frontend xử lý
+      instructor: instructorInfo,
+      lessons: lessonsWithDetails, // ✅ Dùng lessons đã lấy riêng
+      availableSpots: course.maxStudents - course.currentEnrollments,
+      // 🆕 THÊM: Format dates
       startDate: course.startDate ? new Date(course.startDate).toISOString() : null,
       endDate: course.endDate ? new Date(course.endDate).toISOString() : null
     };
 
-    // 2. Gom tất cả ID giảng viên lại
-    let allInstructorIds = [];
-    if (courseWithDates.instructor) {
-      allInstructorIds.push(courseWithDates.instructor.toString());
-    }
-    if (courseWithDates.coInstructors && Array.isArray(courseWithDates.coInstructors)) {
-      allInstructorIds.push(...courseWithDates.coInstructors.map(id => id.toString()));
-    }
-    
-    // Lọc ID duy nhất
-    const uniqueInstructorIds = [...new Set(allInstructorIds)];
-    
-    console.log('👤 All unique instructor IDs:', uniqueInstructorIds);
+    console.log(`✅ Returning course with ${lessonsWithDetails.length} lessons`);
 
-    let allInstructorsInfo = [];
-    
-    // 3. Gọi batch-API để lấy thông tin tất cả giảng viên
-    if (uniqueInstructorIds.length > 0) {
-      allInstructorsInfo = await getMultipleInstructorInfo(uniqueInstructorIds);
-    }
-
-    console.log('✅ Fetched info for', allInstructorsInfo.length, 'instructors');
-
-    // 4. Tìm thông tin giảng viên chính từ kết quả batch
-    const mainInstructorInfo = allInstructorsInfo.find(
-      inst => inst && inst._id && courseWithDates.instructor && inst._id.toString() === courseWithDates.instructor.toString()
-    ) || {
-        _id: courseWithDates.instructor,
-        fullName: 'Unknown Instructor',
-        profile: { avatar: null, bio: null }
-    };
-
-    // 5. Xây dựng object trả về
-    const courseWithInstructors = {
-      ...courseWithDates, // 🆕 SỬA: dùng courseWithDates thay vì course
-      instructor: mainInstructorInfo, 
-      instructors: allInstructorsInfo, 
-      availableSpots: courseWithDates.maxStudents - courseWithDates.currentEnrollments
-    };
-
-    console.log('✅ Returning course with formatted dates:', {
-      startDate: courseWithInstructors.startDate,
-      endDate: courseWithInstructors.endDate
+    res.json({ 
+      success: true,
+      course: courseWithDetails 
     });
-    
-    res.json({ course: courseWithInstructors });
     
   } catch (error) {
     console.error('❌ Get course by ID error:', error);
-    res.status(500).json({ message: 'Lỗi server', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi server', 
+      error: error.message 
+    });
   }
 },
 
@@ -1787,247 +1860,333 @@ deleteCourse: async (req, res) => {
     }
   },
 
-  startLessonMeeting: async (req, res) => {
-    try {
-      const { lessonId } = req.params;
+ 
 
-      if (!mongoose.Types.ObjectId.isValid(lessonId)) {
-        return res.status(400).json({ message: 'ID bài học không hợp lệ' });
-      }
+startLessonMeeting: async (req, res) => {
+  try {
+    const { lessonId } = req.params;
 
-      const lesson = await Lesson.findById(lessonId);
-      if (!lesson) {
-        return res.status(404).json({ message: 'Không tìm thấy bài học' });
-      }
+    console.log('🎯 [startLessonMeeting] Starting meeting for lesson:', lessonId);
 
-      const course = await Course.findById(lesson.courseId);
-      if (!course) {
-        return res.status(404).json({ message: 'Không tìm thấy khóa học' });
-      }
+    if (!mongoose.Types.ObjectId.isValid(lessonId)) {
+      return res.status(400).json({ message: 'ID bài học không hợp lệ' });
+    }
 
-      if (req.userRole !== 'admin' && course.instructor.toString() !== req.userId) {
-        return res.status(403).json({ message: 'Bạn không có quyền bắt đầu buổi học' });
-      }
+    const lesson = await Lesson.findById(lessonId);
+    if (!lesson) {
+      return res.status(404).json({ message: 'Không tìm thấy bài học' });
+    }
 
-      const meetingId = `skillshare-${course._id}-${lesson._id}-${Date.now()}`;
-      const meetingUrl = `https://meet.jit.si/${meetingId}`;
+    const course = await Course.findById(lesson.courseId);
+    if (!course) {
+      return res.status(404).json({ message: 'Không tìm thấy khóa học' });
+    }
 
-      lesson.meetingUrl = meetingUrl;
-      lesson.meetingId = meetingId;
-      lesson.isMeetingActive = true;
-      lesson.actualStartTime = new Date();
-      lesson.actualEndTime = undefined;
+    if (req.userRole !== 'admin' && course.instructor.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Bạn không có quyền bắt đầu buổi học' });
+    }
 
-      await lesson.save();
+    // ✅ FIX: Format thời gian đúng chuẩn HH:mm
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const formattedTime = `${hours}:${minutes}`;
 
-      res.json({
+    console.log('⏰ Formatted start time:', formattedTime);
+
+    // Tạo meeting URL (Jitsi)
+    const meetingId = `skillshare-${course._id}-${lesson._id}-${Date.now()}`;
+    const meetingUrl = `https://meet.jit.si/${meetingId}`;
+
+    // Cập nhật lesson với thời gian đã format
+    lesson.meetingUrl = meetingUrl;
+    lesson.meetingId = meetingId;
+    lesson.isMeetingActive = true;
+    lesson.actualStartTime = formattedTime; // ✅ String HH:mm thay vì Date object
+    lesson.actualEndTime = undefined;
+    lesson.status = 'in_progress';
+
+    await lesson.save();
+
+    console.log('✅ [startLessonMeeting] Meeting started successfully:', {
+      lessonId: lesson._id,
+      meetingUrl: meetingUrl,
+      actualStartTime: formattedTime
+    });
+
+    res.json({
+      success: true,
+      meetingUrl: lesson.meetingUrl,
+      meetingId: lesson.meetingId,
+      message: 'Buổi học đã được bắt đầu'
+    });
+
+  } catch (error) {
+    console.error('❌ Start lesson meeting error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi khi bắt đầu buổi học', 
+      error: error.message 
+    });
+  }
+},
+
+endLessonMeeting: async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+
+    console.log('🛑 [endLessonMeeting] Ending meeting for lesson:', lessonId);
+
+    if (!mongoose.Types.ObjectId.isValid(lessonId)) {
+      return res.status(400).json({ message: 'ID bài học không hợp lệ' });
+    }
+
+    const lesson = await Lesson.findById(lessonId);
+    if (!lesson) {
+      return res.status(404).json({ message: 'Không tìm thấy bài học' });
+    }
+
+    const course = await Course.findById(lesson.courseId);
+    if (!course) {
+      return res.status(404).json({ message: 'Không tìm thấy khóa học' });
+    }
+
+    if (req.userRole !== 'admin' && course.instructor.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Bạn không có quyền kết thúc buổi học' });
+    }
+
+    // ✅ FIX: Format thời gian đúng chuẩn HH:mm
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const formattedTime = `${hours}:${minutes}`;
+
+    console.log('⏰ Formatted end time:', formattedTime);
+
+    // Cập nhật lesson với thời gian đã format
+    lesson.isMeetingActive = false;
+    lesson.actualEndTime = formattedTime; // ✅ String HH:mm thay vì Date object
+    lesson.currentParticipants = 0;
+    lesson.status = 'completed';
+
+    await lesson.save();
+
+    console.log('✅ [endLessonMeeting] Meeting ended successfully:', {
+      lessonId: lesson._id,
+      actualEndTime: formattedTime
+    });
+
+    res.json({
+      success: true,
+      message: 'Buổi học đã được kết thúc và số lượng người tham gia đã được reset'
+    });
+
+  } catch (error) {
+    console.error('❌ End lesson meeting error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi khi kết thúc buổi học', 
+      error: error.message 
+    });
+  }
+},
+
+joinLessonMeeting: async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(lessonId)) {
+      return res.status(400).json({ message: 'ID bài học không hợp lệ' });
+    }
+
+    const lesson = await Lesson.findById(lessonId);
+    if (!lesson) {
+      return res.status(404).json({ message: 'Không tìm thấy bài học' });
+    }
+
+    const course = await Course.findById(lesson.courseId);
+    if (!course) {
+      return res.status(404).json({ message: 'Không tìm thấy khóa học' });
+    }
+
+    // 🆕 KIỂM TRA: User đã tham gia meeting chưa?
+    const ActiveParticipant = require('../models/ActiveParticipant');
+    const existingParticipant = await ActiveParticipant.findOne({
+      lessonId: lessonId,
+      userId: req.userId,
+      isActive: true
+    });
+
+    // ✅ Nếu đã tham gia rồi, trả về thông tin hiện tại
+    if (existingParticipant) {
+      console.log('🔄 User already in meeting, returning current session');
+      
+      const currentActiveCount = await ActiveParticipant.countDocuments({
+        lessonId: lessonId,
+        isActive: true
+      });
+
+      return res.json({
         success: true,
         meetingUrl: lesson.meetingUrl,
         meetingId: lesson.meetingId,
-        message: 'Buổi học đã được bắt đầu'
-      });
-
-    } catch (error) {
-      console.error('Start lesson meeting error:', error);
-      res.status(500).json({ 
-        success: false,
-        message: 'Lỗi khi bắt đầu buổi học', 
-        error: error.message 
+        userRole: course.instructor.toString() === req.userId ? 'teacher' : 'student',
+        displayName: req.userFullName || 'Student',
+        currentParticipants: currentActiveCount,
+        maxParticipants: lesson.maxParticipants || course.maxStudents,
+        isRejoining: true,
+        message: 'Bạn đã tham gia buổi học này'
       });
     }
-  },
 
-  endLessonMeeting: async (req, res) => {
-    try {
-      const { lessonId } = req.params;
+    // 🔍 Kiểm tra enrollment và quyền truy cập (giữ nguyên logic cũ)
+    const enrollment = await Enrollment.findOne({ 
+      studentId: req.userId,
+      courseId: lesson.courseId 
+    });
 
-      if (!mongoose.Types.ObjectId.isValid(lessonId)) {
-        return res.status(400).json({ message: 'ID bài học không hợp lệ' });
+    console.log('🔍 Enrollment check:', {
+      studentId: req.userId,
+      courseId: lesson.courseId,
+      enrollmentFound: !!enrollment,
+      enrollmentDetails: enrollment ? {
+        _id: enrollment._id,
+        hasFullAccess: enrollment.hasFullAccess,
+        purchasedLessonsCount: enrollment.purchasedLessons?.length,
+        status: enrollment.status
+      } : null
+    });
+
+    const isAdmin = req.userRole === 'admin';
+    const isInstructor = course.instructor.toString() === req.userId;
+    
+    if (!isAdmin && !isInstructor) {
+      if (!enrollment) {
+        console.log('❌ No enrollment found for user:', req.userId);
+        return res.status(403).json({ message: 'Bạn chưa đăng ký khóa học này' });
       }
-
-      const lesson = await Lesson.findById(lessonId);
-      if (!lesson) {
-        return res.status(404).json({ message: 'Không tìm thấy bài học' });
-      }
-
-      const course = await Course.findById(lesson.courseId);
-      if (!course) {
-        return res.status(404).json({ message: 'Không tìm thấy khóa học' });
-      }
-
-      if (req.userRole !== 'admin' && course.instructor.toString() !== req.userId) {
-        return res.status(403).json({ message: 'Bạn không có quyền kết thúc buổi học' });
-      }
-
-      lesson.isMeetingActive = false;
-      lesson.actualEndTime = new Date();
-      lesson.currentParticipants = 0;
-
-      await lesson.save();
-
-      res.json({
-        success: true,
-        message: 'Buổi học đã được kết thúc và số lượng người tham gia đã được reset'
-      });
-
-    } catch (error) {
-      console.error('End lesson meeting error:', error);
-      res.status(500).json({ 
-        success: false,
-        message: 'Lỗi khi kết thúc buổi học', 
-        error: error.message 
-      });
-    }
-  },
-
-  joinLessonMeeting: async (req, res) => {
-    try {
-      const { lessonId } = req.params;
-
-      if (!mongoose.Types.ObjectId.isValid(lessonId)) {
-        return res.status(400).json({ message: 'ID bài học không hợp lệ' });
-      }
-
-      const lesson = await Lesson.findById(lessonId);
-      if (!lesson) {
-        return res.status(404).json({ message: 'Không tìm thấy bài học' });
-      }
-
-      const course = await Course.findById(lesson.courseId);
-      if (!course) {
-        return res.status(404).json({ message: 'Không tìm thấy khóa học' });
-      }
-
-      // 🎯 SỬA LỖI: Đổi userId thành studentId
-      const enrollment = await Enrollment.findOne({ 
-        studentId: req.userId,  // Sửa từ userId thành studentId
-        courseId: lesson.courseId 
-      });
-
-      console.log('🔍 Enrollment check:', {
-        studentId: req.userId,
-        courseId: lesson.courseId,
-        enrollmentFound: !!enrollment,
-        enrollmentDetails: enrollment ? {
-          _id: enrollment._id,
-          hasFullAccess: enrollment.hasFullAccess,
-          purchasedLessonsCount: enrollment.purchasedLessons?.length,
-          status: enrollment.status
-        } : null
-      });
-
-      const isAdmin = req.userRole === 'admin';
-      const isInstructor = course.instructor.toString() === req.userId;
       
-      if (!isAdmin && !isInstructor) {
-        if (!enrollment) {
-          console.log('❌ No enrollment found for user:', req.userId);
-          return res.status(403).json({ message: 'Bạn chưa đăng ký khóa học này' });
-        }
-        
-        // 🎯 THÊM: Kiểm tra enrollment status
-        if (enrollment.status !== 'active') {
-          console.log('❌ Enrollment not active:', enrollment.status);
-          return res.status(403).json({ 
-            message: `Enrollment không active (status: ${enrollment.status})` 
-          });
-        }
-        
-        // 🎯 CẢI THIỆN: Logic kiểm tra lesson access
-        let hasLessonAccess = false;
-        
-        if (enrollment.hasFullAccess) {
-          hasLessonAccess = true;
-          console.log('✅ User has full access to course');
-        } else if (enrollment.purchasedLessons && enrollment.purchasedLessons.length > 0) {
-          // Kiểm tra xem lessonId có trong purchasedLessons không
-          const purchasedLesson = enrollment.purchasedLessons.find(
-            p => p.lessonId && p.lessonId.toString() === lessonId
-          );
-          hasLessonAccess = !!purchasedLesson;
-          console.log('🔍 Checking purchased lessons:', {
-            purchasedLessonsCount: enrollment.purchasedLessons.length,
-            lookingForLessonId: lessonId,
-            found: !!purchasedLesson
-          });
-        }
-        
-        if (!hasLessonAccess && !lesson.isPreview && !lesson.isFree) {
-          console.log('❌ No lesson access:', {
-            hasLessonAccess,
-            isPreview: lesson.isPreview,
-            isFree: lesson.isFree
-          });
-          return res.status(403).json({ 
-            message: 'Bạn không có quyền tham gia buổi học này',
-            details: {
-              hasFullAccess: enrollment.hasFullAccess,
-              purchasedThisLesson: hasLessonAccess,
-              lessonIsPreview: lesson.isPreview,
-              lessonIsFree: lesson.isFree
-            }
-          });
-        }
-      }
-
-      if (!lesson.isMeetingActive) {
-        return res.status(400).json({ message: 'Buổi học chưa được bắt đầu' });
-      }
-
-      const maxParticipants = lesson.maxParticipants || course.maxStudents;
-      const currentParticipants = lesson.currentParticipants || 0;
-      
-      if (currentParticipants >= maxParticipants) {
-        return res.status(400).json({ 
-          message: `Phòng học đã đầy (${currentParticipants}/${maxParticipants})`,
-          currentParticipants,
-          maxParticipants
+      if (enrollment.status !== 'active') {
+        console.log('❌ Enrollment not active:', enrollment.status);
+        return res.status(403).json({ 
+          message: `Enrollment không active (status: ${enrollment.status})` 
         });
       }
-
-      lesson.currentParticipants = currentParticipants + 1;
-      await lesson.save();
-
-      let displayName = 'Student';
-      try {
-        const userServiceUrl = process.env.USER_SERVICE_URL || 'http://user-service:3001';
-        const userRes = await axios.get(`${userServiceUrl}/internal/${req.userId}`, { 
-          timeout: 5000 
-        });
-        displayName = userRes.data.fullName || 'Student';
-      } catch (error) {
-        console.error('Error fetching user info:', error.message);
-        displayName = req.userFullName || 'Student';
+      
+      let hasLessonAccess = false;
+      
+      if (enrollment.hasFullAccess) {
+        hasLessonAccess = true;
+        console.log('✅ User has full access to course');
+      } else if (enrollment.purchasedLessons && enrollment.purchasedLessons.length > 0) {
+        const purchasedLesson = enrollment.purchasedLessons.find(
+          p => p.lessonId && p.lessonId.toString() === lessonId
+        );
+        hasLessonAccess = !!purchasedLesson;
       }
+      
+      if (!hasLessonAccess && !lesson.isPreview && !lesson.isFree) {
+        return res.status(403).json({ 
+          message: 'Bạn không có quyền tham gia buổi học này'
+        });
+      }
+    }
 
-      console.log('✅ User can join meeting:', {
-        userId: req.userId,
-        displayName,
-        userRole: isInstructor ? 'teacher' : 'student',
-        currentParticipants: lesson.currentParticipants
-      });
+    if (!lesson.isMeetingActive) {
+      return res.status(400).json({ message: 'Buổi học chưa được bắt đầu' });
+    }
 
-      res.json({
-        success: true,
-        meetingUrl: lesson.meetingUrl,
-        meetingId: lesson.meetingId,
-        userRole: isInstructor ? 'teacher' : 'student',
-        displayName,
-        currentParticipants: lesson.currentParticipants,
-        maxParticipants,
-        message: 'Có thể tham gia buổi học'
-      });
+    // 🆕 Đếm số người tham gia HIỆN TẠI từ ActiveParticipant
+    const currentActiveCount = await ActiveParticipant.countDocuments({
+      lessonId: lessonId,
+      isActive: true
+    });
 
-    } catch (error) {
-      console.error('Join lesson meeting error:', error);
-      res.status(500).json({ 
-        success: false,
-        message: 'Lỗi khi tham gia buổi học', 
-        error: error.message 
+    const maxParticipants = lesson.maxParticipants || course.maxStudents;
+    
+    if (currentActiveCount >= maxParticipants) {
+      return res.status(400).json({ 
+        message: `Phòng học đã đầy (${currentActiveCount}/${maxParticipants})`,
+        currentParticipants: currentActiveCount,
+        maxParticipants
       });
     }
-  },
 
+    // 🆕 TẠO JWT TOKEN VÀ MEETING URL CÓ TOKEN
+    const jitsiService = require('../services/jitsiService');
+    
+    const userInfo = {
+      email: req.userEmail || `${req.userId}@user.com`,
+      displayName: req.userFullName || 'User',
+      avatar: req.userAvatar || ''
+    };
+
+    const jwtToken = await jitsiService.generateJWT({
+      roomName: lesson.meetingId,
+      userInfo: userInfo,
+      role: isInstructor ? 'teacher' : 'student'
+    });
+
+    // 🆕 TẠO MEETING URL CÓ JWT TOKEN
+    let secureMeetingUrl = lesson.meetingUrl;
+    if (jwtToken) {
+      secureMeetingUrl = `${lesson.meetingUrl}#jwt=${jwtToken}`;
+      console.log('🔐 Secure meeting URL with JWT created');
+      console.log('   - Original URL:', lesson.meetingUrl);
+      console.log('   - Secure URL:', secureMeetingUrl);
+    } else {
+      console.log('⚠️ No JWT token, using plain meeting URL');
+    }
+
+    // 🆕 TẠO PARTICIPANT RECORD MỚI
+    const newParticipant = await ActiveParticipant.create({
+      lessonId: lessonId,
+      userId: req.userId,
+      courseId: lesson.courseId,
+      userEmail: userInfo.email,
+      userName: userInfo.displayName,
+      enrollment: enrollment?._id,
+      accessType: isInstructor ? 'instructor' : 
+                 (enrollment?.hasFullAccess ? 'full_course' : 
+                 (lesson.isFree || lesson.isPreview ? 'free_preview' : 'single_lesson')),
+      isActive: true,
+      joinedAt: new Date()
+    });
+
+    // ✅ Cập nhật lesson với số lượng CHÍNH XÁC
+    const newParticipantCount = currentActiveCount + 1;
+    lesson.currentParticipants = newParticipantCount;
+    await lesson.save();
+
+    console.log('✅ New participant joined:', {
+      participantId: newParticipant._id,
+      userId: req.userId,
+      currentParticipants: newParticipantCount,
+      hasJWT: !!jwtToken
+    });
+
+    res.json({
+      success: true,
+      meetingUrl: secureMeetingUrl, // 🆕 URL ĐÃ CÓ TOKEN
+      meetingId: lesson.meetingId,
+      userRole: isInstructor ? 'teacher' : 'student',
+      displayName: req.userFullName || 'Student',
+      currentParticipants: newParticipantCount,
+      maxParticipants,
+      participantId: newParticipant._id,
+      hasJWT: !!jwtToken, // 🆕 THÊM FLAG ĐỂ DEBUG
+      message: 'Tham gia buổi học thành công'
+    });
+
+  } catch (error) {
+    console.error('Join lesson meeting error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi khi tham gia buổi học', 
+      error: error.message 
+    });
+  }
+},
   // ========== LESSON CONTENT & RESOURCES ==========
   addLessonContent: async (req, res) => {
     try {
@@ -2870,8 +3029,295 @@ searchLessons: async (req, res) => {
       console.error('Remove lesson resource error:', error);
       res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
-  },
+  },leaveLessonMeeting: async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const userId = req.userId;
 
+    console.log('🚪 [leaveLessonMeeting] User leaving meeting:', {
+      lessonId, userId
+    });
+
+    if (!mongoose.Types.ObjectId.isValid(lessonId)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'ID bài học không hợp lệ' 
+      });
+    }
+
+    const ActiveParticipant = require('../models/ActiveParticipant');
+    
+    // 🆕 Tìm và đánh dấu participant là inactive
+    const participant = await ActiveParticipant.findOneAndUpdate(
+      {
+        lessonId: lessonId,
+        userId: userId,
+        isActive: true
+      },
+      {
+        isActive: false,
+        leftAt: new Date(),
+        reason: 'user_left'
+      },
+      { new: true }
+    );
+
+    if (!participant) {
+      console.log('⚠️ No active participant found for user:', userId);
+      // Vẫn trả về success vì user có thể đã bị timeout
+      return res.json({
+        success: true,
+        message: 'Đã rời khỏi buổi học'
+      });
+    }
+
+    // 🆕 Đếm lại số participants còn lại
+    const remainingParticipants = await ActiveParticipant.countDocuments({
+      lessonId: lessonId,
+      isActive: true
+    });
+
+    console.log(`✅ User left. Remaining: ${remainingParticipants}`);
+
+    // Cập nhật lesson
+    await Lesson.findByIdAndUpdate(
+      lessonId,
+      { 
+        currentParticipants: remainingParticipants,
+        // Nếu không còn ai thì kết thúc meeting
+        ...(remainingParticipants === 0 && {
+          isMeetingActive: false,
+          actualEndTime: new Date().toTimeString().split(' ')[0] // Format HH:mm
+        })
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'Rời khỏi buổi học thành công',
+      remainingParticipants: remainingParticipants,
+      meetingEnded: remainingParticipants === 0
+    });
+
+  } catch (error) {
+    console.error('❌ [leaveLessonMeeting] Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi khi rời khỏi buổi học',
+      error: error.message
+    });
+  }
+},
+
+// 🆕 THÊM: Get current meeting participants count
+getMeetingParticipants: async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+
+    console.log('👥 [getMeetingParticipants] Fetching participant count for lesson:', lessonId);
+
+    if (!mongoose.Types.ObjectId.isValid(lessonId)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'ID bài học không hợp lệ' 
+      });
+    }
+
+    const ActiveParticipant = require('../models/ActiveParticipant');
+
+    // Đếm những người đang online
+    const activeParticipants = await ActiveParticipant.find({
+      lessonId: lessonId,
+      isActive: true
+    })
+    .select('userId userName userEmail joinedAt')
+    .lean();
+
+    const lesson = await Lesson.findById(lessonId).select('maxParticipants courseId');
+    if (!lesson) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài học'
+      });
+    }
+
+    const course = await Course.findById(lesson.courseId).select('maxStudents');
+    const maxParticipants = lesson.maxParticipants || course?.maxStudents || 50;
+
+    console.log(`👥 Active participants: ${activeParticipants.length}/${maxParticipants}`);
+
+    res.json({
+      success: true,
+      currentParticipants: activeParticipants.length,
+      maxParticipants: maxParticipants,
+      participants: activeParticipants,
+      hasSpace: activeParticipants.length < maxParticipants
+    });
+
+  } catch (error) {
+    console.error('❌ [getMeetingParticipants] Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy danh sách tham gia',
+      error: error.message
+    });
+  }
+},
+syncParticipantCount: async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(lessonId)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'ID bài học không hợp lệ' 
+      });
+    }
+
+    const ActiveParticipant = require('../models/ActiveParticipant');
+    
+    // Đếm số active participants thực tế
+    const actualCount = await ActiveParticipant.countDocuments({
+      lessonId: lessonId,
+      isActive: true
+    });
+
+    // Cập nhật lesson
+    await Lesson.findByIdAndUpdate(lessonId, {
+      currentParticipants: actualCount
+    });
+
+    console.log(`🔄 Synced participant count for lesson ${lessonId}: ${actualCount}`);
+
+    res.json({
+      success: true,
+      lessonId,
+      currentParticipants: actualCount,
+      message: `Đã đồng bộ số người tham gia: ${actualCount}`
+    });
+
+  } catch (error) {
+    console.error('Sync participant count error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi khi đồng bộ số người tham gia', 
+      error: error.message 
+    });
+  }
+},
+
+// 🆕 THÊM: API để kiểm tra trạng thái tham gia của user
+getUserMeetingStatus: async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const userId = req.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(lessonId)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'ID bài học không hợp lệ' 
+      });
+    }
+
+    const ActiveParticipant = require('../models/ActiveParticipant');
+    const lesson = await Lesson.findById(lessonId);
+    
+    if (!lesson) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài học'
+      });
+    }
+
+    // Kiểm tra user đã tham gia chưa
+    const participant = await ActiveParticipant.findOne({
+      lessonId: lessonId,
+      userId: userId,
+      isActive: true
+    });
+
+    const currentParticipants = await ActiveParticipant.countDocuments({
+      lessonId: lessonId,
+      isActive: true
+    });
+
+    res.json({
+      success: true,
+      isInMeeting: !!participant,
+      participantId: participant?._id,
+      currentParticipants: currentParticipants,
+      maxParticipants: lesson.maxParticipants,
+      meetingIsActive: lesson.isMeetingActive
+    });
+
+  } catch (error) {
+    console.error('Get user meeting status error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi khi kiểm tra trạng thái', 
+      error: error.message 
+    });
+  }
+},
+// 🆕 THÊM: Cleanup inactives (gọi định kỳ hoặc manual)
+cleanupMeetingParticipants: async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const { timeoutMinutes = 30 } = req.body;
+
+    console.log(`🧹 [cleanupMeetingParticipants] Cleaning up inactive participants (>${timeoutMinutes}min)`);
+
+    if (!mongoose.Types.ObjectId.isValid(lessonId)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'ID bài học không hợp lệ' 
+      });
+    }
+
+    // Chỉ admin hoặc instructor mới được cleanup
+    const lesson = await Lesson.findById(lessonId);
+    const course = await Course.findById(lesson.courseId);
+    
+    if (req.userRole !== 'admin' && course.instructor.toString() !== req.userId) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Bạn không có quyền thực hiện thao tác này' 
+      });
+    }
+
+    const JitsiService = require('../services/jitsiService');
+    const result = await JitsiService.cleanupInactiveParticipants(lessonId, timeoutMinutes);
+
+    // Lấy số participants còn lại
+    const ActiveParticipant = require('../models/ActiveParticipant');
+    const remainingCount = await ActiveParticipant.countDocuments({
+      lessonId: lessonId,
+      isActive: true
+    });
+
+    // Cập nhật lesson
+    await Lesson.findByIdAndUpdate(lessonId, {
+      currentParticipants: remainingCount
+    });
+
+    console.log(`✅ [cleanupMeetingParticipants] Cleaned ${result.modifiedCount} participants`);
+
+    res.json({
+      success: true,
+      message: `Đã loại bỏ ${result.modifiedCount} người tham gia không hoạt động`,
+      removedCount: result.modifiedCount,
+      remainingParticipants: remainingCount
+    });
+
+  } catch (error) {
+    console.error('❌ [cleanupMeetingParticipants] Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi khi dọn dẹp',
+      error: error.message
+    });
+  }
+},
   // ========== COURSE IMAGE MANAGEMENT ==========
   uploadCourseImage: async (req, res) => {
     try {
@@ -3368,5 +3814,6 @@ searchLessons: async (req, res) => {
     }
   }
 };
+
 
 module.exports = courseController;

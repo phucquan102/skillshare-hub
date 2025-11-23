@@ -386,56 +386,55 @@ upgradeToInstructor: async (req, res) => {
     }
   },
 
-  login: async (req, res) => {
-    try {
-      const { email, password } = req.body;
+login: async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-      // Tìm user theo email
-      const user = await User.findOne({ email });
-      if (!user) {
-        return res.status(400).json({ message: 'Email hoặc mật khẩu không đúng' });
-      }
-
-      // Kiểm tra password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        return res.status(400).json({ message: 'Email hoặc mật khẩu không đúng' });
-      }
-
-      // Kiểm tra tài khoản có bị khóa
-      if (!user.isActive) {
-        return res.status(400).json({ message: 'Tài khoản đã bị khóa' });
-      }
-
-      // Cập nhật lastLogin
-      user.lastLogin = new Date();
-      await user.save();
-
-      // Tạo JWT token
-      const token = jwt.sign(
-        { userId: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      res.json({
-        message: 'Đăng nhập thành công',
-        token,
-        user: {
-          id: user._id,
-          email: user.email,
-          fullName: user.fullName,
-          role: user.role,
-          isVerified: user.isVerified,
-          isActive: user.isActive,
-          lastLogin: user.lastLogin
-        }
-      });
-    } catch (error) {
-      res.status(500).json({ message: 'Lỗi server', error: error.message });
+    // Tìm user theo email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: 'Email or password is incorrect' });
     }
-  },
 
+    // Kiểm tra password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: 'Email or password is incorrect' });
+    }
+
+    // Kiểm tra tài khoản có bị khóa
+    if (!user.isActive) {
+      return res.status(400).json({ message: 'Account has been deactivated' });
+    }
+
+    // Cập nhật lastLogin
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Tạo JWT token
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        isVerified: user.isVerified,
+        isActive: user.isActive,
+        lastLogin: user.lastLogin
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+},
   getProfile: async (req, res) => {
     try {
       const user = await User.findById(req.userId).select('-password');

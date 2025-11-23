@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
-const Lesson = require('../models/Lesson'); // Giả sử bạn có model Lesson
+const Lesson = require('../models/Lesson');
+const Enrollment = require('../models/Enrollment');
+const ActiveParticipant = require('../models/ActiveParticipant');
 
 class JitsiService {
   constructor() {
@@ -15,7 +17,7 @@ HcP48vjPgzPvlM4reiVuY1bTNRyE1v0qUpQvWDRbcqroGB1K4avaxyBB8ixIZOpN
 Obu4k1DcYcjvbsJq1x5qVkQm2sq6bGoUPkxXYwVp/wIqjz4ugxm6Soj8tKDZXd7L
 PhOXkzCJAgMBAAECggEBAIuR0PFcLKNdMLKptLUKV7r9cE21t60VPIPmU8MZFGlK
 Ff67rrGYFs6PlwzGRLrJIvISuVedu5PrjoCo/9zHaYaDzoM9k6t1Olk4vuhRKfwx
-4QU3IYY2gWWATZO6NWussobItNgFMF6n0nGK5XTNpLU7zMcieg6D3yQy4NXLNu3D
+4QU3IYY2gWWATZO6NWussobItNgFMF6n0nGK5XTNpLU7zMcieg6D3yQY4NXLNu3D
 Z2AcsJ8M8ZfiEBUfNSlKXMMPzFczpvKIvjJRng8nUmZID3w4/QXO05ZP6KAV9uVJ
 M7EUJ44BP3JsSILlV1fLaKPjnH68lfG2fyThWF/0gDTZWj+WJu2qGDGpf4YiJtN+
 ncsCVfxVEO7ZwafAcbgMPhZHsU8KmwSRo4Pznpga5dECgYEA7WX8G1rESm9EsACn
@@ -34,11 +36,42 @@ MjcH0KcIjQQuUIVIX+/gi4NlUSNtGciLdaC2q4dM0uxIdtvQDmUT4/kkG+NvyZUe
 vZHluT2OlBuDMI8Kc9w4hjWGKf5CLNRi7yniRhUzRRYI6ndir+xPfH5KBfxQelzw
 50+Vyq9SM1nn9u+NJiyKmg8=
 -----END PRIVATE KEY-----`;
-    this.enableJWT = process.env.JITSI_ENABLE_JWT === 'true';
+
+    // ✅ FIX: Đúng cách để kiểm tra boolean từ env
+    this.enableJWT = this.parseEnvBoolean(process.env.JITSI_ENABLE_JWT);
+    
+    console.log('🔧 [JitsiService Constructor] Environment Check:');
+    console.log('   - JITSI_ENABLE_JWT (raw):', process.env.JITSI_ENABLE_JWT);
+    console.log('   - JITSI_ENABLE_JWT (parsed):', this.enableJWT);
+    console.log('   - JITSI_DOMAIN:', this.domain);
+    console.log('   - Has JITSI_APP_ID:', !!this.appId);
+    console.log('   - Has JITSI_KID:', !!this.kid);
+    console.log('   - Has JITSI_PRIVATE_KEY:', !!this.privateKey);
+    console.log('   - JWT Status:', this.enableJWT ? '✅ ENABLED' : '❌ DISABLED');
+  }
+
+  // ✅ NEW: Parse boolean từ env variables đúng cách
+  parseEnvBoolean(value) {
+    if (!value) return false;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized === 'true' || normalized === '1' || normalized === 'yes';
+    }
+    return !!value;
   }
 
   async generateJWT({ roomName, userInfo, role = 'student', expiresIn = '2h' }) {
-    if (!this.enableJWT) return null;
+    console.log('🔐 [generateJWT] Generating JWT token...');
+    console.log('   - Room:', roomName);
+    console.log('   - User:', userInfo.displayName);
+    console.log('   - Role:', role);
+    console.log('   - enableJWT:', this.enableJWT);
+
+    if (!this.enableJWT) {
+      console.warn('⚠️  WARNING: JWT is disabled in configuration!');
+      console.warn('   Please set JITSI_ENABLE_JWT=true in your .env file');
+    }
 
     const now = Math.floor(Date.now() / 1000);
     const payload = {
@@ -48,7 +81,7 @@ vZHluT2OlBuDMI8Kc9w4hjWGKf5CLNRi7yniRhUzRRYI6ndir+xPfH5KBfxQelzw
           name: userInfo.displayName,
           avatar: userInfo.avatar || '',
           email: userInfo.email,
-          affiliation: role // 'teacher' or 'student'
+          affiliation: role
         },
         features: {
           livestreaming: true,
@@ -59,72 +92,167 @@ vZHluT2OlBuDMI8Kc9w4hjWGKf5CLNRi7yniRhUzRRYI6ndir+xPfH5KBfxQelzw
       },
       aud: 'jitsi',
       iss: this.appId,
-      sub: this.appId, // ✅ Với JaaS sub = appId
+      sub: this.appId,
       room: roomName,
-      exp: now + 60 * 60 * 2, // 2h
+      exp: now + 60 * 60 * 2, // 2 hours
       nbf: now - 10
     };
 
     try {
-      const formattedKey = this.privateKey.includes('\\n')
-        ? this.privateKey.replace(/\\n/g, '\n')
-        : this.privateKey;
+      // ✅ FIX: Xử lý key format một cách robust
+      let formattedKey = this.privateKey;
+      
+      // Nếu key chứa \\n (escaped newlines)
+      if (formattedKey.includes('\\n')) {
+        formattedKey = formattedKey.replace(/\\n/g, '\n');
+        console.log('   - Converted escaped newlines to actual newlines');
+      }
+      
+      // Validate key format
+      if (!formattedKey.includes('-----BEGIN PRIVATE KEY-----')) {
+        throw new Error('Invalid private key format: Missing BEGIN marker');
+      }
+      if (!formattedKey.includes('-----END PRIVATE KEY-----')) {
+        throw new Error('Invalid private key format: Missing END marker');
+      }
 
-      return jwt.sign(payload, formattedKey, {
+      console.log('   - Private Key Format: ✅ Valid');
+      console.log('   - Private Key Length:', formattedKey.length);
+      
+      const token = jwt.sign(payload, formattedKey, {
         algorithm: 'RS256',
         header: {
           kid: this.kid,
           alg: 'RS256'
         }
       });
+
+      console.log('✅ JWT Token generated successfully');
+      console.log('   - Token length:', token.length);
+      console.log('   - Token parts:', token.split('.').length);
+      
+      return token;
     } catch (error) {
-      console.error('❌ Error generating JWT:', error);
-      throw new Error('Failed to generate Jitsi JWT token');
+      console.error('❌ Error generating JWT:', error.message);
+      console.error('   - Stack:', error.stack);
+      console.error('   - Key preview:', this.privateKey?.substring(0, 50) + '...');
+      throw new Error('Failed to generate Jitsi JWT token: ' + error.message);
     }
   }
 
-  /**
-   * 🏗️ Tạo meeting mới
-   */
-  async createMeeting({ roomName, subject, userInfo, isModerator = true, lessonId }) {
+  async createMeeting({ roomName, subject, userInfo, isModerator = true, lessonId, userId }) {
     try {
-      const lesson = await Lesson.findById(lessonId);
+      console.log("🎯 [createMeeting] Starting meeting creation");
+      console.log("➡️ LessonId:", lessonId);
+      console.log("➡️ UserId:", userId);
+
+      const lesson = await Lesson.findById(lessonId).populate('courseId');
       if (!lesson) throw new Error('Lesson not found');
 
-      // Kiểm tra số người
-      const currentParticipants = lesson.currentParticipants || 0;
-      const maxParticipants = lesson.maxParticipants || 20;
-      if (currentParticipants >= maxParticipants) {
-        throw new Error('Phòng họp đã đầy');
+      console.log("📚 Lesson found:", lesson.title);
+
+      const enrollment = await Enrollment.findOne({
+        studentId: userId,
+        courseId: lesson.courseId._id
+      });
+
+      console.log("📋 Enrollment check:");
+      console.log("   - Found:", !!enrollment);
+      
+      if (!enrollment) {
+        throw new Error('❌ Bạn chưa đăng ký khóa học này');
       }
 
-      // Cập nhật lesson
-      lesson.currentParticipants = currentParticipants + 1;
+      console.log("   - Status:", enrollment.status);
+      console.log("   - Has full access:", enrollment.hasFullAccess);
+
+      let hasAccess = false;
+      let accessType = 'none';
+
+      if (enrollment.hasFullAccess) {
+        hasAccess = true;
+        accessType = 'full_course';
+        console.log("🎫 Access: Full course");
+      } else if (enrollment.hasAccessToLesson && enrollment.hasAccessToLesson(lessonId)) {
+        hasAccess = true;
+        accessType = 'single_lesson';
+        console.log("🎫 Access: Single lesson purchased");
+      } else if (lesson.isFree || lesson.isPreview) {
+        hasAccess = true;
+        accessType = 'free_preview';
+        console.log("🎫 Access: Free/Preview");
+      } else {
+        throw new Error('❌ Bạn không có quyền truy cập bài học này');
+      }
+
+      if (!hasAccess) {
+        throw new Error('❌ Bạn không có quyền truy cập bài học này');
+      }
+
+      console.log("🔍 Checking if user already active...");
+      
+      const alreadyActive = await ActiveParticipant.findOne({
+        lessonId: lessonId,
+        userId: userId,
+        isActive: true
+      });
+
+      if (alreadyActive) {
+        console.log("⚠️ User already active, returning existing session");
+        
+        const currentActiveCount = await ActiveParticipant.countDocuments({
+          lessonId: lessonId,
+          isActive: true
+        });
+
+        return {
+          config: alreadyActive.config,
+          roomName,
+          domain: this.domain,
+          currentParticipants: currentActiveCount,
+          maxParticipants: lesson.maxParticipants || lesson.courseId.maxStudents || 50,
+          participantId: alreadyActive._id,
+          isRejoining: true,
+          message: 'Bạn đã tham gia buổi học này'
+        };
+      }
+
+      const activeCount = await ActiveParticipant.countDocuments({
+        lessonId: lessonId,
+        isActive: true
+      });
+
+      const maxParticipants = lesson.maxParticipants || lesson.courseId.maxStudents || 50;
+      
+      console.log(`👥 Current active in meeting: ${activeCount}/${maxParticipants}`);
+
+      if (activeCount >= maxParticipants) {
+        throw new Error(`❌ Lớp học đã đầy (${activeCount}/${maxParticipants}), không thể tham gia`);
+      }
+
+      console.log(`✅ Access granted. Active: ${activeCount}/${maxParticipants}`);
+
       lesson.meetingId = roomName;
       lesson.isMeetingActive = true;
       await lesson.save();
 
-      // Tạo JWT
+      // ✅ FIX: Luôn generate JWT, không check flag
       const jwtToken = await this.generateJWT({
         roomName,
         userInfo,
         role: isModerator ? 'teacher' : 'student'
       });
 
-      // Link phòng họp
-      const meetingUrl = jwtToken
-        ? `https://${this.domain}/${this.appId}/${roomName}?jwt=${jwtToken}`
-        : `https://${this.domain}/${this.appId}/${roomName}`;
+      if (!jwtToken) {
+        throw new Error('Failed to generate JWT token');
+      }
 
-      return {
-        url: meetingUrl,
-        roomName,
-        domain: this.domain,
-        subject,
-        jwtToken,
-        currentParticipants: lesson.currentParticipants,
-        maxParticipants: lesson.maxParticipants,
-        config: {
+      const meetingConfig = {
+        roomName: roomName,
+        width: '100%',
+        height: '100%',
+        parentNode: undefined,
+        configOverwrite: {
           prejoinPageEnabled: false,
           startWithAudioMuted: true,
           startWithVideoMuted: false,
@@ -132,64 +260,242 @@ vZHluT2OlBuDMI8Kc9w4hjWGKf5CLNRi7yniRhUzRRYI6ndir+xPfH5KBfxQelzw
           startScreenSharing: true,
           enableEmailInStats: false,
           enableClosePage: false,
-          defaultLanguage: 'en'
+          defaultLanguage: 'en',
+          resolution: 720,
+          constraints: {
+            video: {
+              height: { ideal: 720, max: 720, min: 240 }
+            }
+          }
         },
-        interfaceConfig: {
+        interfaceConfigOverwrite: {
           SHOW_JITSI_WATERMARK: false,
           SHOW_WATERMARK_FOR_GUESTS: false,
           SHOW_BRAND_WATERMARK: false,
-          SHOW_POWERED_BY: false
+          SHOW_POWERED_BY: false,
+          TOOLBAR_BUTTONS: [
+            'microphone', 'camera', 'closedcaptions', 'desktop', 'embedmeeting',
+            'fullscreen', 'fodeviceselection', 'hangup', 'profile', 'chat',
+            'recording', 'livestreaming', 'etherpad', 'sharedvideo', 'settings',
+            'raisehand', 'videoquality', 'filmstrip', 'invite', 'feedback',
+            'stats', 'shortcuts', 'tileview', 'videobackgroundblur', 'download',
+            'help', 'mute-everyone', 'security'
+          ]
+        },
+        jwt: jwtToken,
+        userInfo: {
+          displayName: userInfo.displayName,
+          email: userInfo.email
         }
       };
+
+      const participant = await ActiveParticipant.create({
+        lessonId: lessonId,
+        userId: userId,
+        courseId: lesson.courseId._id,
+        userEmail: userInfo.email,
+        userName: userInfo.displayName,
+        enrollment: enrollment._id,
+        accessType: accessType,
+        isActive: true,
+        joinedAt: new Date(),
+        config: meetingConfig
+      });
+
+      console.log("✅ Participant record created:", participant._id);
+
+      const newParticipantCount = activeCount + 1;
+      lesson.currentParticipants = newParticipantCount;
+      await lesson.save();
+
+      console.log(`📊 Updated lesson currentParticipants: ${newParticipantCount}`);
+
+      const result = {
+        config: meetingConfig,
+        roomName,
+        domain: this.domain,
+        jwtToken,
+        currentParticipants: newParticipantCount,
+        maxParticipants: maxParticipants,
+        participantId: participant._id,
+        isRejoining: false,
+        enrollmentInfo: {
+          hasFullAccess: enrollment.hasFullAccess,
+          accessType: accessType,
+          status: enrollment.status
+        }
+      };
+
+      console.log("✅ Meeting created successfully");
+      return result;
+
     } catch (error) {
       console.error('❌ Error creating meeting:', error);
-      throw new Error('Failed to create Jitsi meeting');
+      throw new Error('Failed to create Jitsi meeting: ' + error.message);
     }
   }
 
-  /**
-   * 🧾 Tạo tên phòng duy nhất
-   */
-  generateRoomName(courseId, lessonId) {
-    return `course-${courseId}-lesson-${lessonId}`;
+  async removeParticipant(participantId, reason = 'user_left') {
+    try {
+      const participant = await ActiveParticipant.findByIdAndUpdate(
+        participantId,
+        {
+          isActive: false,
+          leftAt: new Date(),
+          reason: reason
+        },
+        { new: true }
+      );
+
+      if (participant) {
+        console.log("✅ Participant removed:", participant.userId, "Reason:", reason);
+      }
+      return participant;
+    } catch (error) {
+      console.error('Error removing participant:', error);
+    }
   }
 
-  /**
-   * 📡 Kiểm tra trạng thái meeting
-   */
-  async checkMeetingStatus(roomName) {
+  async cleanupInactiveParticipants(lessonId) {
     try {
-      const lesson = await Lesson.findOne({ meetingId: roomName });
-      if (!lesson) return { isActive: false, participants: 0, maxParticipants: 0 };
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      
+      const result = await ActiveParticipant.updateMany(
+        {
+          lessonId: lessonId,
+          isActive: true,
+          joinedAt: { $lt: thirtyMinutesAgo }
+        },
+        {
+          isActive: false,
+          leftAt: new Date(),
+          reason: 'timeout'
+        }
+      );
+
+      console.log(`🧹 Cleaned up ${result.modifiedCount} timeout participants`);
+      return result;
+    } catch (error) {
+      console.error('Error cleaning up participants:', error);
+    }
+  }
+
+  async checkMeetingStatus(roomName, userId = null) {
+    try {
+      const lesson = await Lesson.findOne({ meetingId: roomName }).populate('courseId');
+      if (!lesson) return { isActive: false, participants: 0, maxParticipants: 0, hasAccess: false };
+
+      let hasAccess = false;
+
+      if (userId) {
+        const enrollment = await Enrollment.findOne({
+          studentId: userId,
+          courseId: lesson.courseId._id
+        });
+
+        if (enrollment && (enrollment.hasFullAccess || (enrollment.hasAccessToLesson && enrollment.hasAccessToLesson(lesson._id)) || lesson.isFree || lesson.isPreview)) {
+          hasAccess = true;
+        }
+      }
+
+      const activeCount = await ActiveParticipant.countDocuments({
+        lessonId: lesson._id,
+        isActive: true
+      });
+
+      const maxParticipants = lesson.maxParticipants || lesson.courseId.maxStudents || 50;
 
       return {
         isActive: lesson.isMeetingActive || false,
-        participants: lesson.currentParticipants || 0,
-        maxParticipants: lesson.maxParticipants || 20
+        participants: activeCount,
+        maxParticipants: maxParticipants,
+        hasAccess: hasAccess,
+        lesson: {
+          title: lesson.title,
+          courseTitle: lesson.courseId.title
+        }
       };
     } catch (error) {
       console.error('Error checking meeting status:', error);
-      return { isActive: false, participants: 0, maxParticipants: 20 };
+      return { 
+        isActive: false, 
+        participants: 0, 
+        maxParticipants: 20, 
+        hasAccess: false 
+      };
     }
   }
 
-  /**
-   * 🔚 Kết thúc meeting
-   */
   async endMeeting({ lessonId }) {
     try {
       const lesson = await Lesson.findById(lessonId);
       if (!lesson) throw new Error('Lesson not found');
 
       lesson.isMeetingActive = false;
-      lesson.currentParticipants = 0;
       lesson.actualEndTime = new Date();
       await lesson.save();
 
+      const result = await ActiveParticipant.updateMany(
+        { lessonId: lessonId, isActive: true },
+        { 
+          isActive: false, 
+          leftAt: new Date(),
+          reason: 'meeting_ended'
+        }
+      );
+
+      console.log(`✅ Meeting ended. ${result.modifiedCount} participants removed`);
       return { success: true, message: 'Meeting ended successfully' };
     } catch (error) {
       console.error('Error ending meeting:', error);
       throw new Error('Failed to end Jitsi meeting');
+    }
+  }
+
+  async checkLessonAccess(userId, lessonId) {
+    try {
+      const lesson = await Lesson.findById(lessonId).populate('courseId');
+      if (!lesson) {
+        return { hasAccess: false, message: 'Lesson not found' };
+      }
+
+      const enrollment = await Enrollment.findOne({
+        studentId: userId,
+        courseId: lesson.courseId._id
+      });
+
+      let hasAccess = false;
+      let accessType = 'none';
+
+      if (enrollment) {
+        if (enrollment.hasFullAccess) {
+          hasAccess = true;
+          accessType = 'full_course';
+        } else if (enrollment.hasAccessToLesson && enrollment.hasAccessToLesson(lessonId)) {
+          hasAccess = true;
+          accessType = 'single_lesson';
+        } else if (lesson.isFree || lesson.isPreview) {
+          hasAccess = true;
+          accessType = 'free_preview';
+        }
+      } else if (lesson.isFree || lesson.isPreview) {
+        hasAccess = true;
+        accessType = 'free_preview';
+      }
+
+      return {
+        hasAccess,
+        accessType,
+        lesson: {
+          _id: lesson._id,
+          title: lesson.title,
+          isFree: lesson.isFree,
+          isPreview: lesson.isPreview
+        }
+      };
+    } catch (error) {
+      console.error('Error checking lesson access:', error);
+      return { hasAccess: false, message: error.message };
     }
   }
 }

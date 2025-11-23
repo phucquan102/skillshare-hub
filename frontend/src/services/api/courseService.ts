@@ -329,6 +329,10 @@ export interface CreateLessonData {
 export interface UpdateLessonData extends Partial<CreateLessonData> {
   status?: 'draft' | 'published' | 'completed' | 'cancelled';
   recordingUrl?: string;
+  // THÊM các trường mới
+  isMeetingActive?: boolean;
+  actualStartTime?: string;
+  actualEndTime?: string;
 }
 
 export interface LessonsResponse {
@@ -512,21 +516,53 @@ export const courseService = {
   },
 
   getCourseById: async (courseId: string): Promise<{ course: Course }> => {
-    const endpoint = `${API_BASE_URL}/api/courses/${courseId}`;
-    const token = localStorage.getItem('token');
-    try {
-      return await apiRequest<{ course: Course }>(endpoint, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })  
-        }
-      });
-    } catch (error) {
-      console.error(`Failed to fetch course ${courseId}:`, error);
-      throw error;
+  // ✅ THÊM VALIDATION
+  if (!courseId || courseId.trim() === '') {
+    throw new Error('ID khóa học không hợp lệ: courseId là rỗng hoặc undefined');
+  }
+  
+  if (typeof courseId !== 'string') {
+    throw new Error(`ID khóa học không hợp lệ: kiểu dữ liệu ${typeof courseId}, giá trị ${courseId}`);
+  }
+
+  const endpoint = `${API_BASE_URL}/api/courses/${courseId}`;
+  const token = localStorage.getItem('token');
+  
+  console.log('🔗 [getCourseById] API Request:', endpoint);
+  console.log('🎯 [getCourseById] courseId:', courseId);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      }
+    });
+
+    const responseText = await response.text();
+    console.log('📥 [getCourseById] Response status:', response.status);
+
+    if (!response.ok) {
+      let errorMessage = 'Lỗi server khi lấy thông tin khóa học';
+      try {
+        const errorData = JSON.parse(responseText);
+        errorMessage = errorData.message || errorMessage;
+      } catch (e) {
+        errorMessage = responseText || `HTTP ${response.status}`;
+      }
+      throw new Error(errorMessage);
     }
-  },
+
+    const result = JSON.parse(responseText);
+    console.log('✅ [getCourseById] SUCCESS:', result);
+    return result;
+
+  } catch (error: any) {
+    console.error('❌ [getCourseById] ERROR:', error.message);
+    throw error;
+  }
+},
 
   getInstructorCourseById: async (courseId: string): Promise<{ course: Course }> => {
     const endpoint = `${API_BASE_URL}/api/courses/instructor/${courseId}`;
@@ -1257,27 +1293,28 @@ export const courseService = {
   },
 
   startLesson: async (lessonId: string): Promise<{ message: string; lesson: Lesson; meetingInfo: MeetingInfo }> => {
-    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/start`;
-    
-    console.log('🔗 [startLesson] API Request:', endpoint);
+  // SỬA: Dùng endpoint startLessonMeeting thay vì start
+  const endpoint = `${API_BASE_URL}/api/courses/lessons/${lessonId}/meeting/start`;
+  
+  console.log('🔗 [startLesson] Fixed API Request:', endpoint);
 
-    try {
-      const response = await apiRequest<{ message: string; lesson: Lesson; meetingInfo: MeetingInfo }>(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+  try {
+    const response = await apiRequest<{ message: string; lesson: Lesson; meetingInfo: MeetingInfo }>(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
 
-      console.log('✅ [startLesson] SUCCESS:', response);
-      return response;
+    console.log('✅ [startLesson] SUCCESS:', response);
+    return response;
 
-    } catch (error: any) {
-      console.error('❌ [startLesson] ERROR:', error.message);
-      throw error;
-    }
-  },
+  } catch (error: any) {
+    console.error('❌ [startLesson] ERROR:', error.message);
+    throw error;
+  }
+},
 
   endLesson: async (lessonId: string, recordingUrl?: string): Promise<{ message: string; lesson: Lesson }> => {
     const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/end`;
@@ -1302,7 +1339,92 @@ export const courseService = {
       throw error;
     }
   },
+// Thêm hàm updateLessonStatus riêng
+updateLessonStatus: async (lessonId: string, status: 'draft' | 'published' | 'completed' | 'cancelled' | 'live'): Promise<{ message: string; lesson: Lesson }> => {
+  const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/status`;
+  const token = localStorage.getItem('token');
+  
+  console.log('🔗 [updateLessonStatus] API Request:', endpoint);
+  console.log('📤 Status update:', status);
 
+  try {
+    const response = await fetch(endpoint, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ status })
+    });
+
+    console.log('📥 Response status:', response.status);
+    
+    const responseText = await response.text();
+    console.log('📥 Response body:', responseText);
+
+    if (!response.ok) {
+      let errorMessage = 'Lỗi server khi cập nhật trạng thái bài học';
+      try {
+        const errorData = JSON.parse(responseText);
+        errorMessage = errorData.message || errorMessage;
+      } catch (e) {
+        errorMessage = responseText || `HTTP ${response.status}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const result = JSON.parse(responseText);
+    console.log('✅ [updateLessonStatus] SUCCESS:', result);
+    return result;
+
+  } catch (error: any) {
+    console.error('❌ [updateLessonStatus] ERROR:', error.message);
+    throw error;
+  }
+},
+// Sửa lại hàm startLessonWithFallback với hàm mới
+startLessonWithFallback: async (lessonId: string): Promise<any> => {
+  console.log('🎯 [startLessonWithFallback] Starting lesson with fallback:', lessonId);
+  
+  const endpoints = [
+    {
+      method: 'startLessonMeeting',
+      call: () => courseService.startLessonMeeting(lessonId)
+    },
+    {
+      method: 'startLesson',
+      call: () => courseService.startLesson(lessonId)
+    },
+    {
+      method: 'updateLessonStatus',
+      call: () => courseService.updateLessonStatus(lessonId, 'live')
+    },
+    {
+      method: 'updateLesson',
+      call: () => courseService.updateLesson(lessonId, {
+        isMeetingActive: true,
+        actualStartTime: new Date().toISOString()
+      })
+    }
+  ];
+
+  let lastError: any = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`🔄 [startLessonWithFallback] Trying method: ${endpoint.method}`);
+      const response = await endpoint.call();
+      console.log(`✅ [startLessonWithFallback] SUCCESS with method: ${endpoint.method}`);
+      return response;
+    } catch (error) {
+      console.log(`❌ [startLessonWithFallback] Failed with method ${endpoint.method}:`, error);
+      lastError = error;
+      continue;
+    }
+  }
+
+  throw lastError || new Error('No valid method found for starting lesson');
+},
   // ========== LESSON CONTENT MANAGEMENT ==========
 
   // 🆕 THÊM: Get lesson contents với phân quyền

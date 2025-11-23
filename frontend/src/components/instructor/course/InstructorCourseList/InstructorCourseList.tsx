@@ -12,26 +12,29 @@ import {
   FiUsers,
   FiDollarSign,
   FiAlertCircle,
-  FiX
+  FiX,
+  FiBook,
+  FiArrowRight,
+  FiChevronDown
 } from 'react-icons/fi';
 
-// CẬP NHẬT: Xóa onCreateLesson khỏi interface
 interface InstructorCourseListProps {
   onEditCourse?: (course: Course) => void;
   onViewStats?: (course: Course) => void;
-  onManageLessons?: (course: Course) => void; // CHỈ GIỮ LẠI manage lessons
+  onManageLessons?: (course: Course) => void;
 }
 
 const InstructorCourseList: React.FC<InstructorCourseListProps> = ({ 
   onEditCourse, 
   onViewStats,
-  onManageLessons // CHỈ GIỮ LẠI manage lessons
+  onManageLessons
 }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [visibleCourses, setVisibleCourses] = useState<number>(6); // Số khóa học hiển thị ban đầu
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -53,6 +56,7 @@ const InstructorCourseList: React.FC<InstructorCourseListProps> = ({
       
       console.log('✅ Courses fetched successfully:', response);
       setCourses(response.courses || []);
+      setVisibleCourses(6); // Reset về 6 khi fetch lại dữ liệu
     } catch (error: any) {
       console.error('❌ Error fetching instructor courses:', {
         message: error.message,
@@ -75,6 +79,9 @@ const InstructorCourseList: React.FC<InstructorCourseListProps> = ({
     course.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Hiển thị chỉ một phần của danh sách khóa học
+  const displayedCourses = filteredCourses.slice(0, visibleCourses);
+
   const getStats = useCallback(() => {
     const total = courses.length;
     const published = courses.filter(c => c.status === 'published').length;
@@ -91,6 +98,18 @@ const InstructorCourseList: React.FC<InstructorCourseListProps> = ({
   }, [courses]);
 
   const stats = getStats();
+
+  const handleViewDashboard = () => {
+    navigate('/instructor/dashboard');
+  };
+
+  const handleLoadMore = () => {
+    setVisibleCourses(prev => prev + 6); // Tăng thêm 6 khóa học mỗi lần nhấn
+  };
+
+  const handleShowAll = () => {
+    setVisibleCourses(filteredCourses.length); // Hiển thị tất cả
+  };
 
   if (loading) {
     return (
@@ -160,7 +179,9 @@ const InstructorCourseList: React.FC<InstructorCourseListProps> = ({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">My Courses</h2>
-          <p className="text-gray-600">Manage and track your teaching content</p>
+          <p className="text-gray-600">
+            Showing {Math.min(displayedCourses.length, filteredCourses.length)} of {filteredCourses.length} courses
+          </p>
         </div>
         <button
           onClick={() => navigate('/instructor/courses/create')}
@@ -265,13 +286,13 @@ const InstructorCourseList: React.FC<InstructorCourseListProps> = ({
             </div>
           </div>
         ) : (
-          filteredCourses.map((course) => (
+          displayedCourses.map((course) => (
             <InstructorCourseCard
               key={course._id}
               course={course}
               onEdit={onEditCourse}
               onViewStats={onViewStats}
-              onManageLessons={onManageLessons} // CHỈ TRUYỀN manage lessons
+              onManageLessons={onManageLessons}
               onDelete={async (courseId) => {
                 try {
                   await courseService.deleteCourse(courseId);
@@ -292,6 +313,85 @@ const InstructorCourseList: React.FC<InstructorCourseListProps> = ({
           ))
         )}
       </div>
+
+      {/* Load More / Show All Buttons */}
+      {filteredCourses.length > visibleCourses && (
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <button
+            onClick={handleLoadMore}
+            className="px-8 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all duration-300 font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl"
+          >
+            <FiChevronDown className="w-5 h-5" />
+            Load More ({filteredCourses.length - visibleCourses} remaining)
+          </button>
+          
+          <button
+            onClick={handleShowAll}
+            className="px-6 py-3 bg-white text-emerald-600 border-2 border-emerald-200 rounded-xl hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-300 font-medium flex items-center gap-2"
+          >
+            Show All {filteredCourses.length} Courses
+          </button>
+        </div>
+      )}
+
+      {/* View Dashboard Card - Hiển thị khi có khóa học */}
+      {courses.length > 0 && (
+        <div className="bg-gradient-to-br from-emerald-500 to-green-500 rounded-3xl p-6 text-white shadow-xl">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                <FiBook className="w-8 h-8" />
+              </div>
+              <div>
+                <h4 className="text-xl font-bold mb-2">Back to Dashboard</h4>
+                <p className="text-emerald-100">
+                  Return to your instructor dashboard to see an overview of your teaching performance and quick access to all features.
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={handleViewDashboard}
+              className="px-8 py-3 bg-white text-emerald-600 rounded-xl hover:scale-105 transition-transform duration-200 font-semibold flex items-center gap-2 whitespace-nowrap"
+            >
+              <FiArrowRight className="w-5 h-5" />
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Stats Summary */}
+      {courses.length > 0 && (
+        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-emerald-500 rounded-xl">
+              <FiBarChart2 className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Quick Summary</h3>
+              <p className="text-gray-600">Overview of your teaching progress</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-4 bg-emerald-50 rounded-xl">
+              <p className="text-2xl font-bold text-emerald-600">{stats.total}</p>
+              <p className="text-sm text-emerald-700 font-medium">Total Courses</p>
+            </div>
+            <div className="text-center p-4 bg-blue-50 rounded-xl">
+              <p className="text-2xl font-bold text-blue-600">{stats.totalStudents}</p>
+              <p className="text-sm text-blue-700 font-medium">Total Students</p>
+            </div>
+            <div className="text-center p-4 bg-purple-50 rounded-xl">
+              <p className="text-2xl font-bold text-purple-600">${stats.totalRevenue.toLocaleString()}</p>
+              <p className="text-sm text-purple-700 font-medium">Total Revenue</p>
+            </div>
+            <div className="text-center p-4 bg-orange-50 rounded-xl">
+              <p className="text-2xl font-bold text-orange-600">{stats.published}</p>
+              <p className="text-sm text-orange-700 font-medium">Published</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

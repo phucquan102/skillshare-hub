@@ -14,14 +14,20 @@ interface FormProps {
   isLoading?: boolean;
 }
 
+interface FieldError {
+  email?: string;
+  password?: string;
+  fullName?: string;
+}
+
 const RegisterForm: React.FC<FormProps> = ({ onSubmit, onLogin, isLoading = false }) => {
   const [formData, setFormData] = useState<RegisterData>({
     email: '',
     password: '',
     fullName: '',
-    role: 'student',
+    role: 'student', // Mặc định là student
   });
-  const [errors, setErrors] = useState<Partial<RegisterData>>({});
+  const [errors, setErrors] = useState<FieldError>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -33,7 +39,7 @@ const RegisterForm: React.FC<FormProps> = ({ onSubmit, onLogin, isLoading = fals
   }, []);
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<RegisterData> = {};
+    const newErrors: FieldError = {};
     if (!formData.email) newErrors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email address';
     if (!formData.password) newErrors.password = 'Password is required';
@@ -45,14 +51,26 @@ const RegisterForm: React.FC<FormProps> = ({ onSubmit, onLogin, isLoading = fals
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError(null);
+    setErrors({});
+
     if (validateForm()) {
       try {
         await onSubmit(formData);
       } catch (error: any) {
-        const errorMsg = error.message || 'Registration failed. Please try again.';
-        setServerError(errorMsg);
-        if (process.env.NODE_ENV === 'development') {
-          setServerError(`${errorMsg} (Check console for details)`);
+        console.error('Register error:', error);
+
+        // Kiểm tra nếu lỗi có field được xác định
+        if (error?.field === 'email' || error?.message?.toLowerCase().includes('email')) {
+          setErrors(prev => ({
+            ...prev,
+            email: error?.message || 'Email already in use. Please try another.'
+          }));
+        } else {
+          const errorMsg = error?.message || 'Registration failed. Please try again.';
+          setServerError(errorMsg);
+          if (process.env.NODE_ENV === 'development') {
+            setServerError(`${errorMsg} (Check console for details)`);
+          }
         }
       }
     }
@@ -61,7 +79,8 @@ const RegisterForm: React.FC<FormProps> = ({ onSubmit, onLogin, isLoading = fals
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name as keyof RegisterData]) {
+
+    if (errors[name as keyof FieldError]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
     if (serverError) setServerError(null);
@@ -105,12 +124,14 @@ const RegisterForm: React.FC<FormProps> = ({ onSubmit, onLogin, isLoading = fals
             value={formData.fullName}
             onChange={handleChange}
             className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
-              errors.fullName ? 'border-red-500' : 'border-gray-300'
+              errors.fullName ? 'border-red-500 bg-red-50' : 'border-gray-300'
             }`}
             placeholder="Enter your full name"
             disabled={isLoading || isGoogleLoading}
           />
-          {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
+          {errors.fullName && (
+            <p className="text-red-500 text-sm mt-1">⚠️ {errors.fullName}</p>
+          )}
         </div>
 
         <div>
@@ -121,12 +142,14 @@ const RegisterForm: React.FC<FormProps> = ({ onSubmit, onLogin, isLoading = fals
             value={formData.email}
             onChange={handleChange}
             className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
-              errors.email ? 'border-red-500' : 'border-gray-300'
+              errors.email ? 'border-red-500 bg-red-50' : 'border-gray-300'
             }`}
             placeholder="Enter your email"
             disabled={isLoading || isGoogleLoading}
           />
-          {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+          {errors.email && (
+            <p className="text-red-500 text-sm mt-1">⚠️ {errors.email}</p>
+          )}
         </div>
 
         <div>
@@ -137,27 +160,17 @@ const RegisterForm: React.FC<FormProps> = ({ onSubmit, onLogin, isLoading = fals
             value={formData.password}
             onChange={handleChange}
             className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
-              errors.password ? 'border-red-500' : 'border-gray-300'
+              errors.password ? 'border-red-500 bg-red-50' : 'border-gray-300'
             }`}
             placeholder="Enter your password"
             disabled={isLoading || isGoogleLoading}
           />
-          {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
+          {errors.password && (
+            <p className="text-red-500 text-sm mt-1">⚠️ {errors.password}</p>
+          )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-          <select
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
-            className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors border-gray-300"
-            disabled={isLoading || isGoogleLoading}
-          >
-            <option value="student">Student</option>
-            <option value="instructor">Instructor</option>
-          </select>
-        </div>
+
 
         <button
           onClick={handleSubmit}
@@ -203,15 +216,6 @@ const RegisterForm: React.FC<FormProps> = ({ onSubmit, onLogin, isLoading = fals
           </button>
         </p>
       </div>
-
-      {/* {process.env.NODE_ENV === 'development' && (
-        <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
-          <p className="font-semibold">Debug Info:</p>
-          <p>API Base: {process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000'}</p>
-          <p>Endpoint: /api/users/register</p>
-          <p>Google Client ID: {process.env.REACT_APP_GOOGLE_CLIENT_ID ? 'Configured' : 'Not configured'}</p>
-        </div>
-      )} */}
     </div>
   );
 };

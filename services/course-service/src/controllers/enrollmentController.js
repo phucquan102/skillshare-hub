@@ -26,16 +26,10 @@ const purchaseLesson = async (req, res) => {
       });
     }
 
-    // Kiểm tra course tồn tại và cho phép mua lesson riêng
+    // Kiểm tra course tồn tại
     const course = await Course.findById(courseId);
     if (!course) {
       return res.status(404).json({ message: 'Không tìm thấy khóa học' });
-    }
-
-    if (!['per_lesson', 'both'].includes(course.pricingType)) {
-      return res.status(400).json({ 
-        message: 'Khóa học này không cho phép mua từng bài học riêng lẻ' 
-      });
     }
 
     // Kiểm tra lesson tồn tại
@@ -50,7 +44,9 @@ const purchaseLesson = async (req, res) => {
       courseId: new mongoose.Types.ObjectId(courseId)
     });
 
-    // 🔥 QUAN TRỌNG: Kiểm tra xem user đã có full access chưa
+    let isNewEnrollment = false;
+
+    // Kiểm tra full access
     if (enrollment && enrollment.hasFullAccess) {
       return res.status(200).json({ 
         success: true,
@@ -61,7 +57,7 @@ const purchaseLesson = async (req, res) => {
     }
 
     if (enrollment) {
-      // Kiểm tra xem đã mua lesson này chưa
+      // Kiểm tra đã mua lesson này chưa
       const alreadyPurchased = enrollment.purchasedLessons.some(
         purchase => purchase.lessonId.toString() === lessonId
       );
@@ -96,9 +92,19 @@ const purchaseLesson = async (req, res) => {
         enrolledAt: new Date(),
         status: 'active'
       });
+      isNewEnrollment = true;
     }
 
     await enrollment.save();
+
+    // ✅ FIX QUAN TRỌNG: Cập nhật currentEnrollments nếu là enrollment mới
+    if (isNewEnrollment) {
+      await Course.findByIdAndUpdate(courseId, {
+        $inc: { currentEnrollments: 1 }
+      });
+      console.log(`📈 Increased currentEnrollments for course ${courseId}`);
+    }
+
     console.log("✅ Lesson purchased successfully");
 
     res.status(200).json({

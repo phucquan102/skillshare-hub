@@ -1,3 +1,4 @@
+// frontend/src/routes/AppRouter.tsx
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminRoute from '../routes/AdminRoute';
@@ -36,6 +37,7 @@ import StudentLessonMeeting from '../pages/student/StudentLessonMeeting/StudentL
 import MyCoursesPage from '../pages/student/MyCoursesPage/MyCoursesPage';
 import StudentLessonList from '../pages/student/StudentLessonList/StudentLessonList';
 import StudentLessonDetail from '../pages/student/StudentLessonDetail/StudentLessonDetail';
+import StudentSchedulePage from '../pages/student/StudentSchedulePage/StudentSchedulePage';
 
 // Instructor Pages
 import InstructorDashboardPage from '../pages/instructor/InstructorDashboardPage';  
@@ -47,6 +49,9 @@ import LessonDetailPage from '../pages/instructor/ManageLessons/LessonDetailPage
 import InstructorLessonStartPage from '../pages/instructor/InstructorLessonStartPage/InstructorLessonStartPage';
 import AIChatPage from '../pages/Chat/AIChatPage/AIChatPage';
 import { ChatPage } from '../pages/Chat/ChatPage/ChatPage';
+
+// 🆕 THÊM IMPORT Instructor Calendar Page
+import InstructorCalendarPage from '../pages/instructor/InstructorCalendarPage/InstructorCalendarPage';
 
 // Components
 import InstructorStudentList from '../components/instructor/StudentList/InstructorStudentList';
@@ -80,15 +85,13 @@ const AppRouter: React.FC = () => {
       >
         <Route index element={<DashboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        {/* 🆕 My Courses Routes */}
         <Route path="courses">
           <Route index element={<MyCoursesPage />} />
           <Route path=":courseId" element={<StudentLessonList />} />
         </Route>
-        {/* 🆕 Chat Route */}
         <Route path="chat" element={<ChatPage />} />
         <Route path="sessions" element={<div>Upcoming Sessions Page</div>} />
-        <Route path="schedule" element={<div>Learning Schedule Page</div>} />
+        <Route path="schedule" element={<StudentSchedulePage />} />
         <Route path="payments" element={<div>Payment History Page</div>} />
       </Route>
 
@@ -112,7 +115,9 @@ const AppRouter: React.FC = () => {
         <Route path="courses/:courseId/lessons/:lessonId" element={<LessonDetailPage />} />
         <Route path="courses/:courseId/lessons/:lessonId/edit" element={<div>Edit Lesson Page</div>} />
 
-        {/* 🆕 Route mở buổi học */}
+        {/* 🆕 THÊM ROUTE CHO CALENDAR */}
+        <Route path="calendar" element={<InstructorCalendarPage />} />
+
         <Route
           path="course/:courseId/lesson/:lessonId/start"
           element={
@@ -122,13 +127,12 @@ const AppRouter: React.FC = () => {
           }
         />
 
-        {/* 🆕 Chat Route cho Instructor */}
         <Route path="chat" element={<ChatPage />} />
 
-        {/* 🆕 THÊM ROUTE CHO STUDENT LIST */}
         <Route path="students" element={<InstructorStudentList />} />
         <Route path="students/:studentId/progress" element={<div>Student Progress Detail Page</div>} />
 
+        {/* 🗑️ CÓ THỂ XÓA HOẶC GIỮ LẠI sessions route nếu muốn */}
         <Route path="sessions" element={<div>Session Management Page</div>} />
         <Route path="earnings" element={<div>Earnings & Payments Page</div>} />
         <Route path="profile" element={<ProfilePage />} />
@@ -153,7 +157,6 @@ const AppRouter: React.FC = () => {
         }
       />
 
-      {/* 🆕 THÊM ROUTE CHO LESSON DETAIL */}
       <Route
         path="/student/lessons/:lessonId"
         element={
@@ -176,7 +179,6 @@ const AppRouter: React.FC = () => {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="users" element={<UsersManagementPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        {/* 🆕 Chat Route cho Admin */}
         <Route path="chat" element={<ChatPage />} />
         <Route path="courses">
           <Route index element={<CoursesManagementPage />} />

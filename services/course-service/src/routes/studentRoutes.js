@@ -13,7 +13,7 @@ router.get('/courses/:courseId/progress', authMiddleware, studentController.getC
 router.get('/lessons/:lessonId', authMiddleware, studentController.getLessonDetails);
 router.get('/upcoming-lessons', authMiddleware, studentController.getUpcomingLessons);
 router.get('/statistics', authMiddleware, studentController.getLearningStatistics);
-
+router.get('/learning-schedule', authMiddleware, studentController.getStudentLearningSchedule);
 console.log('✅ All student routes registered successfully');
 
 module.exports = router;

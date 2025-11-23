@@ -31,7 +31,7 @@ const DashboardLayout: React.FC = () => {
       <div className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
           <div className={styles.logo}>
-            <img src="/logo.svg" alt="Logo" className={styles.logoImage} />
+            
             <span className={styles.logoText}>SkillShare Hub</span>
           </div>
           <p className={styles.dashboardSubtitle}>{getDashboardTitle()}</p>

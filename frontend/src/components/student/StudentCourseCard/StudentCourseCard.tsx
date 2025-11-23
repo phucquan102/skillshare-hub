@@ -12,14 +12,35 @@ interface StudentCourseCardProps {
 const StudentCourseCard: React.FC<StudentCourseCardProps> = ({ course }) => {
   const navigate = useNavigate();
 
+  // Hàm tính toán số lesson thực tế - PHIÊN BẢN TỐI ƯU
+  const getActualTotalLessons = () => {
+    // LUÔN đảm bảo ít nhất 1 lesson nếu có full access
+    if (course.hasFullAccess) {
+      return Math.max(course.course.totalLessons, 1);
+    }
+    
+    // Với truy cập từng lesson, dùng purchasedLessons
+    return Math.max(course.purchasedLessons, 1);
+  };
+
+  const actualTotalLessons = getActualTotalLessons();
+
+  // Debug chi tiết
+  console.log('🎯 Final calculation:', {
+    title: course.course.title,
+    hasFullAccess: course.hasFullAccess,
+    apiTotalLessons: course.course.totalLessons,
+    purchasedLessons: course.purchasedLessons,
+    actualTotalLessons: actualTotalLessons,
+    completedLessons: course.progress.completedLessons
+  });
+
   const handleCardClick = () => {
-    console.log('🖱️ Course card clicked:', course.course._id);
     navigate(`/dashboard/courses/${course.course._id}`);
   };
 
   const handleContinueLearning = (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log('🚀 Continue learning clicked:', course.course._id);
     navigate(`/dashboard/courses/${course.course._id}`);
   };
 
@@ -91,8 +112,9 @@ const StudentCourseCard: React.FC<StudentCourseCardProps> = ({ course }) => {
         </div>
 
         <div className={styles.progressInfo}>
+          {/* HIỂN THỊ SỐ LESSON THỰC TẾ */}
           <div className={styles.lessonProgress}>
-            {course.progress.completedLessons}/{course.course.totalLessons || 0} bài học
+            {course.progress.completedLessons}/{actualTotalLessons} bài học
           </div>
           <div className={styles.overallProgress}>
             {course.progress.overallProgress}% hoàn thành

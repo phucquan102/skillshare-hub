@@ -182,7 +182,7 @@ const lessonSchema = new mongoose.Schema({
   // ========== STATUS & ANALYTICS ==========
   status: {
     type: String,
-    enum: ['draft', 'published', 'completed', 'cancelled'],
+    enum: ['draft', 'published', 'in_progress', 'completed', 'cancelled', 'archived'],
     default: 'draft'
   },
   isActive: {

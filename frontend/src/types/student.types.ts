@@ -60,8 +60,12 @@ export interface LessonProgress {
   scheduleIndex: number;
   lessonType: string;
   meetingUrl?: string;
+  
+  // 🆕 THÊM CÁC TRƯỜNG THỜI GIAN THỰC TẾ
+  actualDate?: string;
   actualStartTime?: string;
   actualEndTime?: string;
+  
   status: string;
   isPreview: boolean;
   isFree: boolean;
@@ -69,6 +73,42 @@ export interface LessonProgress {
   isCompleted: boolean;
   canJoin: boolean;
   progress: number;
+  
+  // 🆕 CÓ THỂ THÊM CÁC TRƯỜNG KHÁC NẾU CẦN
+  description?: string;
+  shortDescription?: string;
+  meetingId?: string;
+  meetingPassword?: string;
+  isMeetingActive?: boolean;
+  recordingUrl?: string;
+  maxParticipants?: number;
+  currentParticipants?: number;
+  availableForIndividualPurchase?: boolean;
+  price?: number;
+  assignedInstructor?: any;
+  objectives?: string[];
+  prerequisites?: string[];
+  difficulty?: 'easy' | 'medium' | 'hard';
+  estimatedStudyTime?: number;
+  tags?: string[];
+  viewCount?: number;
+  completionRate?: number;
+  resources?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+    description?: string;
+  }>;
+  contents?: Array<{
+    type: string;
+    title: string;
+    description?: string;
+    url?: string;
+    duration?: number;
+    order?: number;
+    metadata?: any;
+  }>;
 }
 
 export interface StudentCourseResponse {
@@ -197,6 +237,11 @@ export interface StudentProgressDetailLesson {
   status: string;
   isCompleted: boolean;
   completedAt?: string;
+  
+  // 🆕 THÊM CÁC TRƯỜNG THỜI GIAN
+  actualDate?: string;
+  actualStartTime?: string;
+  actualEndTime?: string;
 }
 
 export interface StudentProgressDetail {
@@ -258,4 +303,30 @@ export interface InstructorCourseStatsResponse {
   success: boolean;
   message?: string;
   stats: InstructorCourseStats;
+}
+
+// 🆕 THÊM INTERFACE CHO LIVE LESSON STATUS
+export interface LiveLessonStatus {
+  isLive: boolean;
+  isUpcoming: boolean;
+  isCompleted: boolean;
+  canJoin: boolean;
+  hasRecording: boolean;
+  hasAvailableSpots: boolean;
+  canRegister: boolean;
+  canBePurchasedIndividually: boolean;
+}
+
+// 🆕 THÊM INTERFACE CHO LESSON SCHEDULE INFO
+export interface LessonScheduleInfo {
+  type: 'dated' | 'weekly' | 'unscheduled';
+  date?: string;
+  dayOfWeek?: number;
+  dayName?: string;
+  startTime?: string;
+  endTime?: string;
+  timezone?: string;
+  meetingPlatform?: string;
+  individualPrice?: number;
+  availableForIndividualPurchase?: boolean;
 }

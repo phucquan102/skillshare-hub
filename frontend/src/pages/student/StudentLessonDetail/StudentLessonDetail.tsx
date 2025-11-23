@@ -36,86 +36,89 @@ const StudentLessonDetail: React.FC = () => {
   };
 
   useEffect(() => {
-    const loadLesson = async () => {
-      if (!lessonId) {
-        setError('Lesson ID is missing');
-        setLoading(false);
-        return;
-      }
+   const loadLesson = async () => {
+  if (!lessonId) {
+    setError('Lesson ID is missing');
+    setLoading(false);
+    return;
+  }
 
-      try {
-        setLoading(true);
-        console.log('📡 [StudentLessonDetail] Loading lesson:', lessonId, 'Preview:', isPreview);
+  try {
+    setLoading(true);
+    console.log('📡 [StudentLessonDetail] Loading lesson:', {
+      lessonId,
+      isPreview,
+      courseIdFromState,
+      courseIdFromParams: courseId
+    });
+    
+    let response;
+    
+    if (isPreview) {
+      response = await courseService.getLessonPreview(lessonId);
+      console.log('✅ [StudentLessonDetail] Preview lesson data received:', response);
+      
+      if (response.success && response.lesson) {
+        setLesson(response.lesson);
+        setHasAccess(true);
+      } else {
+        setError('Unable to load lesson preview');
+      }
+    } else {
+      const [lessonResponse, accessResponse] = await Promise.all([
+        courseService.getLessonById(lessonId),
+        enrollmentService.checkLessonAccess(lessonId)
+      ]);
+
+      console.log('✅ [StudentLessonDetail] Lesson data received:', lessonResponse);
+      console.log('🔐 [StudentLessonDetail] Access check received:', accessResponse);
+      
+      if (lessonResponse.success && lessonResponse.lesson) {
+        setLesson(lessonResponse.lesson);
         
-        let response;
+        if (accessResponse.success) {
+          setHasAccess(accessResponse.hasAccess);
+        } else {
+          const hasAccessValue = lessonResponse.lesson.access?.hasAccess ?? false;
+          setHasAccess(hasAccessValue);
+        }
+
+        // ✅ SỬA: Thêm kiểm tra courseId trước khi gọi API
+        const courseIdToLoad = lessonResponse.lesson.courseId;
+        console.log('📚 [StudentLessonDetail] Attempting to load course:', courseIdToLoad);
         
-        if (isPreview) {
-          response = await courseService.getLessonPreview(lessonId);
-          console.log('✅ [StudentLessonDetail] Preview lesson data received:', response);
-          
-          if (response.success && response.lesson) {
-            setLesson(response.lesson);
-            setHasAccess(true);
-          } else {
-            setError('Unable to load lesson preview');
+        if (courseIdToLoad && typeof courseIdToLoad === 'string' && courseIdToLoad.trim() !== '') {
+          try {
+            const courseData = await courseService.getCourseById(courseIdToLoad);
+            if (courseData.course) {
+              setCourse(courseData.course);
+              const canPurchase = ['per_lesson', 'both'].includes(courseData.course.pricingType);
+              setCanPurchaseIndividual(canPurchase);
+              console.log('💰 [StudentLessonDetail] Course loaded successfully:', courseData.course.title);
+            }
+          } catch (courseError: any) {
+            console.error('❌ [StudentLessonDetail] Error loading course:', courseError.message);
+            // Không set error chính vì course chỉ dùng cho purchase info
           }
         } else {
-          // UPDATED: call getLessonById and check access in parallel
-          const [lessonResponse, accessResponse] = await Promise.all([
-            courseService.getLessonById(lessonId),
-            enrollmentService.checkLessonAccess(lessonId)
-          ]);
-
-          console.log('✅ [StudentLessonDetail] Lesson data received:', lessonResponse);
-          console.log('🔐 [StudentLessonDetail] Access check received:', accessResponse);
-          
-          if (lessonResponse.success && lessonResponse.lesson) {
-            setLesson(lessonResponse.lesson);
-            
-            // PRIORITY: use checkLessonAccess result
-            if (accessResponse.success) {
-              setHasAccess(accessResponse.hasAccess);
-            } else {
-              // Fallback: use access info from lesson response
-              const hasAccessValue = lessonResponse.lesson.access?.hasAccess ?? false;
-              setHasAccess(hasAccessValue);
-            }
-
-            // NEW: check whether course allows per-lesson purchase
-            if (lessonResponse.lesson.courseId) {
-              try {
-                const courseData = await courseService.getCourseById(lessonResponse.lesson.courseId);
-                if (courseData.course) {
-                  setCourse(courseData.course);
-                  const canPurchase = ['per_lesson', 'both'].includes(courseData.course.pricingType);
-                  setCanPurchaseIndividual(canPurchase);
-                  console.log('💰 [StudentLessonDetail] Purchase settings:', {
-                    pricingType: courseData.course.pricingType,
-                    canPurchaseIndividual: canPurchase,
-                    lessonPrice: lessonResponse.lesson.price
-                  });
-                }
-              } catch (courseError) {
-                console.error('❌ [StudentLessonDetail] Error loading course:', courseError);
-              }
-            }
-          } else {
-            setError('Unable to load lesson information');
-          }
+          console.warn('⚠️ [StudentLessonDetail] Invalid courseId:', courseIdToLoad);
         }
-      } catch (err: any) {
-        console.error('❌ [StudentLessonDetail] Error loading lesson:', err);
-        
-        if (err.message && (err.message.includes('403') || err.message.toLowerCase().includes('permission'))) {
-          setError('You do not have permission to access this lesson. Please enroll in the course to view content.');
-        } else {
-          setError(err.response?.data?.message || 'Server connection error');
-        }
-      } finally {
-        setLoading(false);
+      } else {
+        setError('Unable to load lesson information');
       }
-    };
-
+    }
+  } catch (err: any) {
+    console.error('❌ [StudentLessonDetail] Error loading lesson:', err);
+    
+    if (err.message && (err.message.includes('403') || err.message.toLowerCase().includes('permission'))) {
+      setError('You do not have permission to access this lesson. Please enroll in the course to view content.');
+    } else {
+      setError(err.response?.data?.message || 'Server connection error');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
     loadLesson();
   }, [lessonId, isPreview]);
 

@@ -45,7 +45,12 @@ router.get('/lessons/:lessonId/preview', courseController.getLessonPreview);
 router.post('/lessons/:lessonId/meeting/start', authMiddleware, instructorMiddleware, courseController.startLessonMeeting);
 router.get('/lessons/:lessonId/meeting/join', authMiddleware, courseController.joinLessonMeeting);
 router.post('/lessons/:lessonId/meeting/end', authMiddleware, instructorMiddleware, courseController.endLessonMeeting);
-
+ 
+router.post('/lessons/:lessonId/meeting/leave', authMiddleware, courseController.leaveLessonMeeting);
+router.get('/lessons/:lessonId/meeting/participants', authMiddleware, courseController.getMeetingParticipants);
+router.post('/lessons/:lessonId/meeting/cleanup', authMiddleware, courseController.cleanupMeetingParticipants);
+router.get('/lessons/:lessonId/meeting/sync', authMiddleware, courseController.syncParticipantCount);
+router.get('/lessons/:lessonId/meeting/user-status', authMiddleware, courseController.getUserMeetingStatus);
 // ========== 🆕 NEW ROUTES - LESSON CONTENT & RESOURCES ==========
 router.post('/lessons/:lessonId/content', authMiddleware, instructorMiddleware, courseController.addLessonContent);
 router.delete('/lessons/:lessonId/content/:contentIndex', authMiddleware, instructorMiddleware, courseController.removeLessonContent);

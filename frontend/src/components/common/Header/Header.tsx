@@ -79,7 +79,7 @@ const Header: React.FC = () => {
       <div className={styles.container}>
         {/* Logo */}
         <div className={styles.logo}>
-          <img src="/logo.svg" alt="Logo" className={styles.logoImage} />
+          <img src="/logo123.png" alt="Logo" className={styles.logoImage} />
           <span className={styles.logoText}>SkillShare Hub</span>
         </div>
 
