@@ -10,7 +10,7 @@ export interface StudentScheduleItem {
   lessonTitle: string;
   lessonType: string;
   accessType: 'full_course' | 'single_lesson';
-  status: 'upcoming' | 'completed';
+  status: 'draft' |'upcoming' | 'completed';
   isCompleted: boolean;
   scheduleInfo: {
     date?: string;

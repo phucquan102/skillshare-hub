@@ -479,7 +479,7 @@ createLesson: async (req, res) => {
       });
     }
 
-    // 🆕 KIỂM TRA: Schedule đã có lesson chưa
+    //  KIỂM TRA: Schedule đã có lesson chưa
     if (targetSchedule.hasLesson) {
       return res.status(400).json({ 
         message: `${scheduleType === 'dated' ? 'Dated schedule' : 'Schedule'} này đã có bài học. Mỗi schedule chỉ được có một bài học.`,
@@ -488,7 +488,7 @@ createLesson: async (req, res) => {
       });
     }
 
-    // 🆕 KIỂM TRA: Schedule có active không
+    //  KIỂM TRA: Schedule có active không
     if (!targetSchedule.isActive) {
       return res.status(400).json({ 
         message: `${scheduleType === 'dated' ? 'Dated schedule' : 'Schedule'} này không active. Không thể tạo bài học.`,
@@ -516,21 +516,21 @@ createLesson: async (req, res) => {
       return res.status(400).json({ message: 'Không thể thêm bài học vào khóa học đã bị từ chối' });
     }
 
-    // 🆕 KIỂM TRA ORDER KHÔNG TRÙNG
-    const existingLessonWithOrder = await Lesson.findOne({
-      courseId,
-      order: parseInt(order)
-    });
+    //  KIỂM TRA ORDER KHÔNG TRÙNG
+    // const existingLessonWithOrder = await Lesson.findOne({
+    //   courseId,
+    //   order: parseInt(order)
+    // });
 
-    if (existingLessonWithOrder) {
-      return res.status(400).json({ 
-        message: `Đã có bài học với số thứ tự ${order}`,
-        conflictingLesson: {
-          _id: existingLessonWithOrder._id,
-          title: existingLessonWithOrder.title
-        }
-      });
-    }
+    // if (existingLessonWithOrder) {
+    //   return res.status(400).json({ 
+    //     message: `Đã có bài học với số thứ tự ${order}`,
+    //     conflictingLesson: {
+    //       _id: existingLessonWithOrder._id,
+    //       title: existingLessonWithOrder.title
+    //     }
+    //   });
+    // }
 
     console.log('✅ Validation passed, creating lesson...');
 
@@ -660,11 +660,38 @@ createLesson: async (req, res) => {
     }
     
     if (error.code === 11000) {
+    console.log('🔑 Duplicate key error details:', error.keyPattern);
+    
+    if (error.keyPattern?.scheduleId) {
       return res.status(400).json({ 
         success: false,
-        message: 'Bài học với thứ tự này đã tồn tại trong khóa học'
+        message: 'Schedule này đã có bài học. Mỗi schedule chỉ được có một bài học.',
+        errorType: 'SCHEDULE_ALREADY_HAS_LESSON'
       });
     }
+    
+    if (error.keyPattern?.datedScheduleId) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Dated schedule này đã có bài học. Mỗi schedule chỉ được có một bài học.',
+        errorType: 'DATED_SCHEDULE_ALREADY_HAS_LESSON'
+      });
+    }
+    
+    if (error.keyPattern?.order) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Bài học với thứ tự này đã tồn tại. Vui lòng chọn thứ tự khác.',
+        errorType: 'DUPLICATE_ORDER'
+      });
+    }
+    
+    return res.status(400).json({ 
+      success: false,
+      message: 'Dữ liệu bị trùng lặp',
+      errorType: 'DUPLICATE_KEY'
+    });
+  }
     
     res.status(500).json({ 
       success: false,

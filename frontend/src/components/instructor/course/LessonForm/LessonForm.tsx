@@ -24,7 +24,7 @@ const LessonForm: React.FC<LessonFormProps> = ({
   const [fetchingSchedules, setFetchingSchedules] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [hasManuallyEditedPrice, setHasManuallyEditedPrice] = useState(false);
-
+  const [calculatingOrder, setCalculatingOrder] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -117,7 +117,37 @@ const LessonForm: React.FC<LessonFormProps> = ({
       setFormData(initialData);
     }
   }, [lesson]);
+useEffect(() => {
+  const calculateNextOrder = async () => {
+    if (!courseId || lesson) return; // Nếu editing, không thay đổi order
 
+    try {
+      setCalculatingOrder(true);
+      const response = await courseService.getLessonsByCourse(courseId);
+      const lessons = response.lessons || [];
+      
+      const maxOrder = lessons.length > 0 
+        ? Math.max(...lessons.map((l: any) => l.order || 0))
+        : 0;
+      
+      const nextOrder = maxOrder + 1;
+      
+      console.log('📊 Auto-calculated next order:', nextOrder);
+      
+      setFormData(prev => ({
+        ...prev,
+        order: nextOrder
+      }));
+    } catch (error) {
+      console.error('❌ Error calculating next order:', error);
+      setFormData(prev => ({ ...prev, order: 1 }));
+    } finally {
+      setCalculatingOrder(false);
+    }
+  };
+
+  calculateNextOrder();
+}, [courseId, lesson]);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     

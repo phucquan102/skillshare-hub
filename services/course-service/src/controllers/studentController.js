@@ -139,6 +139,7 @@ const getMyCourses = async (req, res) => {
     });
   }
 };
+
 /**
  * =====================
  *  GET COURSE PROGRESS DETAILS
@@ -432,7 +433,36 @@ const getUpcomingLessons = async (req, res) => {
     });
   }
 };
-
+// Helper function để debug lesson data
+ 
+const debugLessonData = (lesson, enrollment) => {
+  console.log('🔍 [DEBUG LESSON DATA]');
+  console.log('📝 Lesson ID:', lesson._id);
+  console.log('📝 Lesson Title:', lesson.title);
+  console.log('📝 Lesson Status:', lesson.status);
+  console.log('📝 Actual Date:', lesson.actualDate);
+  console.log('📝 Actual Start Time:', lesson.actualStartTime);
+  console.log('📝 Actual End Time:', lesson.actualEndTime);
+  console.log('📝 Schedule Index:', lesson.scheduleIndex);
+  console.log('📝 Dated Schedule ID:', lesson.datedScheduleId);
+  
+  // Check completion
+  const isCompleted = enrollment.progress?.completedLessons?.some(
+    completed => {
+      const completedLessonId = completed.lessonId?._id || completed.lessonId;
+      return completedLessonId && completedLessonId.toString() === lesson._id.toString();
+    }
+  ) || false;
+  console.log('✅ Is Completed in Progress:', isCompleted);
+  console.log('🎯 FINAL STATUS DECISION: lesson.status takes priority if "completed"');
+  
+  if (enrollment.progress?.completedLessons) {
+    console.log('📋 Completed Lessons:', enrollment.progress.completedLessons.map(cl => ({
+      lessonId: cl.lessonId?._id || cl.lessonId,
+      completedAt: cl.completedAt
+    })));
+  }
+};
 /**
  * =====================
  *  GET LEARNING STATISTICS
@@ -518,167 +548,38 @@ const getLearningStatistics = async (req, res) => {
   }
 };
 
-/**
- * =====================
- *  GET STUDENT LEARNING SCHEDULE - FIXED VERSION
- * =====================
- */
-const getStudentLearningSchedule = async (req, res) => {
-  try {
-    const studentId = new mongoose.Types.ObjectId(req.userId);
-    
-    console.log("📅 [getStudentLearningSchedule]");
-    console.log("➡️ StudentId:", studentId.toString());
+// ===================== HELPER FUNCTIONS =====================
 
-    // 1. Lấy tất cả enrollments của student với populate đầy đủ - THÊM STATUS
-    const enrollments = await Enrollment.find({
-      studentId,
-      status: 'active'
-    })
-    .populate('courseId', 'title thumbnail instructor schedules datedSchedules status') // 🆕 THÊM STATUS
-    .populate('purchasedLessons.lessonId')
-    .populate('progress.completedLessons.lessonId');
-
-    console.log(`📚 Found ${enrollments.length} enrollments`);
-
-    const scheduleItems = [];
-    const now = new Date();
-
-    // 2. Duyệt qua từng enrollment để lấy lessons
-    for (const enrollment of enrollments) {
-      const course = enrollment.courseId;
-      if (!course) {
-        console.log(`❌ Course not found for enrollment: ${enrollment._id}`);
-        continue;
-      }
-
-      try {
-        console.log(`🔍 Processing course: ${course.title} (${course._id})`);
-        console.log(`🔍 Course status:`, course.status); // 🆕 LOG STATUS
-        console.log(`📝 Enrollment details:`, {
-          hasFullAccess: enrollment.hasFullAccess,
-          purchasedLessonsCount: enrollment.purchasedLessons?.length || 0,
-          courseLessonsCount: course.lessons?.length || 0
-        });
-
-        // Lấy tất cả lessons mà student có quyền truy cập
-        const accessibleLessons = await getAccessibleLessons(enrollment, course);
-        
-        console.log(`📖 Course ${course.title}: ${accessibleLessons.length} accessible lessons`);
-        
-        // Thêm vào schedule
-        for (const lesson of accessibleLessons) {
-          const scheduleItem = await createScheduleItem(lesson, course, enrollment);
-          if (scheduleItem) {
-            scheduleItems.push(scheduleItem);
-          }
-        }
-      } catch (courseError) {
-        console.error(`❌ Error processing course ${course.title}:`, courseError);
-      }
-    }
-
-    // 3. Sắp xếp theo thời gian
-    const sortedItems = [...scheduleItems].sort((a, b) => {
-      // Ưu tiên items có date trước
-      if (!a.scheduleInfo.date && !b.scheduleInfo.date) return 0;
-      if (!a.scheduleInfo.date) return 1;
-      if (!b.scheduleInfo.date) return -1;
-      
-      return new Date(a.scheduleInfo.date) - new Date(b.scheduleInfo.date);
-    });
-
-    // 4. Phân loại
-    const upcoming = sortedItems.filter(item => 
-      item.status === 'upcoming' || item.status === 'live'
-    );
-
-    const completed = sortedItems.filter(item => 
-      item.status === 'completed'
-    );
-
-    console.log(`📊 Schedule summary: ${sortedItems.length} total, ${upcoming.length} upcoming, ${completed.length} completed`);
-
-    res.json({
-      success: true,
-      schedule: {
-        upcoming: upcoming.slice(0, 10), // Giới hạn 10
-        completed: completed.slice(0, 5), // Giới hạn 5
-        all: sortedItems
-      },
-      summary: {
-        total: sortedItems.length,
-        upcoming: upcoming.length,
-        completed: completed.length
-      }
-    });
-
-  } catch (error) {
-    console.error("❌ Error in getStudentLearningSchedule:", error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Lỗi server khi lấy lịch học',
-      error: error.message 
-    });
-  }
-};
-
-
- 
-// Helper function để lấy lessons có quyền truy cập - FIXED VERSION
+// Helper function để lấy lessons có quyền truy cập
+// Helper function để lấy lessons có quyền truy cập
 const getAccessibleLessons = async (enrollment, course) => {
   let lessons = [];
 
   try {
     console.log(`🔍 [getAccessibleLessons] Checking access for course: ${course._id}`);
     console.log(`🔍 Course status: ${course.status}`);
-    console.log(`🔍 Enrollment hasFullAccess: ${enrollment.hasFullAccess}`);
-    console.log(`🔍 Purchased lessons count: ${enrollment.purchasedLessons?.length || 0}`);
 
-    // Nếu course đã published, lấy cả draft lessons
-    const allowedStatuses = course.status === 'published' 
-      ? ['published', 'completed', 'scheduled', 'draft'] // THÊM 'draft' cho course published
-      : ['published', 'completed', 'scheduled'];
-
-    console.log(`🔍 Allowed lesson statuses:`, allowedStatuses);
+    // ✅ FIX: BỎ filter trạng thái, chỉ kiểm tra isActive
+    const query = {
+      courseId: course._id,
+      isActive: { $ne: false }
+      // ❌ BỎ: status: { $in: allowedStatuses }
+    };
 
     if (enrollment.hasFullAccess) {
-      // Student mua full course - lấy tất cả lessons
-      lessons = await Lesson.find({
-        courseId: course._id,
-        status: { $in: allowedStatuses }
-      }).sort({ order: 1 });
-      
-      console.log(`🔍 [Full Access] Found ${lessons.length} lessons for course ${course._id}`);
+      lessons = await Lesson.find(query).sort({ order: 1, createdAt: 1 });
+      console.log(`🔍 [Full Access] Found ${lessons.length} lessons (including drafts)`);
     } else {
-      // Student mua lesson riêng lẻ - chỉ lấy lessons đã mua
       const purchasedLessonIds = enrollment.purchasedLessons
         .filter(p => p.lessonId)
         .map(p => p.lessonId._id || p.lessonId);
       
-      console.log(`🔍 [Individual] Purchased lesson IDs:`, purchasedLessonIds);
-      
       if (purchasedLessonIds.length > 0) {
-        lessons = await Lesson.find({
-          _id: { $in: purchasedLessonIds },
-          status: { $in: allowedStatuses }
-        }).sort({ order: 1 });
-        
-        console.log(`🔍 [Individual] Found ${lessons.length} purchased lessons`);
-      } else {
-        console.log(`🔍 [Individual] No purchased lessons found`);
+        query._id = { $in: purchasedLessonIds };
+        lessons = await Lesson.find(query).sort({ order: 1 });
+        console.log(`🔍 [Individual] Found ${lessons.length} purchased lessons (including drafts)`);
       }
     }
-
-    // Log chi tiết các lessons tìm thấy
-    console.log(`🔍 Final accessible lessons:`, lessons.map(l => ({
-      id: l._id,
-      title: l.title,
-      status: l.status,
-      lessonType: l.lessonType,
-      scheduleIndex: l.scheduleIndex,
-      datedScheduleId: l.datedScheduleId
-    })));
 
   } catch (error) {
     console.error("❌ Error in getAccessibleLessons:", error);
@@ -686,144 +587,195 @@ const getAccessibleLessons = async (enrollment, course) => {
 
   return lessons;
 };
-// Helper function để tạo schedule item - FIXED VERSION
-// Helper function để tạo schedule item - FIXED VERSION
-const createScheduleItem = async (lesson, course, enrollment) => {
+
+
+// Helper function để tạo schedule item với xử lý date/time/status chính xác
+const createScheduleItem = async (lesson, course, enrollment, now) => {
   try {
-    // Kiểm tra completion
-    const isCompleted = enrollment.progress?.completedLessons?.some(
+    // Kiểm tra completion từ enrollment progress
+    const isCompletedInProgress = enrollment.progress?.completedLessons?.some(
       completed => {
         const completedLessonId = completed.lessonId?._id || completed.lessonId;
         return completedLessonId && completedLessonId.toString() === lesson._id.toString();
       }
     ) || false;
 
+    console.log(`🔍 [createScheduleItem] Processing lesson: ${lesson.title}`);
+    console.log(`📅 Lesson status: ${lesson.status}`);
+    console.log(`✅ Is completed in progress: ${isCompletedInProgress}`);
+
+    // ✅ FIX: ƯU TIÊN lesson.status NẾU LÀ "completed"
+    if (lesson.status === 'completed') {
+      console.log(`✅ Status: COMPLETED (lesson status is completed)`);
+      
+      const scheduleItem = {
+        _id: lesson._id.toString(),
+        courseId: course._id.toString(),
+        courseTitle: course.title,
+        lessonTitle: lesson.title,
+        lessonType: lesson.lessonType,
+        accessType: enrollment.hasFullAccess ? 'full_course' : 'single_lesson',
+        status: 'completed', // ✅ LUÔN là completed nếu lesson.status là completed
+        isCompleted: true,
+        scheduleInfo: {
+          date: lesson.actualDate ? lesson.actualDate.toISOString().split('T')[0] : null,
+          startTime: lesson.actualStartTime || null,
+          endTime: lesson.actualEndTime || null,
+          type: 'scheduled',
+          timezone: course.timezone || 'Asia/Ho_Chi_Minh'
+        },
+        instructorName: getInstructorName(course.instructor),
+        courseThumbnail: course.thumbnail || '/default-course.jpg',
+        canJoin: false, // ✅ Completed thì không thể join
+        meetingUrl: lesson.meetingUrl || lesson.jitsiMeetingUrl,
+        scheduleDateTime: lesson.actualDate ? new Date(lesson.actualDate) : null,
+        endDateTime: null,
+        lessonStatus: lesson.status
+      };
+
+      console.log(`📋 Created COMPLETED schedule item: ${lesson.title} (based on lesson status)`);
+      return scheduleItem;
+    }
+
+    // ✅ FIX: Ưu tiên completion từ progress
+    if (isCompletedInProgress) {
+      console.log(`✅ Status: COMPLETED (marked as completed in progress)`);
+      
+      const scheduleItem = {
+        _id: lesson._id.toString(),
+        courseId: course._id.toString(),
+        courseTitle: course.title,
+        lessonTitle: lesson.title,
+        lessonType: lesson.lessonType,
+        accessType: enrollment.hasFullAccess ? 'full_course' : 'single_lesson',
+        status: 'completed',
+        isCompleted: true,
+        scheduleInfo: {
+          date: lesson.actualDate ? lesson.actualDate.toISOString().split('T')[0] : null,
+          startTime: lesson.actualStartTime || null,
+          endTime: lesson.actualEndTime || null,
+          type: 'scheduled',
+          timezone: course.timezone || 'Asia/Ho_Chi_Minh'
+        },
+        instructorName: getInstructorName(course.instructor),
+        courseThumbnail: course.thumbnail || '/default-course.jpg',
+        canJoin: false,
+        meetingUrl: lesson.meetingUrl || lesson.jitsiMeetingUrl,
+        scheduleDateTime: lesson.actualDate ? new Date(lesson.actualDate) : null,
+        endDateTime: null,
+        lessonStatus: lesson.status
+      };
+
+      console.log(`📋 Created COMPLETED schedule item: ${lesson.title} (based on progress)`);
+      return scheduleItem;
+    }
+
     let scheduleInfo = {
       date: null,
       startTime: null,
       endTime: null,
-      type: 'self_paced'
+      type: 'self_paced',
+      timezone: course.timezone || 'Asia/Ho_Chi_Minh'
     };
 
-    let status = isCompleted ? 'completed' : 'upcoming';
-    const now = new Date();
+    let status = 'upcoming';
+    let scheduleDateTime = null;
+    let endDateTime = null;
 
-    console.log(`🔍 [createScheduleItem] Processing lesson: ${lesson.title} (${lesson._id})`);
-    console.log(`🔍 Lesson details:`, {
-      datedScheduleId: lesson.datedScheduleId,
-      scheduleIndex: lesson.scheduleIndex,
-      actualDate: lesson.actualDate,
-      actualStartTime: lesson.actualStartTime,
-      actualEndTime: lesson.actualEndTime,
-      lessonType: lesson.lessonType,
-      status: lesson.status
-    });
-
-    // 🆕 FIX: ƯU TIÊN sử dụng actualDate và actualStartTime từ lesson trước
+    // Logic xác định thời gian và trạng thái
     if (lesson.actualDate && lesson.actualStartTime) {
-      // Chuyển actualDate thành string nếu là đối tượng Date
       const lessonDate = new Date(lesson.actualDate);
       const dateString = lessonDate.toISOString().split('T')[0];
-      const scheduleDateTime = new Date(`${dateString}T${lesson.actualStartTime}`);
       
       scheduleInfo = {
         date: dateString,
         startTime: lesson.actualStartTime,
         endTime: lesson.actualEndTime || null,
-        type: 'scheduled'
+        type: 'scheduled',
+        timezone: course.timezone || 'Asia/Ho_Chi_Minh'
       };
 
-      console.log(`🔍 Using lesson's actualDate:`, {
-        lessonDate: lessonDate.toISOString(),
-        scheduleDateTime: scheduleDateTime.toISOString(),
-        now: now.toISOString()
-      });
-
-      // 🆕 FIX: Xác định trạng thái chính xác hơn
-      if (isCompleted) {
-        status = 'completed';
-      } else if (scheduleDateTime < now) {
-        status = 'completed'; // Đã qua ngày -> completed
-      } else if (scheduleDateTime.toDateString() === now.toDateString()) {
-        status = 'live'; // Hôm nay -> live
+      scheduleDateTime = createScheduleDateTime(dateString, lesson.actualStartTime, scheduleInfo.timezone);
+      
+      if (lesson.actualEndTime) {
+        endDateTime = createScheduleDateTime(dateString, lesson.actualEndTime, scheduleInfo.timezone);
       } else {
-        status = 'upcoming'; // Tương lai -> upcoming
+        endDateTime = new Date(scheduleDateTime.getTime() + 60 * 60 * 1000);
       }
-
-      console.log(`🔍 Status determined: ${status}`);
-    }
-    // Xác định thời gian từ dated schedule
-    else if (lesson.datedScheduleId && course.datedSchedules && course.datedSchedules.length > 0) {
+      
+    } else if (lesson.datedScheduleId && course.datedSchedules?.length > 0) {
       const datedSchedule = course.datedSchedules.id(lesson.datedScheduleId);
       if (datedSchedule) {
         scheduleInfo = {
-          date: datedSchedule.date,
+          date: datedSchedule.date.toISOString().split('T')[0],
           startTime: datedSchedule.startTime,
           endTime: datedSchedule.endTime,
-          type: 'dated'
+          type: 'dated',
+          timezone: datedSchedule.timezone || course.timezone || 'Asia/Ho_Chi_Minh'
         };
+
+        scheduleDateTime = createScheduleDateTime(scheduleInfo.date, scheduleInfo.startTime, scheduleInfo.timezone);
         
-        // 🆕 FIX: Xác định trạng thái chính xác hơn
-        const scheduleDateTime = new Date(`${datedSchedule.date}T${datedSchedule.startTime}`);
-        console.log(`🔍 Using dated schedule:`, {
-          scheduleDate: scheduleDateTime.toISOString(),
-          now: now.toISOString()
-        });
-
-        if (isCompleted) {
-          status = 'completed';
-        } else if (scheduleDateTime < now) {
-          status = 'completed';
-        } else if (scheduleDateTime.toDateString() === now.toDateString()) {
-          status = 'live';
+        if (datedSchedule.endTime) {
+          endDateTime = createScheduleDateTime(scheduleInfo.date, datedSchedule.endTime, scheduleInfo.timezone);
         } else {
-          status = 'upcoming';
+          endDateTime = new Date(scheduleDateTime.getTime() + 60 * 60 * 1000);
         }
-
-        console.log(`🔍 Status determined: ${status}`);
       }
-    }
-    // Xác định thời gian từ weekly schedule
-    else if (typeof lesson.scheduleIndex === 'number' && 
-             course.schedules && 
-             course.schedules[lesson.scheduleIndex]) {
+    } else if (typeof lesson.scheduleIndex === 'number' && course.schedules?.[lesson.scheduleIndex]) {
       const schedule = course.schedules[lesson.scheduleIndex];
-      if (schedule) {
-        // Tính ngày tiếp theo cho dayOfWeek
-        const nextDate = getNextDateForDay(schedule.dayOfWeek);
-        scheduleInfo = {
-          date: nextDate,
-          startTime: schedule.startTime,
-          endTime: schedule.endTime,
-          type: 'weekly'
-        };
-        
-        // 🆕 FIX: Xác định trạng thái chính xác hơn
-        const scheduleDateTime = new Date(`${nextDate}T${schedule.startTime}`);
-        console.log(`🔍 Using weekly schedule:`, {
-          scheduleDate: scheduleDateTime.toISOString(),
-          now: now.toISOString()
-        });
+      const nextDate = getNextDateForDay(schedule.dayOfWeek);
+      
+      scheduleInfo = {
+        date: nextDate,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        type: 'weekly',
+        timezone: schedule.timezone || course.timezone || 'Asia/Ho_Chi_Minh'
+      };
 
-        if (isCompleted) {
-          status = 'completed';
-        } else if (scheduleDateTime < now) {
-          status = 'completed';
-        } else if (scheduleDateTime.toDateString() === now.toDateString()) {
-          status = 'live';
-        } else {
-          status = 'upcoming';
-        }
-
-        console.log(`🔍 Status determined: ${status}`);
+      scheduleDateTime = createScheduleDateTime(nextDate, schedule.startTime, scheduleInfo.timezone);
+      
+      if (schedule.endTime) {
+        endDateTime = createScheduleDateTime(nextDate, schedule.endTime, scheduleInfo.timezone);
+      } else {
+        endDateTime = new Date(scheduleDateTime.getTime() + 60 * 60 * 1000);
       }
     }
-    // Nếu không có schedule info, đánh dấu là self-paced
-    else {
-      console.log(`🔍 No schedule info found, using self-paced`);
-      scheduleInfo.type = 'self_paced';
-      // 🆕 FIX: Với self-paced, nếu đã completed thì hiển thị completed
-      status = isCompleted ? 'completed' : 'upcoming';
+
+    // Logic xác định trạng thái dựa trên thời gian
+    if (scheduleDateTime) {
+      const timeDiff = scheduleDateTime.getTime() - now.getTime();
+      const oneHour = 60 * 60 * 1000;
+      const fiveMinutes = 5 * 60 * 1000;
+
+      console.log(`⏱️ [Status Logic] Lesson: ${lesson.title}`);
+      console.log(`⏱️ scheduleDateTime: ${scheduleDateTime.toISOString()}`);
+      console.log(`⏱️ now: ${now.toISOString()}`);
+      console.log(`⏱️ timeDiff (ms): ${timeDiff}`);
+      console.log(`⏱️ endDateTime: ${endDateTime ? endDateTime.toISOString() : 'N/A'}`);
+
+      if (endDateTime && now > endDateTime) {
+        status = 'missed';
+        console.log(`✅ Status: MISSED (after end time)`);
+      } else if (timeDiff > oneHour) {
+        status = 'upcoming';
+        console.log(`✅ Status: UPCOMING (> 1 hour away)`);
+      } else if (timeDiff > -fiveMinutes) {
+        status = 'live';
+        console.log(`✅ Status: LIVE (within ±5min to +1hr)`);
+      } else {
+        if (endDateTime && now <= endDateTime) {
+          status = 'live';
+          console.log(`✅ Status: LIVE (within session duration)`);
+        } else {
+          status = 'missed';
+          console.log(`✅ Status: MISSED (> 5min ago and past session)`);
+        }
+      }
+    } else {
+      status = 'upcoming';
+      console.log(`✅ Status: UPCOMING (self-paced)`);
     }
 
     const scheduleItem = {
@@ -833,21 +785,19 @@ const createScheduleItem = async (lesson, course, enrollment) => {
       lessonTitle: lesson.title,
       lessonType: lesson.lessonType,
       accessType: enrollment.hasFullAccess ? 'full_course' : 'single_lesson',
-      status: status, // 🆕 Sử dụng status đã được xác định chính xác
-      isCompleted,
+      status: status,
+      isCompleted: false,
       scheduleInfo,
       instructorName: getInstructorName(course.instructor),
       courseThumbnail: course.thumbnail || '/default-course.jpg',
-      canJoin: !isCompleted && lesson.lessonType === 'live_online' && (lesson.meetingUrl || lesson.jitsiMeetingUrl),
-      meetingUrl: lesson.meetingUrl || lesson.jitsiMeetingUrl
+      canJoin: determineCanJoin(status, lesson, enrollment, false),
+      meetingUrl: lesson.meetingUrl || lesson.jitsiMeetingUrl,
+      scheduleDateTime: scheduleDateTime,
+      endDateTime: endDateTime,
+      lessonStatus: lesson.status
     };
 
-    console.log(`🔍 Created schedule item:`, {
-      title: scheduleItem.lessonTitle,
-      date: scheduleItem.scheduleInfo.date,
-      status: scheduleItem.status,
-      isCompleted: scheduleItem.isCompleted
-    });
+    console.log(`📋 Created schedule item: ${lesson.title} -> ${status} (lesson status: ${lesson.status})`);
 
     return scheduleItem;
 
@@ -856,6 +806,70 @@ const createScheduleItem = async (lesson, course, enrollment) => {
     return null;
   }
 };
+ 
+ 
+// Helper function để tạo schedule datetime với timezone chính xác
+const createScheduleDateTime = (dateString, timeString, timezone = 'Asia/Ho_Chi_Minh') => {
+  try {
+    if (!dateString || !timeString) return null;
+    
+    // ✅ FIX: Tạo datetime string đúng định dạng
+    const datetimeString = `${dateString}T${timeString}`;
+    let datetime = new Date(datetimeString);
+    
+    console.log(`🕒 [createScheduleDateTime] Input: ${datetimeString}, Timezone: ${timezone}`);
+    console.log(`🕒 Initial datetime: ${datetime.toISOString()}`);
+    
+    // ✅ FIX: Xử lý timezone đúng cách
+    // Vấn đề: MongoDB lưu Date theo UTC, nhưng thời gian chúng ta nhập là VN time (UTC+7)
+    // Khi tạo Date từ string, nó sẽ được hiểu là local time (UTC) nên bị mất 7 giờ
+    
+    // Giải pháp: Thêm 7 giờ để bù lại sự chênh lệch
+    const vietnamOffset = 7 * 60 * 60 * 1000; // 7 hours in ms
+    
+    // Nếu timezone là VN, điều chỉnh để có được thời gian VN đúng
+    if (timezone.includes('Ho_Chi_Minh') || timezone === 'Asia/Ho_Chi_Minh' || !timezone) {
+      datetime = new Date(datetime.getTime() + vietnamOffset);
+    }
+    
+    console.log(`✅ [createScheduleDateTime] Created: ${datetimeString} (${timezone}) => ${datetime.toISOString()}`);
+    return datetime;
+  } catch (error) {
+    console.error("❌ Error creating schedule datetime:", error);
+    return null;
+  }
+};
+// Helper function để lấy schedule datetime cho việc sắp xếp
+const getScheduleDateTime = (scheduleItem) => {
+  if (scheduleItem.scheduleDateTime) {
+    return scheduleItem.scheduleDateTime;
+  }
+  
+  if (scheduleItem.scheduleInfo.date && scheduleItem.scheduleInfo.startTime) {
+    return createScheduleDateTime(
+      scheduleItem.scheduleInfo.date, 
+      scheduleItem.scheduleInfo.startTime, 
+      scheduleItem.scheduleInfo.timezone || 'Asia/Ho_Chi_Minh'
+    );
+  }
+  return null;
+};
+
+// Helper function để xác định có thể join meeting không
+const determineCanJoin = (status, lesson, enrollment, isCompleted) => {
+  if (isCompleted) return false;
+  if (lesson.lessonType !== 'live_online') return false;
+  if (!lesson.meetingUrl && !lesson.jitsiMeetingUrl) return false;
+  
+  // Kiểm tra quyền truy cập
+  const hasAccess = enrollment.hasFullAccess || 
+    enrollment.purchasedLessons.some(p => 
+      p.lessonId && (p.lessonId._id?.toString() === lesson._id.toString() || p.lessonId.toString() === lesson._id.toString())
+    );
+
+  return hasAccess && (status === 'live' || status === 'upcoming');
+};
+
 // Helper function để tính ngày tiếp theo cho dayOfWeek
 const getNextDateForDay = (dayOfWeek) => {
   const now = new Date();
@@ -874,11 +888,127 @@ const getInstructorName = (instructor) => {
   return 'Unknown Instructor';
 };
 
+/**
+ * =====================
+ *  GET STUDENT LEARNING SCHEDULE - FIXED VERSION
+ * =====================
+ */
+const getStudentLearningSchedule = async (req, res) => {
+  try {
+    const studentId = new mongoose.Types.ObjectId(req.userId);
+    
+    console.log("📅 [getStudentLearningSchedule - DEBUG VERSION]");
+    console.log("➡️ StudentId:", studentId.toString());
+
+    // 1. Lấy tất cả enrollments của student với populate đầy đủ
+    const enrollments = await Enrollment.find({
+      studentId,
+      status: 'active'
+    })
+    .populate('courseId', 'title thumbnail instructor schedules datedSchedules status timezone')
+    .populate('purchasedLessons.lessonId')
+    .populate('progress.completedLessons.lessonId');
+
+    console.log(`📚 Found ${enrollments.length} enrollments`);
+
+    const scheduleItems = [];
+    const now = new Date();
+
+    console.log(`🕒 Current server time: ${now.toISOString()}`);
+    console.log(`🕒 Current local time: ${now.toString()}`);
+
+    // 2. Duyệt qua từng enrollment để lấy lessons
+    for (const enrollment of enrollments) {
+      const course = enrollment.courseId;
+      if (!course) {
+        console.log(`❌ Course not found for enrollment: ${enrollment._id}`);
+        continue;
+      }
+
+      try {
+        console.log(`\n🔍 Processing course: ${course.title} (${course._id})`);
+        console.log(`🔍 Course timezone:`, course.timezone);
+        console.log(`🔍 Enrollment progress:`, enrollment.progress?.completedLessons?.length || 0, 'completed lessons');
+
+        // Lấy tất cả lessons mà student có quyền truy cập
+        const accessibleLessons = await getAccessibleLessons(enrollment, course);
+        
+        console.log(`📖 Course ${course.title}: ${accessibleLessons.length} accessible lessons`);
+        
+        // Thêm vào schedule
+        for (const lesson of accessibleLessons) {
+          const scheduleItem = await createScheduleItem(lesson, course, enrollment, now);
+          if (scheduleItem) {
+            scheduleItems.push(scheduleItem);
+          }
+        }
+      } catch (courseError) {
+        console.error(`❌ Error processing course ${course.title}:`, courseError);
+      }
+    }
+
+    // ✅ FIX: Lọc bỏ các items null (nếu có lỗi)
+    const validScheduleItems = scheduleItems.filter(item => item !== null);
+    
+    console.log(`\n📊 FINAL SCHEDULE ITEMS (${validScheduleItems.length}):`);
+    validScheduleItems.forEach(item => {
+      console.log(`  - ${item.lessonTitle}: ${item.status} (completed: ${item.isCompleted})`);
+    });
+
+    // 3. Sắp xếp theo thời gian
+    const sortedItems = validScheduleItems.sort((a, b) => {
+      const dateTimeA = getScheduleDateTime(a);
+      const dateTimeB = getScheduleDateTime(b);
+      
+      if (!dateTimeA && !dateTimeB) return 0;
+      if (!dateTimeA) return 1;
+      if (!dateTimeB) return -1;
+      
+      return dateTimeA - dateTimeB;
+    });
+
+    // 4. Phân loại
+    const upcoming = sortedItems.filter(item => item.status === 'upcoming');
+    const live = sortedItems.filter(item => item.status === 'live');
+    const completed = sortedItems.filter(item => item.status === 'completed');
+    const missed = sortedItems.filter(item => item.status === 'missed');
+
+    console.log(`\n📊 Schedule summary: ${sortedItems.length} total, ${upcoming.length} upcoming, ${live.length} live, ${completed.length} completed, ${missed.length} missed`);
+
+    res.json({
+      success: true,
+      schedule: {
+        live,
+        upcoming: upcoming.slice(0, 10),
+        completed: completed.slice(0, 5),
+        missed: missed.slice(0, 5),
+        all: sortedItems
+      },
+      summary: {
+        total: sortedItems.length,
+        upcoming: upcoming.length,
+        live: live.length,
+        completed: completed.length,
+        missed: missed.length
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Error in getStudentLearningSchedule:", error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi server khi lấy lịch học',
+      error: error.message 
+    });
+  }
+};
+
 module.exports = {
   getMyCourses,
   getCourseProgress,
   getLessonDetails,
   getUpcomingLessons,
   getLearningStatistics,
-  getStudentLearningSchedule
+  getStudentLearningSchedule,
+  debugLessonData
 };

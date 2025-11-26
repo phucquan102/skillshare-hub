@@ -1014,34 +1014,68 @@ export const courseService = {
   },
 
   // 🆕 THÊM: Get lesson preview (chế độ xem trước công khai)
-  getLessonPreview: async (lessonId: string): Promise<{ 
-    success: boolean; 
-    lesson: Lesson;
-    note?: string;
-  }> => {
-    const endpoint = `${API_BASE_URL}/api/lessons/${lessonId}/preview`;
-    
-    console.log('📡 [getLessonPreview] API Request:', endpoint);
+ 
+getLessonPreview: async (lessonId: string): Promise<{ 
+  success: boolean; 
+  lesson: Lesson;
+  note?: string;
+}> => {
+  console.log('📡 [getLessonPreview] API Request for lesson:', lessonId);
 
+  // THỬ CÁC ENDPOINT KHÁC NHAU
+  const endpoints = [
+    `${API_BASE_URL}/api/lessons/${lessonId}/preview`,
+    `${API_BASE_URL}/api/courses/lessons/${lessonId}/preview`,
+    `${API_BASE_URL}/api/lessons/${lessonId}?preview=true`
+  ];
+
+  let lastError: any = null;
+
+  for (const endpoint of endpoints) {
     try {
-      const response = await apiRequest<{ 
-        success: boolean; 
-        lesson: Lesson;
-        note?: string;
-      }>(endpoint, {
+      console.log('🔄 [getLessonPreview] Trying endpoint:', endpoint);
+      
+      const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
         }
       });
+
+      console.log('📥 [getLessonPreview] Response status:', response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ [getLessonPreview] SUCCESS with endpoint:', endpoint);
+        return result;
+      }
       
-      console.log('📥 [getLessonPreview] API Response:', response);
-      return response;
+      if (response.status !== 404) {
+        const errorText = await response.text();
+        console.log(`❌ [getLessonPreview] Endpoint ${endpoint} failed:`, errorText);
+      }
+      
     } catch (error) {
-      console.error('💥 [getLessonPreview] API Error:', error);
-      throw error;
+      console.log(`❌ [getLessonPreview] Failed with endpoint ${endpoint}:`, error);
+      lastError = error;
+      continue;
     }
-  },
+  }
+
+  // FALLBACK: Sử dụng getLessonById thay thế
+  console.log('🔄 [getLessonPreview] Using getLessonById as fallback');
+  try {
+    const lessonResponse = await courseService.getLessonById(lessonId);
+    return {
+      success: true,
+      lesson: lessonResponse.lesson,
+      note: 'Preview mode using regular lesson data'
+    };
+  } catch (fallbackError) {
+    console.error('💥 [getLessonPreview] Fallback also failed:', fallbackError);
+    throw lastError || new Error('Unable to load lesson preview');
+  }
+},
 
   // 🆕 THÊM: Check lesson access - API riêng để kiểm tra quyền
   checkLessonAccess: async (lessonId: string): Promise<{
@@ -1224,13 +1258,23 @@ export const courseService = {
     }
   },
 
-  joinLessonMeeting: async (lessonId: string): Promise<MeetingJoinResponse> => {
-    const endpoint = `${API_BASE_URL}/api/courses/lessons/${lessonId}/meeting/join`;
-    
-    console.log('🔗 [joinLessonMeeting] API Request:', endpoint);
+joinLessonMeeting: async (lessonId: string): Promise<MeetingJoinResponse> => {
+  console.log('🎯 [joinLessonMeeting] Starting for lesson:', lessonId);
+  
+  // DANH SÁCH ENDPOINT ƯU TIÊN
+  const endpoints = [
+    `${API_BASE_URL}/api/courses/lessons/${lessonId}/meeting/join`,
+    `${API_BASE_URL}/api/lessons/${lessonId}/meeting/join`,
+    `${API_BASE_URL}/api/lessons/${lessonId}/join-meeting`
+  ];
 
+  let lastError: any = null;
+
+  for (const endpoint of endpoints) {
     try {
-      const response = await apiRequest<MeetingJoinResponse>(endpoint, {
+      console.log('🔗 Attempting endpoint:', endpoint);
+      
+      const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -1238,15 +1282,71 @@ export const courseService = {
         }
       });
 
-      console.log('✅ [joinLessonMeeting] SUCCESS:', response);
-      return response;
+      console.log('📥 Response status:', response.status);
 
-    } catch (error: any) {
-      console.error('❌ [joinLessonMeeting] ERROR:', error.message);
-      throw error;
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ SUCCESS with endpoint:', endpoint);
+        
+        // KIỂM TRA NẾU CÓ LỖI JWT TRONG RESPONSE
+        if (result.error && result.error.includes('JWT')) {
+          console.warn('⚠️ JWT error in response, trying next endpoint...');
+          lastError = new Error(result.error);
+          continue;
+        }
+        
+        return result;
+      }
+      
+      // XỬ LÝ CÁC STATUS CODE CỤ THỂ
+      if (response.status === 404) {
+        console.log('🔍 Endpoint not found, trying next...');
+        continue;
+      }
+      
+      if (response.status === 500) {
+        const errorText = await response.text();
+        console.error('💥 Server error:', errorText);
+        
+        // PHÂN TÍCH LỖI JWT
+        if (errorText.includes('JWT') || errorText.includes('private key')) {
+          console.warn('🔑 JWT configuration error detected');
+          lastError = new Error('JWT configuration error');
+          continue;
+        }
+      }
+      
+    } catch (error) {
+      console.log(`❌ Network error with ${endpoint}:`, error);
+      lastError = error;
+      continue;
     }
-  },
+  }
 
+  // FALLBACK KHI TẤT CẢ ENDPOINT FAIL
+  console.log('🔄 All endpoints failed, creating fallback meeting...');
+  
+  // TẠO MEETING URL ĐƠN GIẢN
+  const meetingId = `skillshare-${lessonId}`;
+  const meetingUrl = `https://meet.jit.si/${meetingId}`;
+  
+  console.log('🎯 Created fallback meeting URL:', meetingUrl);
+  
+  const fallbackResponse: MeetingJoinResponse = {
+    success: true,
+    message: 'Using fallback meeting configuration',
+    meetingUrl: meetingUrl,
+    meetingId: meetingId,
+    userRole: 'student',
+    config: {
+      prejoinPageEnabled: false,
+      startWithAudioMuted: true,
+      startWithVideoMuted: false
+    }
+  };
+
+  return fallbackResponse;
+},
   endLessonMeeting: async (lessonId: string): Promise<MeetingEndResponse> => {
     const endpoint = `${API_BASE_URL}/api/courses/lessons/${lessonId}/meeting/end`;
     

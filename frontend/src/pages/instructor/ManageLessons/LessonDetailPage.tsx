@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { courseService } from '../../../services/api/courseService';
+import { instructorService } from '../../../services/api/instructorService';
 import { useAuth } from '../../../context/AuthContext';
+import { CourseWithRating } from '../../../types/course.types';
 import { 
   FiArrowLeft, 
   FiPlay, 
@@ -21,14 +23,21 @@ const LessonDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [lesson, setLesson] = useState<any>(null);
-  const [course, setCourse] = useState<any>(null);
+  const [course, setCourse] = useState<CourseWithRating | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [startingLesson, setStartingLesson] = useState(false);
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    attendanceRate: 0,
+    averageRating: 0,
+    loading: true
+  });
 
   useEffect(() => {
     if (lessonId && courseId) {
       loadLessonAndCourse();
+      loadCourseStats();
     }
   }, [lessonId, courseId]);
 
@@ -41,12 +50,52 @@ const LessonDetailPage: React.FC = () => {
       ]);
 
       setLesson(lessonResponse.lesson);
-      setCourse(courseResponse.course);
+      // Sửa: Ép kiểu qua unknown trung gian
+      setCourse(courseResponse.course as unknown as CourseWithRating);
     } catch (err: any) {
       setError('Unable to load lesson information');
       console.error('Error loading lesson:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCourseStats = async () => {
+    try {
+      setStats(prev => ({ ...prev, loading: true }));
+      
+      // Lấy thống kê học viên từ course
+      if (courseId) {
+        const studentsResponse = await instructorService.getStudentsByCourse(courseId, {
+          page: 1,
+          limit: 100
+        });
+
+        // Lấy thông tin rating từ course
+        const courseDetails = await courseService.getCourseById(courseId);
+        
+        const totalStudents = studentsResponse.stats?.total || 0;
+        const activeStudents = studentsResponse.stats?.active || 0;
+        
+        // Tính attendance rate (tỷ lệ học viên active)
+        const attendanceRate = totalStudents > 0 
+          ? Math.round((activeStudents / totalStudents) * 100)
+          : 0;
+
+        // Sửa: Ép kiểu qua unknown trung gian
+        const courseWithRating = courseDetails.course as unknown as CourseWithRating;
+        const averageRating = courseWithRating?.averageRating || 0;
+
+        setStats({
+          totalStudents,
+          attendanceRate,
+          averageRating,
+          loading: false
+        });
+      }
+    } catch (error) {
+      console.error('Error loading course stats:', error);
+      setStats(prev => ({ ...prev, loading: false }));
     }
   };
 
@@ -57,23 +106,17 @@ const LessonDetailPage: React.FC = () => {
       
       console.log('🎯 Starting lesson:', lessonId);
       
-      // SỬA: Dùng hàm với fallback
       let response;
       try {
-        // Thử dùng startLesson trước
         response = await courseService.startLesson(lessonId!);
       } catch (error) {
         console.log('⚠️ startLesson failed, trying startLessonWithFallback...');
-        // Nếu startLesson thất bại, thử hàm fallback
         response = await courseService.startLessonWithFallback(lessonId!);
       }
       
       console.log('✅ Lesson started successfully:', response);
       
-      // Load lại dữ liệu sau khi start thành công
       await loadLessonAndCourse();
-      
-      // Chuyển hướng đến trang meeting
       navigate(`/instructor/course/${courseId}/lesson/${lessonId}/start`);
       
     } catch (err: any) {
@@ -84,40 +127,36 @@ const LessonDetailPage: React.FC = () => {
     }
   };
 
-const handleEndLesson = async () => {
-  try {
-    setError('');
-    
-    console.log('🛑 Ending lesson:', lessonId);
-    
-    // SỬA: Dùng endLessonMeeting giống như trong ManageLessonsPage
-    await courseService.endLessonMeeting(lessonId!);
-    
-    console.log('✅ Lesson ended successfully');
-    
-    // Load lại dữ liệu sau khi end thành công
-    await loadLessonAndCourse();
-    
-  } catch (err: any) {
-    console.error('❌ Error ending lesson:', err);
-    setError(err.message || 'Unable to end the lesson');
-    
-    // THỬ FALLBACK NẾU endLessonMeeting KHÔNG HOẠT ĐỘNG
+  const handleEndLesson = async () => {
     try {
-      console.log('🔄 Trying fallback method...');
-      await courseService.endLesson(lessonId!);
+      setError('');
+      
+      console.log('🛑 Ending lesson:', lessonId);
+      
+      await courseService.endLessonMeeting(lessonId!);
+      
+      console.log('✅ Lesson ended successfully');
+      
       await loadLessonAndCourse();
-    } catch (fallbackError: any) {
-      console.error('❌ Fallback also failed:', fallbackError);
-      setError('Unable to end the lesson using any method');
+      
+    } catch (err: any) {
+      console.error('❌ Error ending lesson:', err);
+      setError(err.message || 'Unable to end the lesson');
+      
+      try {
+        console.log('🔄 Trying fallback method...');
+        await courseService.endLesson(lessonId!);
+        await loadLessonAndCourse();
+      } catch (fallbackError: any) {
+        console.error('❌ Fallback also failed:', fallbackError);
+        setError('Unable to end the lesson using any method');
+      }
     }
-  }
-};
+  };
+
   const handleJoinMeeting = () => {
     navigate(`/instructor/course/${courseId}/lesson/${lessonId}/start`);
   };
-
-  // ... phần còn lại giữ nguyên
 
   if (loading) {
     return (
@@ -360,15 +399,29 @@ const handleEndLesson = async () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center p-3 bg-gray-50/50 rounded-2xl">
                   <span className="text-gray-600">Enrolled Students</span>
-                  <span className="font-bold text-gray-900">24</span>
+                  {stats.loading ? (
+                    <div className="animate-pulse bg-gray-200 h-6 w-12 rounded"></div>
+                  ) : (
+                    <span className="font-bold text-gray-900">{stats.totalStudents}</span>
+                  )}
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gray-50/50 rounded-2xl">
                   <span className="text-gray-600">Attendance Rate</span>
-                  <span className="font-bold text-emerald-600">92%</span>
+                  {stats.loading ? (
+                    <div className="animate-pulse bg-gray-200 h-6 w-12 rounded"></div>
+                  ) : (
+                    <span className="font-bold text-emerald-600">{stats.attendanceRate}%</span>
+                  )}
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gray-50/50 rounded-2xl">
                   <span className="text-gray-600">Average Rating</span>
-                  <span className="font-bold text-yellow-600">4.8/5</span>
+                  {stats.loading ? (
+                    <div className="animate-pulse bg-gray-200 h-6 w-12 rounded"></div>
+                  ) : (
+                    <span className="font-bold text-yellow-600">
+                      {stats.averageRating > 0 ? `${stats.averageRating}/5` : 'No ratings'}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -377,7 +430,10 @@ const handleEndLesson = async () => {
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/20">
               <h3 className="font-bold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button className="w-full text-left p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl border border-emerald-100 hover:shadow-md transition-all duration-200">
+                <button 
+                  onClick={() => navigate(`/instructor/course/${courseId}/students`)}
+                  className="w-full text-left p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl border border-emerald-100 hover:shadow-md transition-all duration-200"
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
                       <FiUsers className="w-5 h-5 text-white" />
@@ -389,7 +445,10 @@ const handleEndLesson = async () => {
                   </div>
                 </button>
 
-                <button className="w-full text-left p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl border border-emerald-100 hover:shadow-md transition-all duration-200">
+                <button 
+                  onClick={() => navigate(`/instructor/course/${courseId}/analytics`)}
+                  className="w-full text-left p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl border border-emerald-100 hover:shadow-md transition-all duration-200"
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
                       <FiBarChart2 className="w-5 h-5 text-white" />
@@ -401,7 +460,10 @@ const handleEndLesson = async () => {
                   </div>
                 </button>
 
-                <button className="w-full text-left p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl border border-emerald-100 hover:shadow-md transition-all duration-200">
+                <button 
+                  onClick={() => navigate(`/instructor/course/${courseId}/materials`)}
+                  className="w-full text-left p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl border border-emerald-100 hover:shadow-md transition-all duration-200"
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
                       <FiBook className="w-5 h-5 text-white" />

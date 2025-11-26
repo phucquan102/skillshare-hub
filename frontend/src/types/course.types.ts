@@ -57,3 +57,10 @@ export interface Course {
   datedSchedules: DatedSchedule[];
   maxStudents?: number;
 }
+
+// Tạo interface mở rộng cho course với rating
+export interface CourseWithRating extends Course {
+  averageRating?: number;
+  totalRatings?: number;
+  enrollmentCount?: number;
+}

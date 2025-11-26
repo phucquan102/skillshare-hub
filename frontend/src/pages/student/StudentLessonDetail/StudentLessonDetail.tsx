@@ -17,173 +17,215 @@ const StudentLessonDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [canPurchaseIndividual, setCanPurchaseIndividual] = useState(false);
+  const [joiningMeeting, setJoiningMeeting] = useState(false);
 
-  // NEW: refresh access status
-  const refreshAccessStatus = async () => {
-    if (!lessonId || isPreview) return;
+  // 🆕 HÀM MỚI: Xử lý courseId từ nhiều định dạng khác nhau
+  const getCourseIdString = (courseData: any): string | null => {
+    if (!courseData) return null;
     
+    // Nếu là string
+    if (typeof courseData === 'string') {
+      return courseData.trim() !== '' ? courseData : null;
+    }
+    
+    // Nếu là object có _id
+    if (typeof courseData === 'object' && courseData._id) {
+      return courseData._id;
+    }
+    
+    // Nếu là object có id
+    if (typeof courseData === 'object' && courseData.id) {
+      return courseData.id;
+    }
+    
+    return null;
+  };
+
+  // 🆕 THÊM: Kiểm tra access riêng biệt
+  const checkAccess = async (lessonData: any) => {
     try {
-      console.log('🔄 [StudentLessonDetail] Refreshing access status...');
-      const accessCheck = await enrollmentService.checkLessonAccess(lessonId);
-      console.log('🔐 [StudentLessonDetail] Access check result:', accessCheck);
+      if (isPreview) {
+        setHasAccess(true);
+        return;
+      }
+
+      // Nếu lesson có price = 0, tự động có access
+      if (lessonData.price === 0 || lessonData.price === undefined) {
+        console.log('💰 Lesson is free, granting access');
+        setHasAccess(true);
+        return;
+      }
+
+      // Kiểm tra access từ enrollment service
+      const accessCheck = await enrollmentService.checkLessonAccess(lessonId!);
+      console.log('🔐 Access check result:', accessCheck);
       
       if (accessCheck.success) {
         setHasAccess(accessCheck.hasAccess);
+      } else {
+        // Fallback: kiểm tra từ lesson data
+        const hasAccessFromLesson = lessonData.access?.hasAccess || false;
+        setHasAccess(hasAccessFromLesson);
       }
     } catch (error) {
-      console.error('❌ [StudentLessonDetail] Error refreshing access:', error);
+      console.error('❌ Error checking access:', error);
+      // Nếu có lỗi, mặc định không có access
+      setHasAccess(false);
     }
   };
 
   useEffect(() => {
-   const loadLesson = async () => {
-  if (!lessonId) {
-    setError('Lesson ID is missing');
-    setLoading(false);
-    return;
-  }
-
-  try {
-    setLoading(true);
-    console.log('📡 [StudentLessonDetail] Loading lesson:', {
-      lessonId,
-      isPreview,
-      courseIdFromState,
-      courseIdFromParams: courseId
-    });
-    
-    let response;
-    
-    if (isPreview) {
-      response = await courseService.getLessonPreview(lessonId);
-      console.log('✅ [StudentLessonDetail] Preview lesson data received:', response);
-      
-      if (response.success && response.lesson) {
-        setLesson(response.lesson);
-        setHasAccess(true);
-      } else {
-        setError('Unable to load lesson preview');
+    const loadLesson = async () => {
+      if (!lessonId) {
+        setError('Lesson ID is missing');
+        setLoading(false);
+        return;
       }
-    } else {
-      const [lessonResponse, accessResponse] = await Promise.all([
-        courseService.getLessonById(lessonId),
-        enrollmentService.checkLessonAccess(lessonId)
-      ]);
 
-      console.log('✅ [StudentLessonDetail] Lesson data received:', lessonResponse);
-      console.log('🔐 [StudentLessonDetail] Access check received:', accessResponse);
-      
-      if (lessonResponse.success && lessonResponse.lesson) {
-        setLesson(lessonResponse.lesson);
+      try {
+        setLoading(true);
+        console.log('📡 [StudentLessonDetail] Loading lesson:', {
+          lessonId,
+          isPreview,
+          courseIdFromState,
+          courseIdFromParams: courseId
+        });
         
-        if (accessResponse.success) {
-          setHasAccess(accessResponse.hasAccess);
-        } else {
-          const hasAccessValue = lessonResponse.lesson.access?.hasAccess ?? false;
-          setHasAccess(hasAccessValue);
-        }
-
-        // ✅ SỬA: Thêm kiểm tra courseId trước khi gọi API
-        const courseIdToLoad = lessonResponse.lesson.courseId;
-        console.log('📚 [StudentLessonDetail] Attempting to load course:', courseIdToLoad);
+        let response;
         
-        if (courseIdToLoad && typeof courseIdToLoad === 'string' && courseIdToLoad.trim() !== '') {
-          try {
-            const courseData = await courseService.getCourseById(courseIdToLoad);
-            if (courseData.course) {
-              setCourse(courseData.course);
-              const canPurchase = ['per_lesson', 'both'].includes(courseData.course.pricingType);
-              setCanPurchaseIndividual(canPurchase);
-              console.log('💰 [StudentLessonDetail] Course loaded successfully:', courseData.course.title);
+        if (isPreview) {
+          console.log('🔍 Using getLessonById for preview');
+          response = await courseService.getLessonById(lessonId);
+          
+          if (response.success && response.lesson) {
+            console.log('✅ Preview lesson data received:', response);
+            setLesson(response.lesson);
+            setHasAccess(true); // Preview luôn có access
+            
+            // 🆕 SỬA: Load course info cho preview với xử lý courseId
+            if (response.lesson.courseId) {
+              try {
+                const courseIdToLoad = getCourseIdString(response.lesson.courseId);
+                if (courseIdToLoad) {
+                  console.log('📚 Loading course for preview:', courseIdToLoad);
+                  const courseData = await courseService.getCourseById(courseIdToLoad);
+                  if (courseData.course) {
+                    setCourse(courseData.course);
+                  }
+                } else {
+                  console.warn('⚠️ No valid courseId found for preview');
+                }
+              } catch (courseError) {
+                console.warn('⚠️ Could not load course for preview:', courseError);
+              }
             }
-          } catch (courseError: any) {
-            console.error('❌ [StudentLessonDetail] Error loading course:', courseError.message);
-            // Không set error chính vì course chỉ dùng cho purchase info
+          } else {
+            setError('Unable to load lesson preview');
           }
         } else {
-          console.warn('⚠️ [StudentLessonDetail] Invalid courseId:', courseIdToLoad);
+          // Normal lesson load
+          const lessonResponse = await courseService.getLessonById(lessonId);
+          console.log('✅ [StudentLessonDetail] Lesson data received:', lessonResponse);
+
+          if (lessonResponse.success && lessonResponse.lesson) {
+            setLesson(lessonResponse.lesson);
+            
+            // 🆕 SỬA: Gọi hàm checkAccess riêng
+            await checkAccess(lessonResponse.lesson);
+
+            // 🆕 SỬA: Load course info với xử lý courseId
+            const courseIdToLoad = getCourseIdString(lessonResponse.lesson.courseId);
+            console.log('📚 [StudentLessonDetail] Attempting to load course:', courseIdToLoad);
+            
+            if (courseIdToLoad) {
+              try {
+                const courseData = await courseService.getCourseById(courseIdToLoad);
+                if (courseData.course) {
+                  setCourse(courseData.course);
+                  const canPurchase = ['per_lesson', 'both'].includes(courseData.course.pricingType);
+                  setCanPurchaseIndividual(canPurchase);
+                  console.log('💰 [StudentLessonDetail] Course loaded successfully:', courseData.course.title);
+                }
+              } catch (courseError: any) {
+                console.error('❌ [StudentLessonDetail] Error loading course:', courseError.message);
+              }
+            } else {
+              console.warn('⚠️ No courseId available to load');
+            }
+          } else {
+            setError('Unable to load lesson information');
+          }
         }
-      } else {
-        setError('Unable to load lesson information');
+      } catch (err: any) {
+        console.error('❌ [StudentLessonDetail] Error loading lesson:', err);
+        
+        if (err.message && (err.message.includes('403') || err.message.toLowerCase().includes('permission'))) {
+          setError('You do not have permission to access this lesson. Please enroll in the course to view content.');
+        } else {
+          setError(err.response?.data?.message || 'Server connection error');
+        }
+      } finally {
+        setLoading(false);
       }
-    }
-  } catch (err: any) {
-    console.error('❌ [StudentLessonDetail] Error loading lesson:', err);
-    
-    if (err.message && (err.message.includes('403') || err.message.toLowerCase().includes('permission'))) {
-      setError('You do not have permission to access this lesson. Please enroll in the course to view content.');
-    } else {
-      setError(err.response?.data?.message || 'Server connection error');
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+    };
+
     loadLesson();
   }, [lessonId, isPreview]);
 
-  // NEW: poll access after payment completion
-  useEffect(() => {
-    if (location.state?.justPurchased) {
-      console.log('🎉 [StudentLessonDetail] Payment detected, checking access...');
-      const timer = setInterval(() => {
-        refreshAccessStatus();
-      }, 1000);
-
-      // stop after 10 seconds
-      const timeout = setTimeout(() => {
-        clearInterval(timer);
-      }, 10000);
-
-      return () => {
-        clearInterval(timer);
-        clearTimeout(timeout);
-      };
+  // 🆕 SỬA HOÀN TOÀN: Hàm join live class - chuyển hướng đến trang LessonLivePage
+  const handleJoinLive = async () => {
+    if (!lessonId) {
+      alert('Missing lesson information');
+      return;
     }
-  }, [location.state?.justPurchased]);
 
-  // Debug state changes
-  useEffect(() => {
-    console.log('🔍 [StudentLessonDetail] State updated:', {
-      hasAccess,
-      canPurchaseIndividual,
-      lessonPrice: lesson?.price,
-      loading,
-      error
-    });
-  }, [hasAccess, canPurchaseIndividual, lesson, loading, error]);
+    try {
+      setJoiningMeeting(true);
+      console.log('🎯 [StudentLessonDetail] Attempting to join live class...');
 
-  const handlePurchase = async () => {
-    if (lesson && course) {
-      try {
-        console.log('🛒 [StudentLessonDetail] Starting purchase process...');
-        
-        // Double-check access before purchase (prevent duplicate purchases)
-        const accessCheck = await enrollmentService.checkLessonAccess(lessonId!);
-        if (accessCheck.success && accessCheck.hasAccess) {
-          alert('You already have access to this lesson!');
-          setHasAccess(true);
-          return;
-        }
-
-        navigate(`/payment/checkout?courseId=${course._id}&lessonId=${lessonId}&amount=${lesson.price || 0}`, {
-          state: { returnUrl: location.pathname }
-        });
-      } catch (error) {
-        console.error('❌ [StudentLessonDetail] Purchase check error:', error);
-        alert('An error occurred while checking access. Please try again.');
+      // Kiểm tra quyền truy cập
+      if (!hasAccess && !isPreview) {
+        alert('Bạn không có quyền truy cập bài học này. Vui lòng mua bài học trước.');
+        setJoiningMeeting(false);
+        return;
       }
-    } else {
-      alert('Unable to start purchase. Please try again.');
+
+      // 🆕 SỬA: Xác định courseId để chuyển hướng với xử lý tốt hơn
+      let finalCourseId = getCourseIdString(course?._id) || courseIdFromState || courseId;
+
+      console.log('🔍 Course info for navigation:', {
+        courseFromState: courseIdFromState,
+        courseFromParams: courseId,
+        courseFromData: course?._id,
+        finalCourseId
+      });
+
+      // Nếu không có courseId, thử lấy từ lesson data
+      if (!finalCourseId && lesson?.courseId) {
+        finalCourseId = getCourseIdString(lesson.courseId);
+      }
+
+      if (!finalCourseId) {
+        alert('Không thể xác định khóa học. Vui lòng thử lại.');
+        setJoiningMeeting(false);
+        return;
+      }
+
+      console.log('🔄 Navigating to live lesson page:', {
+        courseId: finalCourseId,
+        lessonId
+      });
+
+      // 🆕 SỬA QUAN TRỌNG: Sử dụng route giống với StudentLessonList
+      navigate(`/student/course/${finalCourseId}/lesson/${lessonId}/meeting`);
+
+    } catch (error: any) {
+      console.error('❌ Error joining live class:', error);
+      alert(`Không thể tham gia lớp học: ${error.message || 'Vui lòng thử lại sau'}`);
+    } finally {
+      setJoiningMeeting(false);
     }
   };
-
-  const handleJoinLive = () => {
-    if (lesson && course) {
-      navigate(`/student/course/${course._id}/lesson/${lessonId}/meeting`);
-    }
-  };
-
   const handleBack = () => {
     if (course) {
       navigate(`/courses/${course._id}`);
@@ -192,7 +234,7 @@ const StudentLessonDetail: React.FC = () => {
     }
   };
 
-  // Button visibility logic
+  // 🆕 SỬA: Logic hiển thị button
   const shouldShowPurchaseButton = 
     !hasAccess && 
     !isPreview && 
@@ -209,7 +251,8 @@ const StudentLessonDetail: React.FC = () => {
     hasAccess,
     isPreview,
     canPurchaseIndividual,
-    lessonPrice: lesson?.price
+    lessonPrice: lesson?.price,
+    lessonType: lesson?.lessonType
   });
 
   if (loading) {
@@ -355,12 +398,26 @@ const StudentLessonDetail: React.FC = () => {
                     {shouldShowJoinButton && (
                       <button
                         onClick={handleJoinLive}
-                        className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
+                        disabled={joiningMeeting}
+                        className={`w-full py-3 rounded-lg transition-colors flex items-center justify-center ${
+                          joiningMeeting 
+                            ? 'bg-gray-400 cursor-not-allowed' 
+                            : 'bg-green-600 hover:bg-green-700 text-white'
+                        }`}
                       >
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        🎥 Join Live Class
+                        {joiningMeeting ? (
+                          <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                            Đang chuyển hướng...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            🎥 Tham gia lớp học trực tuyến
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -372,7 +429,13 @@ const StudentLessonDetail: React.FC = () => {
                       </svg>
                       <p className="text-gray-500 mb-4">Purchase the lesson to view full content</p>
                       <button
-                        onClick={handlePurchase}
+                        onClick={() => {
+                          if (course) {
+                            navigate(`/payment/checkout?courseId=${course._id}&lessonId=${lessonId}&amount=${lesson.price || 0}`);
+                          } else {
+                            alert('Course information not available');
+                          }
+                        }}
                         className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                       >
                         Purchase - {lesson.price ? `$${lesson.price}` : 'Free'}
@@ -426,7 +489,13 @@ const StudentLessonDetail: React.FC = () => {
                   </span>
                 </div>
                 <button
-                  onClick={handlePurchase}
+                  onClick={() => {
+                    if (course) {
+                      navigate(`/payment/checkout?courseId=${course._id}&lessonId=${lessonId}&amount=${lesson.price || 0}`);
+                    } else {
+                      alert('Course information not available');
+                    }
+                  }}
                   className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold"
                 >
                   Purchase Now
@@ -471,6 +540,15 @@ const StudentLessonDetail: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Estimated study time:</span>
                     <span className="font-medium">{lesson.estimatedStudyTime} minutes</span>
+                  </div>
+                )}
+                {/* 🆕 THÊM: Price info */}
+                {lesson.price !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Price:</span>
+                    <span className="font-medium">
+                      {lesson.price === 0 ? 'Free' : `$${lesson.price}`}
+                    </span>
                   </div>
                 )}
               </div>

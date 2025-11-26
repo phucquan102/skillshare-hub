@@ -236,14 +236,31 @@ const lessonSchema = new mongoose.Schema({
 // ========== INDEXES ==========
 lessonSchema.index({ courseId: 1, order: 1 });
 lessonSchema.index({ courseId: 1, status: 1 });
-lessonSchema.index({ courseId: 1, scheduleIndex: 1 });
-lessonSchema.index({ datedScheduleId: 1 });
 lessonSchema.index({ isPreview: 1 });
 lessonSchema.index({ isFree: 1 });
 lessonSchema.index({ lessonType: 1 });
 lessonSchema.index({ 'actualDate': 1 });
 lessonSchema.index({ isMeetingActive: 1 });
 lessonSchema.index({ availableForIndividualPurchase: 1 });
+
+// 🆕 THÊM: Sparse indexes để fix duplicate key với null values
+lessonSchema.index(
+  { courseId: 1, scheduleIndex: 1 }, 
+  { 
+    unique: true,
+    sparse: true,  // 🔥 CHO PHÉP NHIỀU NULL VALUES
+    partialFilterExpression: { scheduleIndex: { $ne: null } }
+  }
+);
+
+lessonSchema.index(
+  { courseId: 1, datedScheduleId: 1 }, 
+  { 
+    unique: true,
+    sparse: true,
+    partialFilterExpression: { datedScheduleId: { $ne: null } }
+  }
+);
 
 // ========== VIRTUALS ==========
 lessonSchema.virtual('totalDuration').get(function() {
