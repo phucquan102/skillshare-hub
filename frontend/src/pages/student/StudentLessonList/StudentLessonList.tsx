@@ -148,10 +148,10 @@ const StudentLessonList: React.FC = () => {
 
   // Hàm lấy trạng thái lesson để hiển thị
   const getLessonStatus = (lesson: LessonProgress) => {
-    if (lesson.isCompleted) return { text: 'Đã hoàn thành', type: 'completed' };
-    if (lesson.canJoin) return { text: 'Tham gia ngay', type: 'live' };
-    if (!lesson.hasAccess) return { text: 'Khóa', type: 'locked' };
-    return { text: 'Có thể học', type: 'accessible' };
+    if (lesson.isCompleted) return { text: 'Completed', type: 'completed' };
+    if (lesson.canJoin) return { text: 'Join now', type: 'live' };
+    if (!lesson.hasAccess) return { text: 'Locked', type: 'locked' };
+    return { text: 'Accessible', type: 'accessible' };
   };
 
   // Hàm format thời gian nếu có
@@ -179,7 +179,7 @@ const StudentLessonList: React.FC = () => {
     return (
       <div className={styles.loadingContainer}>
         <div className={styles.spinner}></div>
-        <p>Đang tải nội dung khóa học...</p>
+        <p>Loading course content...</p>
       </div>
     );
   }
@@ -188,14 +188,14 @@ const StudentLessonList: React.FC = () => {
     return (
       <div className={styles.errorContainer}>
         <div className={styles.errorContent}>
-          <h3>Lỗi</h3>
-          <p>{error || 'Không tìm thấy thông tin khóa học'}</p>
+          <h3>Error</h3>
+          <p>{error || 'Course information not found'}</p>
           <div className={styles.errorActions}>
             <button onClick={handleRetry} className={styles.retryButton}>
-              Thử lại
+              Retry
             </button>
             <button onClick={handleBackToCourses} className={styles.backButton}>
-              Quay lại danh sách khóa học
+              Back to course list
             </button>
           </div>
         </div>
@@ -207,10 +207,10 @@ const StudentLessonList: React.FC = () => {
     return (
       <div className={styles.errorContainer}>
         <div className={styles.errorContent}>
-          <h3>Lỗi</h3>
-          <p>Không tìm thấy thông tin khóa học</p>
+          <h3>Error</h3>
+          <p>Course information not found</p>
           <button onClick={handleBackToCourses} className={styles.backButton}>
-            Quay lại danh sách khóa học
+            Back to course list
           </button>
         </div>
       </div>
@@ -226,7 +226,7 @@ const StudentLessonList: React.FC = () => {
       <div className={styles.header}>
         <div className={styles.headerTop}>
           <button onClick={handleBackToCourses} className={styles.backButton}>
-            ← Quay lại khóa học
+            ← Back to course
           </button>
           <div className={styles.courseThumbnail}>
             <img 
@@ -245,7 +245,7 @@ const StudentLessonList: React.FC = () => {
           <p className={styles.description}>{courseInfo.description}</p>
           {courseInfo.instructor && (
             <div className={styles.instructor}>
-              <span className={styles.instructorLabel}>Giảng viên: </span>
+              <span className={styles.instructorLabel}>Instructor: </span>
               <span className={styles.instructorName}>
                 {courseInfo.instructor.fullName || courseInfo.instructor.name || 'Unknown Instructor'}
               </span>
@@ -261,25 +261,25 @@ const StudentLessonList: React.FC = () => {
             <ProgressCircle progress={progress.overallProgress} size={120} />
             <div className={styles.progressText}>
               <span className={styles.progressPercent}>{progress.overallProgress}%</span>
-              <span className={styles.progressLabel}>Hoàn thành</span>
+              <span className={styles.progressLabel}>Completed</span>
             </div>
           </div>
           
           <div className={styles.progressDetails}>
             <div className={styles.progressItem}>
               <span className={styles.progressNumber}>{progress.completedLessons}</span>
-              <span className={styles.progressLabel}>Bài đã hoàn thành</span>
+              <span className={styles.progressLabel}>Lessons Completed</span>
             </div>
             <div className={styles.progressItem}>
               <span className={styles.progressNumber}>{progress.totalLessons}</span>
-              <span className={styles.progressLabel}>Tổng số bài học</span>
+              <span className={styles.progressLabel}>Total Lessons</span>
             </div>
             <div className={styles.progressItem}>
               <span className={styles.progressNumber}>
-                {progress.hasFullAccess ? 'Toàn bộ' : progress.purchasedLessons}
+                {progress.hasFullAccess ? 'All' : progress.purchasedLessons}
               </span>
               <span className={styles.progressLabel}>
-                {progress.hasFullAccess ? 'Quyền truy cập' : 'Bài đã mua'}
+                {progress.hasFullAccess ? 'Access' : 'Lessons Purchased'}
               </span>
             </div>
           </div>
@@ -289,7 +289,7 @@ const StudentLessonList: React.FC = () => {
       {/* Filter và Lesson List */}
       <div className={styles.lessonsSection}>
         <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Danh sách bài học</h2>
+          <h2 className={styles.sectionTitle}>Lesson List</h2>
           
           {/* Filter Buttons */}
           <div className={styles.filterButtons}>
@@ -297,25 +297,25 @@ const StudentLessonList: React.FC = () => {
               className={`${styles.filterButton} ${filter === 'all' ? styles.active : ''}`}
               onClick={() => setFilter('all')}
             >
-              Tất cả ({uniqueLessons.length})
+              All ({uniqueLessons.length})
             </button>
             <button 
               className={`${styles.filterButton} ${filter === 'completed' ? styles.active : ''}`}
               onClick={() => setFilter('completed')}
             >
-              Đã hoàn thành ({uniqueLessons.filter(l => l.isCompleted).length})
+              Completed ({uniqueLessons.filter(l => l.isCompleted).length})
             </button>
             <button 
               className={`${styles.filterButton} ${filter === 'upcoming' ? styles.active : ''}`}
               onClick={() => setFilter('upcoming')}
             >
-              Sắp diễn ra ({uniqueLessons.filter(l => !l.isCompleted && l.hasAccess && l.lessonType === 'live_online').length})
+              Upcoming ({uniqueLessons.filter(l => !l.isCompleted && l.hasAccess && l.lessonType === 'live_online').length})
             </button>
             <button 
               className={`${styles.filterButton} ${filter === 'live' ? styles.active : ''}`}
               onClick={() => setFilter('live')}
             >
-              Có thể tham gia ({uniqueLessons.filter(l => l.canJoin && l.lessonType === 'live_online').length})
+              Joinable ({uniqueLessons.filter(l => l.canJoin && l.lessonType === 'live_online').length})
             </button>
           </div>
         </div>
@@ -361,14 +361,14 @@ const StudentLessonList: React.FC = () => {
                         {lesson.lessonType === 'live_online' && (
                           <span className={styles.liveBadge}>
                             <span className={styles.liveDot}></span>
-                            Trực tuyến
+                            Online
                           </span>
                         )}
                         {lesson.lessonType === 'self_paced' && (
-                          <span className={styles.selfPacedBadge}>Tự học</span>
+                          <span className={styles.selfPacedBadge}>Self-paced</span>
                         )}
                         {lesson.isPreview && (
-                          <span className={styles.previewBadge}>Xem trước</span>
+                          <span className={styles.previewBadge}>Preview</span>
                         )}
                         {lessonTime && (
                           <span className={styles.timeBadge}>{lessonTime}</span>
@@ -379,11 +379,11 @@ const StudentLessonList: React.FC = () => {
                     <div className={styles.lessonFooter}>
                       <div className={styles.lessonInfo}>
                         <span className={styles.duration}>
-                          ⏱️ {lesson.duration || 0} phút
+                          ⏱️ {lesson.duration || 0} minutes
                         </span>
                         {lesson.progress > 0 && !lesson.isCompleted && (
                           <span className={styles.progressText}>
-                            • {lesson.progress}% đã học
+                            • {lesson.progress}% completed
                           </span>
                         )}
                       </div>
@@ -411,7 +411,7 @@ const StudentLessonList: React.FC = () => {
                             fill="currentColor" 
                           />
                         </svg>
-                        Tham gia
+                        Join
                       </button>
                     )}
                     
@@ -420,7 +420,7 @@ const StudentLessonList: React.FC = () => {
                         className={styles.studyButton}
                         onClick={() => handleLessonClick(lesson)}
                       >
-                        Học ngay
+                        Study now
                       </button>
                     )}
                   </div>
@@ -439,13 +439,13 @@ const StudentLessonList: React.FC = () => {
                   />
                 </svg>
               </div>
-              <h3>Không có bài học nào</h3>
-              <p>Hiện không có bài học nào phù hợp với bộ lọc của bạn.</p>
+              <h3>No lessons available</h3>
+              <p>There are currently no lessons that match your filter.</p>
               <button 
                 className={styles.clearFilterButton}
                 onClick={() => setFilter('all')}
               >
-                Hiển thị tất cả bài học
+                Show all lessons
               </button>
             </div>
           )}

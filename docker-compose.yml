@@ -212,35 +212,64 @@ services:
   # ========================
   # API Gateway
   # ========================
-  api-gateway:
-    build:
-      context: ./api-gateway
-      dockerfile: Dockerfile
+  # api-gateway:
+  #   build:
+  #     context: ./api-gateway
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - user-service
+  #     - course-service
+  #     - payment-service
+  #     - chat-service
+  #     - review-service
+  #   environment:
+  #     - PORT=3000
+  #     - USER_SERVICE_URL=http://user-service:3001
+  #     - COURSE_SERVICE_URL=http://course-service:3002
+  #     - PAYMENT_SERVICE_URL=http://payment-service:3003
+  #     - CHAT_SERVICE_URL=http://chat-service:3004
+  #     - REVIEW_SERVICE_URL=http://review-service:3005
+  #   networks:
+  #     - skillshare-network
+  #   restart: on-failure
+  #   # ❌ BỎ HEALTHCHECK
+  #   # healthcheck:
+  #   #   test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+  #   #   interval: 30s
+  #   #   timeout: 10s
+  #   #   retries: 3
+  #   #   start_period: 40s
+
+     # ========================
+  # Kong API Gateway (DB-less mode)
+  # ========================
+  kong:
+    image: kong:3.4
+    environment:
+      - KONG_DATABASE=off
+      - KONG_DECLARATIVE_CONFIG=/etc/kong/kong.yml
+      - KONG_PROXY_ACCESS_LOG=/dev/stdout
+      - KONG_ADMIN_ACCESS_LOG=/dev/stdout
+      - KONG_PROXY_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_LISTEN=0.0.0.0:8001
+      - KONG_PROXY_LISTEN=0.0.0.0:8000
     ports:
-      - "3000:3000"
+      - "8000:8000"  # Proxy (client/FE gọi vào đây)
+      - "8001:8001"  # Admin API
+    volumes:
+      - ./kong-config:/etc/kong
+    networks:
+      - skillshare-network
     depends_on:
       - user-service
       - course-service
       - payment-service
       - chat-service
       - review-service
-    environment:
-      - PORT=3000
-      - USER_SERVICE_URL=http://user-service:3001
-      - COURSE_SERVICE_URL=http://course-service:3002
-      - PAYMENT_SERVICE_URL=http://payment-service:3003
-      - CHAT_SERVICE_URL=http://chat-service:3004
-      - REVIEW_SERVICE_URL=http://review-service:3005
-    networks:
-      - skillshare-network
     restart: on-failure
-    # ❌ BỎ HEALTHCHECK
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 40s
 
   # ========================
   # Frontend
@@ -252,14 +281,16 @@ services:
     ports:
       - "8081:80"
     depends_on:
-      - api-gateway
+      # - api-gateway
+      - kong         
     environment:
-      - REACT_APP_API_BASE_URL=http://localhost:3000
+      # - REACT_APP_API_BASE_URL=http://localhost:3000
+      - REACT_APP_API_BASE_URL=http://localhost:8000
     networks:
       - skillshare-network
     restart: on-failure
 
-# ========================
+# ====h====================
 # Volumes
 # ========================
 volumes:

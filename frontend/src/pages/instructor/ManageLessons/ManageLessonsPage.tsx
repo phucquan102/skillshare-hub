@@ -13,7 +13,6 @@ import {
   FiArrowLeft,
   FiPlay,
   FiSquare,
-  FiCheckCircle,
   FiFileText,
   FiRadio,
   FiAward,
@@ -21,7 +20,7 @@ import {
   FiBook,
   FiBarChart2
 } from 'react-icons/fi';
-import { HiOutlineStatusOnline, HiOutlineAcademicCap } from 'react-icons/hi';
+import { HiOutlineAcademicCap } from 'react-icons/hi';
 
 const ManageLessonsPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -50,21 +49,19 @@ const ManageLessonsPage: React.FC = () => {
       setCourse(courseResponse.course);
       setLessons(lessonsResponse.lessons || []);
     } catch (err: any) {
-      setError('Không thể tải thông tin khóa học và bài học');
+      setError('Unable to load course and lesson information');
       console.error('Error loading course and lessons:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // 🎯 MỚI: Navigate đến trang Start Lesson (có nhúng Jitsi)
   const handleStartMeeting = async (lessonId: string) => {
     try {
       await courseService.startLessonMeeting(lessonId);
-      // Chuyển đến trang có nhúng Jitsi
       navigate(`/instructor/course/${courseId}/lesson/${lessonId}/start`);
     } catch (err: any) {
-      setError('Không thể bắt đầu buổi học');
+      setError('Unable to start lesson');
       console.error('Error starting meeting:', err);
     }
   };
@@ -74,7 +71,7 @@ const ManageLessonsPage: React.FC = () => {
       await courseService.endLessonMeeting(lessonId);
       loadCourseAndLessons();
     } catch (err: any) {
-      setError('Không thể kết thúc buổi học');
+      setError('Unable to end lesson');
       console.error('Error ending meeting:', err);
     }
   };
@@ -85,7 +82,7 @@ const ManageLessonsPage: React.FC = () => {
       setShowLessonForm(false);
       loadCourseAndLessons();
     } catch (err: any) {
-      setError('Không thể tạo bài học');
+      setError('Unable to create lesson');
       console.error('Error creating lesson:', err);
     }
   };
@@ -96,24 +93,38 @@ const ManageLessonsPage: React.FC = () => {
       setEditingLesson(null);
       loadCourseAndLessons();
     } catch (err: any) {
-      setError('Không thể cập nhật bài học');
+      setError('Unable to update lesson');
       console.error('Error updating lesson:', err);
     }
   };
 
   const handleDeleteLesson = async (lessonId: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa bài học này?')) {
+    if (window.confirm('Are you sure you want to delete this lesson?')) {
       try {
         await courseService.deleteLesson(lessonId);
         loadCourseAndLessons();
       } catch (err: any) {
-        setError('Không thể xóa bài học');
+        setError('Unable to delete lesson');
         console.error('Error deleting lesson:', err);
       }
     }
   };
 
   if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 flex items-center justify-center">
+        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 text-center max-w-md">
+          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FiBook className="w-8 h-8 text-yellow-500" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Loading...</h3>
+          <p className="text-gray-600 mb-6">Please wait while we load the course information.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!course) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 flex items-center justify-center">
         <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 text-center max-w-md">
@@ -285,11 +296,7 @@ const ManageLessonsPage: React.FC = () => {
               {lessons.map((lesson, index) => (
                 <div 
                   key={lesson._id} 
-                  className={`bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-lg border-2 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
-                    lesson.isMeetingActive 
-                      ? 'border-red-200 ring-2 ring-red-100' 
-                      : 'border-gray-100 hover:border-emerald-200'
-                  }`}
+                  className="flex flex-col h-full bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-lg border-2 border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200"
                 >
                   {lesson.isMeetingActive && (
                     <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white py-2 px-4 rounded-t-2xl flex items-center gap-2">
@@ -298,7 +305,7 @@ const ManageLessonsPage: React.FC = () => {
                     </div>
                   )}
                   
-                  <div className="p-6">
+                  <div className="flex flex-col flex-1 p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl flex items-center justify-center text-white font-bold text-sm">
@@ -308,20 +315,9 @@ const ManageLessonsPage: React.FC = () => {
                           {lesson.title}
                         </h3>
                       </div>
-                      <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-                        lesson.status === 'published' 
-                          ? 'bg-emerald-100 text-emerald-700' 
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {lesson.status === 'published' ? (
-                          <><FiCheckCircle className="w-3 h-3" /> Published</>
-                        ) : (
-                          <><FiFileText className="w-3 h-3" /> Draft</>
-                        )}
-                      </div>
                     </div>
 
-                    <div className="space-y-3 mb-4">
+                    <div className="space-y-3 mb-6 flex-1">
                       <div className="flex items-center gap-3 text-sm text-gray-600">
                         <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                           <FiVideo className="w-4 h-4 text-blue-500" />

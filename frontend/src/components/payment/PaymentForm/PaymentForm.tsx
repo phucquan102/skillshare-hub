@@ -1,9 +1,20 @@
 // components/Payment/PaymentForm.tsx
 import React, { useState, useRef, FormEvent } from 'react';
 import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js';
-import { useNavigate } from 'react-router-dom'; // 🆕 THÊM
+import { useNavigate } from 'react-router-dom';
 import { paymentService } from '../../../services/api/paymentService';
 import { enrollmentService, EnrollmentResponse } from '../../../services/api/enrollmentService';
+import { 
+  FiCreditCard, 
+  FiLock, 
+  FiCheck, 
+  FiAlertCircle, 
+  FiArrowLeft,
+  FiUser,
+  FiMail,
+  FiLoader
+} from 'react-icons/fi';
+import { HiOutlineShieldCheck } from 'react-icons/hi';
 
 interface PaymentFormProps {
   clientSecret: string;
@@ -34,7 +45,7 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
 }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const navigate = useNavigate(); // 🆕 THÊM
+  const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isReady, setIsReady] = useState(false);
@@ -68,13 +79,13 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
         userName
       });
 
-      // Bước 1: Xác nhận thanh toán với Stripe
+      // Step 1: Confirm payment with Stripe
       const confirmParams: any = {
         elements: elements,
         redirect: 'if_required',
       };
 
-      // 🚨 QUAN TRỌNG: Thêm billing details nếu có thông tin user
+      // IMPORTANT: Add billing details if user information is available
       if (userEmail || userName) {
         confirmParams.confirmParams = {
           payment_method_data: {
@@ -90,7 +101,7 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
 
       if (error) {
         console.error('❌ Stripe payment failed:', error.message);
-        setErrorMessage(error.message || 'Thanh toán thất bại');
+        setErrorMessage(error.message || 'Payment failed');
         processingRef.current = false;
         setIsProcessing(false);
         return;
@@ -98,7 +109,7 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
 
       if (paymentIntent?.status !== 'succeeded') {
         console.error('❌ Payment not succeeded:', paymentIntent?.status);
-        setErrorMessage('Thanh toán chưa thành công');
+        setErrorMessage('Payment not completed successfully');
         processingRef.current = false;
         setIsProcessing(false);
         return;
@@ -106,7 +117,7 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
 
       console.log('✅ Stripe payment succeeded');
 
-      // Bước 2: Xác nhận với backend
+      // Step 2: Confirm with backend
       let backendConfirmed = false;
       try {
         await paymentService.confirmPayment({
@@ -118,10 +129,10 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
         console.log('✅ Backend confirmation successful');
       } catch (backendError: any) {
         console.error('⚠️ Backend confirmation failed:', backendError.message);
-        // Vẫn tiếp tục vì thanh toán Stripe đã thành công
+        // Continue because Stripe payment was successful
       }
 
-      // Bước 3: Xử lý enrollment dựa trên loại thanh toán
+      // Step 3: Handle enrollment based on payment type
       let enrollmentResult: EnrollmentResponse | null = null;
       
       if (!isInstructorFee && courseId && courseId.trim() !== '') {
@@ -135,12 +146,12 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
               amount
             );
             
-            // 🆕 SỬA: Xử lý trường hợp đã mua lesson
+            // FIX: Handle already purchased lesson case
             if (enrollmentResult.alreadyPurchased) {
               console.log('ℹ️ Lesson already purchased, granting access');
-              setErrorMessage('Bạn đã sở hữu bài học này. Đang chuyển hướng...');
+              setErrorMessage('You already own this lesson. Redirecting...');
               
-              // 🆕 THÊM: Chuyển hướng đến lesson sau 2 giây
+              // ADD: Redirect to lesson after 2 seconds
               setTimeout(() => {
                 navigate(`/student/lessons/${lessonId}`);
               }, 2000);
@@ -167,26 +178,26 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
         console.log('✅ Instructor fee - No enrollment needed');
       }
 
-      // Bước 4: Tổng hợp thông báo
-      const successMessages: string[] = ['Thanh toán thành công!'];
+      // Step 4: Compile success messages
+      const successMessages: string[] = ['Payment successful!'];
       
       if (paymentType === 'lesson_payment') {
-        // 🆕 SỬA: Thông báo khác nhau tùy trường hợp
+        // FIX: Different messages based on case
         if (enrollmentResult?.alreadyPurchased) {
-          successMessages.push('Bạn đã sở hữu bài học này.');
+          successMessages.push('You already own this lesson.');
         } else {
-          successMessages.push('Bạn đã mua bài học thành công và có thể tham gia học ngay.');
+          successMessages.push('You have successfully purchased the lesson and can start learning immediately.');
         }
       } else if (!isInstructorFee) {
-        successMessages.push('Bạn đã đăng ký khóa học thành công.');
+        successMessages.push('You have successfully enrolled in the course.');
       }
       
       if (!backendConfirmed) {
-        successMessages.push('Lưu ý: Có vấn đề khi cập nhật hồ sơ thanh toán.');
+        successMessages.push('Note: There was an issue updating your payment profile.');
       }
       
       if (enrollmentResult && !enrollmentResult.success && !enrollmentResult.alreadyPurchased) {
-        successMessages.push(`Lưu ý: ${enrollmentResult.message}`);
+        successMessages.push(`Note: ${enrollmentResult.message}`);
       }
 
       const finalMessage = successMessages.join(' ');
@@ -194,20 +205,20 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
 
       console.log('✅ Payment process completed successfully', { paymentType });
       
-      // 🆕 SỬA: Chuyển hướng sau khi xử lý
+      // FIX: Redirect after processing
       setTimeout(() => {
         if (paymentType === 'lesson_payment' && lessonId) {
-          // Chuyển hướng đến lesson detail
+          // Redirect to lesson detail
           navigate(`/student/lessons/${lessonId}`);
         } else {
-          // Gọi callback onSuccess cho các trường hợp khác
+          // Call onSuccess callback for other cases
           onSuccess();
         }
       }, 3000);
 
     } catch (err: any) {
       console.error('💥 Unexpected payment error:', err);
-      setErrorMessage('Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại.');
+      setErrorMessage('An error occurred during payment processing. Please try again.');
       processingRef.current = false;
       setIsProcessing(false);
     }
@@ -222,21 +233,21 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
   const getPaymentTypeInfo = () => {
     if (isInstructorFee) {
       return {
-        title: 'Phí đăng khóa học',
-        description: 'Thanh toán phí đăng khóa học cho instructor'
+        title: 'Course Listing Fee',
+        description: 'Payment for course listing fee for instructor'
       };
     }
     
     if (paymentType === 'lesson_payment') {
       return {
-        title: 'Mua bài học riêng lẻ',
-        description: 'Thanh toán cho một bài học cụ thể'
+        title: 'Purchase Individual Lesson',
+        description: 'Payment for a specific lesson'
       };
     }
     
     return {
-      title: 'Đăng ký khóa học',
-      description: 'Thanh toán để đăng ký toàn bộ khóa học'
+      title: 'Course Enrollment',
+      description: 'Payment to enroll in the complete course'
     };
   };
 
@@ -245,14 +256,21 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Payment Type Info */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+      <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl p-6 border border-emerald-200 backdrop-blur-sm">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-900 text-lg">{paymentInfo.title}</h3>
-            <p className="text-gray-600 text-sm">{paymentInfo.description}</p>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-green-500 rounded-xl flex items-center justify-center">
+              <FiCreditCard className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 text-lg">{paymentInfo.title}</h3>
+              <p className="text-gray-600 text-sm">{paymentInfo.description}</p>
+            </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-[#4361ee]">${amount}</div>
+            <div className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+              ${amount}
+            </div>
             {paymentType === 'lesson_payment' && (
               <div className="text-xs text-gray-500 mt-1">Single Lesson</div>
             )}
@@ -262,17 +280,34 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
 
       {/* User Information */}
       {(userName || userEmail) && (
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <h4 className="font-medium text-gray-900 mb-2">Thông tin thanh toán</h4>
-          <div className="space-y-1 text-sm text-gray-600">
-            {userName && <div><strong>Họ tên:</strong> {userName}</div>}
-            {userEmail && <div><strong>Email:</strong> {userEmail}</div>}
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-5 border border-gray-200 backdrop-blur-sm">
+          <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <FiUser className="w-4 h-4 text-emerald-500" />
+            Billing Information
+          </h4>
+          <div className="space-y-2 text-sm text-gray-600">
+            {userName && (
+              <div className="flex items-center gap-2">
+                <FiUser className="w-4 h-4 text-gray-400" />
+                <span><strong>Name:</strong> {userName}</span>
+              </div>
+            )}
+            {userEmail && (
+              <div className="flex items-center gap-2">
+                <FiMail className="w-4 h-4 text-gray-400" />
+                <span><strong>Email:</strong> {userEmail}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Payment Element */}
-      <div className="payment-element-wrapper">
+      <div className="payment-element-wrapper bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <FiCreditCard className="w-5 h-5 text-emerald-500" />
+          <h4 className="font-semibold text-gray-900">Payment Details</h4>
+        </div>
         <PaymentElement
           onReady={() => {
             console.log('✅ PaymentElement ready');
@@ -280,15 +315,14 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
           }}
           onLoadError={(err) => {
             console.error('❌ PaymentElement error:', err);
-            setErrorMessage('Không thể tải form thanh toán. Vui lòng thử lại.');
+            setErrorMessage('Unable to load payment form. Please try again.');
           }}
           options={{
-            // 🚨 SỬA LỖI: Cho phép Stripe thu thập thông tin billing details
             fields: {
               billingDetails: {
-                name: 'auto',  // Thay 'never' bằng 'auto'
-                email: 'auto', // Thay 'never' bằng 'auto'
-                phone: 'auto', // Có thể giữ 'never' nếu không cần
+                name: 'auto',
+                email: 'auto',
+                phone: 'auto',
                 address: {
                   country: 'auto',
                   postalCode: 'auto'
@@ -301,22 +335,22 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
 
       {/* Status Messages */}
       {errorMessage && (
-        <div className={`p-4 rounded-lg ${
-          errorMessage.includes('thành công') || errorMessage.includes('sở hữu')
-            ? 'bg-green-100 border border-green-400 text-green-700'
-            : 'bg-red-100 border border-red-400 text-red-700'
+        <div className={`p-5 rounded-2xl backdrop-blur-sm border ${
+          errorMessage.includes('successful') || errorMessage.includes('already own')
+            ? 'bg-green-50 border-green-200 text-green-800'
+            : 'bg-red-50 border-red-200 text-red-800'
         }`}>
-          <div className="flex items-start">
-            {errorMessage.includes('thành công') || errorMessage.includes('sở hữu') ? (
-              <span className="text-green-500 mr-2 mt-0.5">✅</span>
+          <div className="flex items-start gap-3">
+            {errorMessage.includes('successful') || errorMessage.includes('already own') ? (
+              <FiCheck className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
             ) : (
-              <span className="text-red-500 mr-2 mt-0.5">⚠️</span>
+              <FiAlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
             )}
-            <div>
-              <span className="font-medium">
-                {errorMessage.includes('thành công') || errorMessage.includes('sở hữu') 
-                  ? 'Thành công!' 
-                  : 'Lỗi:'}
+            <div className="flex-1">
+              <span className="font-semibold">
+                {errorMessage.includes('successful') || errorMessage.includes('already own') 
+                  ? 'Success!' 
+                  : 'Error:'}
               </span>
               <span className="ml-1">{errorMessage}</span>
             </div>
@@ -329,22 +363,17 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
         <button
           type="submit"
           disabled={!stripe || !elements || !isReady || isProcessing}
-          className="flex-1 bg-gradient-to-r from-[#4361ee] to-[#3a0ca3] text-white py-4 px-6 rounded-xl font-semibold hover:from-[#3a0ca3] hover:to-[#4361ee] disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center"
+          className="flex-1 bg-gradient-to-r from-emerald-500 to-green-500 text-white py-4 px-6 rounded-2xl font-semibold hover:from-emerald-600 hover:to-green-600 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-3 group"
         >
           {isProcessing ? (
             <>
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" 
-                   xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" 
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Đang xử lý...
+              <FiLoader className="w-5 h-5 animate-spin" />
+              Processing Payment...
             </>
           ) : (
             <>
-              <span className="mr-2">💳</span>
-              {paymentType === 'lesson_payment' ? `Mua Bài Học - $${amount}` : `Thanh Toán - $${amount}`}
+              <FiCreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              {paymentType === 'lesson_payment' ? `Purchase Lesson - $${amount}` : `Complete Payment - $${amount}`}
             </>
           )}
         </button>
@@ -353,27 +382,54 @@ const PaymentForm: React.FC<PaymentFormProps> = React.memo(({
           type="button"
           onClick={handleCancel}
           disabled={isProcessing}
-          className="flex-1 bg-gray-100 text-gray-700 py-4 px-6 rounded-xl font-semibold hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed transition-all duration-300 border border-gray-200"
+          className="flex-1 bg-white text-gray-700 py-4 px-6 rounded-2xl font-semibold hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-all duration-300 border border-gray-300 hover:border-gray-400 flex items-center justify-center gap-3"
         >
-          ← Quay lại
+          <FiArrowLeft className="w-5 h-5" />
+          Go Back
         </button>
       </div>
 
       {/* Security Badge */}
-      <div className="text-center pt-4 border-t border-gray-200">
-        <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-          <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-          </svg>
-          <span>Thanh toán được bảo mật và mã hóa</span>
+      <div className="text-center pt-6 border-t border-gray-200">
+        <div className="inline-flex items-center gap-3 bg-white/80 backdrop-blur-sm rounded-2xl px-6 py-3 border border-gray-200">
+          <HiOutlineShieldCheck className="w-5 h-5 text-emerald-500" />
+          <div className="text-left">
+            <div className="font-medium text-gray-900 text-sm">Secure & Encrypted</div>
+            <div className="text-gray-500 text-xs">Your payment information is protected</div>
+          </div>
         </div>
       </div>
 
-      {/* Debug info - chỉ hiển thị trong môi trường development */}
+      {/* Trust Indicators */}
+      <div className="grid grid-cols-3 gap-4 pt-4">
+        <div className="text-center">
+          <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
+            <FiLock className="w-4 h-4 text-emerald-500" />
+          </div>
+          <div className="text-xs text-gray-600">256-bit SSL</div>
+        </div>
+        <div className="text-center">
+          <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
+            <FiCheck className="w-4 h-4 text-emerald-500" />
+          </div>
+          <div className="text-xs text-gray-600">PCI Compliant</div>
+        </div>
+        <div className="text-center">
+          <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
+            <HiOutlineShieldCheck className="w-4 h-4 text-emerald-500" />
+          </div>
+          <div className="text-xs text-gray-600">Money Back</div>
+        </div>
+      </div>
+
+      {/* Debug info - only show in development */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-          <strong>Debug Info:</strong>
-          <div className="grid grid-cols-2 gap-2 mt-2">
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-2xl text-sm text-blue-800 backdrop-blur-sm">
+          <strong className="flex items-center gap-2 mb-2">
+            <FiAlertCircle className="w-4 h-4" />
+            Debug Information
+          </strong>
+          <div className="grid grid-cols-2 gap-3 text-xs">
             <div><strong>Payment ID:</strong> {paymentId}</div>
             <div><strong>Course ID:</strong> {courseId || 'N/A'}</div>
             <div><strong>Lesson ID:</strong> {lessonId || 'N/A'}</div>

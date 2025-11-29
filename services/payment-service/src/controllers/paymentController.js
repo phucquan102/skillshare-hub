@@ -139,14 +139,14 @@ const paymentController = {
       if (!courseId && !lessonId) {
         return res.status(400).json({
           success: false,
-          message: 'Phải cung cấp courseId hoặc lessonId'
+          message: 'Have to provide courseId or lessonId'
         });
       }
 
       if (!amount || amount <= 0) {
         return res.status(400).json({
           success: false,
-          message: 'Số tiền thanh toán không hợp lệ'
+          message: 'Invalid payment amount'
         });
       }
 
@@ -158,7 +158,7 @@ const paymentController = {
       if (amount > STRIPE_MAX_AMOUNT) {
         return res.status(400).json({
           success: false,
-          message: `Số tiền thanh toán không được vượt quá ${STRIPE_MAX_AMOUNT}. Vui lòng liên hệ hỗ trợ để xử lý thanh toán lớn.`,
+          message: `Payment amount must not exceed ${STRIPE_MAX_AMOUNT}. Please contact support for large payments.`,
           maxAmount: STRIPE_MAX_AMOUNT,
           requestedAmount: amount
         });
@@ -167,7 +167,7 @@ const paymentController = {
       if (amount < STRIPE_MIN_AMOUNT) {
         return res.status(400).json({
           success: false,
-          message: `Số tiền thanh toán phải tối thiểu ${STRIPE_MIN_AMOUNT}`,
+          message: `Payment amount must be at least ${STRIPE_MIN_AMOUNT}`,
           minAmount: STRIPE_MIN_AMOUNT,
           requestedAmount: amount
         });
@@ -179,7 +179,7 @@ const paymentController = {
       if (enrollmentCheck.blockPayment) {
         return res.status(403).json({
           success: false,
-          message: enrollmentCheck.message || 'Bạn đã mua khóa học/bài học này rồi.',
+          message: enrollmentCheck.message || 'You have already purchased this course/lesson.',
           enrollmentType: enrollmentCheck.enrollmentType
         });
       }
@@ -278,14 +278,14 @@ const paymentController = {
       if (!payment) {
         return res.status(404).json({
           success: false,
-          message: 'Không tìm thấy thanh toán'
+          message: 'Payment not found'
         });
       }
 
       if (payment.userId.toString() !== req.userId) {
         return res.status(403).json({
           success: false,
-          message: 'Không có quyền xác nhận thanh toán này'
+          message: 'You do not have permission to confirm this payment'
         });
       }
 
@@ -299,7 +299,7 @@ const paymentController = {
 
         return res.status(403).json({
           success: false,
-          message: 'Không thể xác nhận thanh toán vì bạn đã mua khóa học/bài học này.'
+          message: 'Cannot confirm payment because you have already purchased this course/lesson.'
         });
       }
 
@@ -334,7 +334,7 @@ const paymentController = {
       console.error('💥 Confirm payment error:', error);
       res.status(500).json({
         success: false,
-        message: 'Lỗi khi xác nhận thanh toán',
+        message: 'Error confirming payment',
         error: error.message
       });
     }
@@ -383,7 +383,7 @@ const paymentController = {
         summary: {
           totalSpent: totalAmount[0]?.total || 0
         },
-        message: 'Lấy lịch sử thanh toán thành công'
+        message: 'Successfully retrieved payment history'
       });
 
     } catch (error) {
@@ -408,28 +408,28 @@ const paymentController = {
       if (!payment) {
         return res.status(404).json({
           success: false,
-          message: 'Không tìm thấy thanh toán'
+          message: 'Payment not found'
         });
       }
 
       if (payment.userId.toString() !== req.userId && req.userRole !== 'admin') {
         return res.status(403).json({
           success: false,
-          message: 'Không có quyền'
+          message: 'You do not have permission'
         });
       }
 
       res.json({
         success: true,
         payment,
-        message: 'Lấy thông tin thanh toán thành công'
+        message: 'Successfully retrieved payment information'
       });
 
     } catch (error) {
       if (error.name === 'CastError') {
         return res.status(400).json({
           success: false,
-          message: 'ID thanh toán không hợp lệ'
+          message: 'Invalid payment ID'
         });
       }
 
@@ -452,14 +452,14 @@ const paymentController = {
       if (!payment) {
         return res.status(404).json({
           success: false,
-          message: 'Không tìm thấy thanh toán'
+          message: 'Payment not found'
         });
       }
 
       if (payment.userId.toString() !== req.userId && req.userRole !== 'admin') {
         return res.status(403).json({
           success: false,
-          message: 'Không có quyền'
+          message: 'You do not have permission'
         });
       }
 
@@ -489,7 +489,7 @@ const paymentController = {
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: 'Lỗi khi kiểm tra trạng thái',
+        message: 'Error checking payment status',
         error: error.message
       });
     }

@@ -23,8 +23,8 @@ const AdminLayout: React.FC = () => {
     { path: 'users', label: 'User Management', icon: <FiUsers className="w-5 h-5" /> },
     { path: 'courses', label: 'Course Management', icon: <FiBook className="w-5 h-5" /> },
     { path: 'chat', label: 'Messages', icon: <FiMessageSquare className="w-5 h-5" /> }, // 🆕 THÊM CHAT
-    { path: 'reports', label: 'Analytics & Reports', icon: <FiBarChart2 className="w-5 h-5" /> },
-    { path: 'settings', label: 'System Settings', icon: <HiOutlineCog className="w-5 h-5" /> },
+    // { path: 'reports', label: 'Analytics & Reports', icon: <FiBarChart2 className="w-5 h-5" /> },
+    // { path: 'settings', label: 'System Settings', icon: <HiOutlineCog className="w-5 h-5" /> },
   ];
 
   const isActivePath = (path: string) => {
@@ -153,7 +153,7 @@ const AdminLayout: React.FC = () => {
             <Outlet />
           </div>
 
-          {/* Quick Stats Footer */}
+          {/* Quick Stats Footer
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
             <div className="bg-gradient-to-br from-emerald-500 to-green-500 text-white rounded-2xl p-6 shadow-lg">
               <div className="flex items-center justify-between">
@@ -201,8 +201,8 @@ const AdminLayout: React.FC = () => {
                   <HiOutlineShieldCheck className="w-6 h-6" />
                 </div>
               </div>
-            </div>
-          </div>
+            </div> */}
+          {/* </div> */}
         </div>
       </main>
     </div>

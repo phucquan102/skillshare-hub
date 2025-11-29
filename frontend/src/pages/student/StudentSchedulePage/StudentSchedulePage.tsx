@@ -284,8 +284,8 @@ const StudentSchedulePage: React.FC = () => {
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
           <div className="text-center">
-            <p className="text-lg font-semibold text-gray-700">Đang tải lịch học</p>
-            <p className="text-gray-500 text-sm">Sắp xếp lịch học của bạn...</p>
+            <p className="text-lg font-semibold text-gray-700">Loading schedule</p>
+            <p className="text-gray-500 text-sm">Arranging your learning schedule...</p>
           </div>
         </div>
       </div>
@@ -299,13 +299,13 @@ const StudentSchedulePage: React.FC = () => {
           <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <FiCalendar className="w-10 h-10 text-red-500" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Không thể tải lịch học</h3>
-          <p className="text-gray-600 mb-6">{error || 'Vui lòng thử lại sau'}</p>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Unable to load schedule</h3>
+          <p className="text-gray-600 mb-6">{error || 'Please try again later'}</p>
           <button
             onClick={fetchCalendarData}
             className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-2xl hover:shadow-lg hover:scale-105 transition-all duration-300 font-semibold"
           >
-            Thử lại
+            Retry
           </button>
         </div>
       </div>
@@ -329,8 +329,8 @@ const StudentSchedulePage: React.FC = () => {
                 <HiOutlineAcademicCap className="w-8 h-8" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">Lịch Học Của Tôi</h1>
-                <p className="text-emerald-100 opacity-90">Theo dõi và quản lý lịch học của bạn</p>
+                <h1 className="text-3xl font-bold">My Learning Schedule</h1>
+                <p className="text-emerald-100 opacity-90">Track and manage your learning schedule</p>
               </div>
             </div>
             
@@ -338,21 +338,21 @@ const StudentSchedulePage: React.FC = () => {
             <div className="flex gap-6">
               <div className="text-center">
                 <div className="text-2xl font-bold">{schedule.summary.total}</div>
-                <div className="text-emerald-100 text-sm">Tổng số bài</div>
+                <div className="text-emerald-100 text-sm">Total Lessons</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold">{schedule.summary.upcoming}</div>
-                <div className="text-emerald-100 text-sm">Sắp diễn ra</div>
+                <div className="text-emerald-100 text-sm">Upcoming</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold">{schedule.summary.completed}</div>
-                <div className="text-emerald-100 text-sm">Đã hoàn thành</div>
+                <div className="text-emerald-100 text-sm">Completed</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold">
                   {events.filter(e => e.extendedProps.status === 'live').length}
                 </div>
-                <div className="text-emerald-100 text-sm">Đang diễn ra</div>
+                <div className="text-emerald-100 text-sm">Live</div>
               </div>
             </div>
           </div>
@@ -379,7 +379,7 @@ const StudentSchedulePage: React.FC = () => {
                 onChange={(e) => setSelectedCourse(e.target.value)}
                 className="bg-transparent border-none focus:outline-none text-gray-700 font-medium"
               >
-                <option value="all">Tất cả khóa học</option>
+                <option value="all">All Courses</option>
                 {courses.map(course => (
                   <option key={course._id} value={course._id}>
                     {course.title}
@@ -392,15 +392,15 @@ const StudentSchedulePage: React.FC = () => {
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-                <span className="text-gray-600">Sắp diễn ra</span>
+                <span className="text-gray-600">Upcoming</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <span className="text-gray-600">Đang live</span>
+                <span className="text-gray-600">Live</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-                <span className="text-gray-600">Đã hoàn thành</span>
+                <span className="text-gray-600">Completed</span>
               </div>
             </div>
           </div>
@@ -415,7 +415,7 @@ const StudentSchedulePage: React.FC = () => {
               onClick={() => setSelectedView('dayGridMonth')}
             >
               <FiCalendar className="w-4 h-4" />
-              Tháng
+              Month
             </button>
             <button 
               className={`px-4 py-2 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${
@@ -426,7 +426,7 @@ const StudentSchedulePage: React.FC = () => {
               onClick={() => setSelectedView('timeGridWeek')}
             >
               <FiCalendar className="w-4 h-4" />
-              Tuần
+              Week
             </button>
             <button 
               className={`px-4 py-2 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${
@@ -437,7 +437,7 @@ const StudentSchedulePage: React.FC = () => {
               onClick={() => setSelectedView('timeGridDay')}
             >
               <FiCalendar className="w-4 h-4" />
-              Ngày
+              Day
             </button>
             <button 
               className={`px-4 py-2 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${
@@ -448,7 +448,7 @@ const StudentSchedulePage: React.FC = () => {
               onClick={() => setSelectedView('listWeek')}
             >
               <FiCalendar className="w-4 h-4" />
-              Danh sách
+              List
             </button>
 
             <button 
@@ -457,7 +457,7 @@ const StudentSchedulePage: React.FC = () => {
               disabled={loading}
             >
               <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Làm mới
+              Refresh
             </button>
           </div>
         </div>
@@ -479,13 +479,13 @@ const StudentSchedulePage: React.FC = () => {
           select={handleDateSelect}
           eventContent={renderEventContent}
           height="auto"
-          locale="vi"
+          locale="en"
           buttonText={{
-            today: 'Hôm nay',
-            month: 'Tháng',
-            week: 'Tuần',
-            day: 'Ngày',
-            list: 'Danh sách'
+            today: 'Today',
+            month: 'Month',
+            week: 'Week',
+            day: 'Day',
+            list: 'List'
           }}
           allDaySlot={false}
           slotMinTime="06:00:00"
@@ -517,8 +517,8 @@ const StudentSchedulePage: React.FC = () => {
               <FiVideo className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-xl font-bold">Đang Diễn Ra</h3>
-              <p className="text-red-100 opacity-90 text-sm">Tham gia ngay</p>
+              <h3 className="text-xl font-bold">Live Now</h3>
+              <p className="text-red-100 opacity-90 text-sm">Join Now</p>
             </div>
           </div>
           
@@ -527,7 +527,7 @@ const StudentSchedulePage: React.FC = () => {
               <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
                 <FiClock className="w-8 h-8" />
               </div>
-              <p className="text-red-100">Không có lớp học nào đang diễn ra</p>
+              <p className="text-red-100">No live classes currently</p>
             </div>
           ) : (
             events.filter(e => e.extendedProps.status === 'live').map(event => (
@@ -545,7 +545,7 @@ const StudentSchedulePage: React.FC = () => {
                   className="w-full bg-white text-red-600 py-2 rounded-xl font-semibold hover:bg-red-50 transition-colors duration-300 flex items-center justify-center gap-2"
                 >
                   <FiPlay className="w-4 h-4" />
-                  Tham gia ngay
+                  Join Now
                 </button>
               </div>
             ))
@@ -559,8 +559,8 @@ const StudentSchedulePage: React.FC = () => {
               <FiClock className="w-6 h-6 text-emerald-600" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">Hôm Nay</h3>
-              <p className="text-gray-600 text-sm">Lịch học trong ngày</p>
+              <h3 className="text-xl font-bold text-gray-900">Today</h3>
+              <p className="text-gray-600 text-sm">Today's Schedule</p>
             </div>
           </div>
 
@@ -572,7 +572,7 @@ const StudentSchedulePage: React.FC = () => {
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <HiOutlineSparkles className="w-8 h-8 text-gray-400" />
               </div>
-              <p className="text-gray-500">Không có lịch học nào hôm nay</p>
+              <p className="text-gray-500">No classes scheduled for today</p>
             </div>
           ) : (
             events.filter(e => {
@@ -611,8 +611,8 @@ const StudentSchedulePage: React.FC = () => {
               <FiAward className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-xl font-bold">Hành Động Nhanh</h3>
-              <p className="text-blue-100 opacity-90 text-sm">Truy cập nhanh</p>
+              <h3 className="text-xl font-bold">Quick Actions</h3>
+              <p className="text-blue-100 opacity-90 text-sm">Quick Access</p>
             </div>
           </div>
 
@@ -626,8 +626,8 @@ const StudentSchedulePage: React.FC = () => {
                   <FiBook className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="font-semibold">Khóa học của tôi</p>
-                  <p className="text-blue-100 text-sm">Xem tất cả khóa học</p>
+                  <p className="font-semibold">My Courses</p>
+                  <p className="text-blue-100 text-sm">View all courses</p>
                 </div>
               </div>
               <FiArrowRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" />
@@ -642,8 +642,8 @@ const StudentSchedulePage: React.FC = () => {
                   <FiCheckCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="font-semibold">Tiến độ học tập</p>
-                  <p className="text-blue-100 text-sm">Theo dõi tiến độ</p>
+                  <p className="font-semibold">Learning Progress</p>
+                  <p className="text-blue-100 text-sm">Track your progress</p>
                 </div>
               </div>
               <FiArrowRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" />
@@ -658,8 +658,8 @@ const StudentSchedulePage: React.FC = () => {
                   <HiOutlineSparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="font-semibold">Khám phá khóa học</p>
-                  <p className="text-blue-100 text-sm">Tìm khóa học mới</p>
+                  <p className="font-semibold">Discover Courses</p>
+                  <p className="text-blue-100 text-sm">Find new courses</p>
                 </div>
               </div>
               <FiArrowRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" />

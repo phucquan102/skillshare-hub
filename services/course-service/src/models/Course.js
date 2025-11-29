@@ -55,7 +55,7 @@ const scheduleSchema = new mongoose.Schema({
   lessonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lesson', default: null }
 }, { _id: true });
 
-// 🆕 DATED SCHEDULE SCHEMA - HỖ TRỢ NGÀY CỤ THỂ
+// DATED SCHEDULE SCHEMA - HỖ TRỢ NGÀY CỤ THỂ
 const datedScheduleSchema = new mongoose.Schema({
   date: { 
     type: Date, 
@@ -96,18 +96,18 @@ const datedScheduleSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   hasLesson: { type: Boolean, default: false },
   lessonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lesson' },
-  // 🆕 THÊM: Thông tin giá cho từng buổi học (nếu bán riêng)
+  //  THÊM: Thông tin giá cho từng buổi học (nếu bán riêng)
   individualPrice: {
     type: Number,
     min: 0,
     default: 0
   },
-  // 🆕 THÊM: Có được bán riêng không
+  //  THÊM: Có được bán riêng không
   availableForIndividualPurchase: {
     type: Boolean,
     default: false
   },
-  // 🆕 THÊM: Ghi chú cho schedule
+  // THÊM: Ghi chú cho schedule
   notes: {
     type: String,
     default: ''
@@ -236,7 +236,7 @@ const courseSchema = new mongoose.Schema({
   },
   currency: { type: String, default: 'USD', enum: ['VND', 'USD'] },
   
-  // 🆕 THÊM: startDate và endDate
+  //  THÊM: startDate và endDate
   startDate: { 
     type: Date,
     required: true,

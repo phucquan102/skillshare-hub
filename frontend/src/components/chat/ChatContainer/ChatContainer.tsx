@@ -217,7 +217,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
       }
     } catch (err: any) {
       console.error('Error loading conversations:', err);
-      setError('Không thể tải danh sách hội thoại.');
+      setError('Unable to load conversation list.');
     } finally {
       setLoading(false);
     }
@@ -232,14 +232,14 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
       await chatService.markAsRead(conversationId);
     } catch (err: any) {
       console.error('Error loading messages:', err);
-      setError('Không thể tải tin nhắn.');
+      setError('Unable to load message.');
     }
   };
 
   // Send message
   const handleSendMessage = async (content: string) => {
     if (!selectedConversation) {
-      setError('Vui lòng chọn một hội thoại để gửi tin nhắn.');
+      setError('Please select a conversation to send a message.');
       return;
     }
     
@@ -252,7 +252,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
       setMessages((prev) => [...prev, newMessage]);
     } catch (err: any) {
       console.error('Error sending message:', err);
-      setError('Không thể gửi tin nhắn.');
+      setError('Unable to send message.');
     }
   };
 
@@ -284,7 +284,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
       await loadConversations();
     } catch (err: any) {
       console.error('Error starting conversation:', err);
-      setError('Không thể tạo hội thoại mới.');
+      setError('Unable to start a new conversation.');
     }
   };
 
@@ -346,7 +346,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
             <div className="w-16 h-16 border-4 border-emerald-200 rounded-full animate-spin"></div>
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
-          <p className="text-gray-600 font-medium">Đang tải hội thoại...</p>
+          <p className="text-gray-600 font-medium">Loading conversations...</p>
         </div>
       </div>
     );
@@ -387,20 +387,20 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                     <h3 className="font-bold text-gray-900 text-lg">
                       {selectedConversation.type === 'direct'
                         ? selectedConversation.participants.find((p) => p.userId !== user?._id)?.user?.fullName ||
-                          'Người dùng'
-                        : selectedConversation.title || 'Thảo luận nhóm'}
+                          'User'
+                        : selectedConversation.title || 'Group Chat'}
                     </h3>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <span className="flex items-center gap-1">
                         {selectedConversation.type === 'direct' ? (
                           <>
                             <FiUser className="w-3 h-3" />
-                            Tin nhắn riêng
+                            Direct Message
                           </>
                         ) : (
                           <>
                             <FiUsers className="w-3 h-3" />
-                            Thảo luận nhóm
+                            Group Chat
                           </>
                         )}
                       </span>
@@ -409,7 +409,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                           <span>•</span>
                           <span className="flex items-center gap-1 text-emerald-600">
                             <FiBook className="w-3 h-3" />
-                            Thảo luận khóa học
+                            Course Discussion
                           </span>
                         </>
                       )}
@@ -444,10 +444,10 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                 <HiOutlineSparkles className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-emerald-700 bg-clip-text text-transparent mb-3">
-                Chào mừng đến với Thảo luận
+                Welcome to Discussion
               </h3>
               <p className="text-gray-600 mb-8 text-lg">
-                Chọn một hội thoại hoặc bắt đầu cuộc trò chuyện mới
+                Select a conversation or start a new chat
               </p>
               
               {courseId && (
@@ -457,7 +457,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                       <FiBook className="w-6 h-6 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Khóa học hiện tại</p>
+                      <p className="text-sm text-gray-600">Current Course</p>
                       <p className="font-bold text-gray-900">{courseName || courseId}</p>
                     </div>
                   </div>
@@ -466,13 +466,13 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                   {instructorLoading ? (
                     <div className="flex items-center justify-center gap-3 py-4">
                       <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="text-gray-600">Đang tải danh sách giảng viên...</span>
+                      <span className="text-gray-600">Loading instructors list...</span>
                     </div>
                   ) : courseInstructors.length > 0 ? (
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <HiOutlineAcademicCap className="w-4 h-4" />
-                        <span>Giảng viên có sẵn: <strong>{courseInstructors.length}</strong></span>
+                        <span>Available Instructors: <strong>{courseInstructors.length}</strong></span>
                       </div>
                       
                       <div className="space-y-2 max-h-32 overflow-y-auto">
@@ -500,7 +500,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                           onClick={() => setActiveTab('instructors')}
                           className="w-full py-2 text-emerald-600 hover:text-emerald-700 font-medium text-sm flex items-center justify-center gap-2 hover:bg-emerald-50 rounded-xl transition-all duration-200"
                         >
-                          Xem thêm {courseInstructors.length - 3} giảng viên
+                          View more {courseInstructors.length - 3} instructors
                           <FiArrowLeft className="w-4 h-4 transform rotate-180" />
                         </button>
                       )}
@@ -508,7 +508,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                   ) : (
                     <div className="text-center py-4 text-gray-500">
                       <FiUsers className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p>Chưa có giảng viên nào trong khóa học này</p>
+                      <p>No instructors available for this course</p>
                     </div>
                   )}
                   
@@ -519,12 +519,12 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                     {courseConversation ? (
                       <>
                         <FiRefreshCw className="w-4 h-4" />
-                        Tải lại thảo luận
+                        Refresh Discussion
                       </>
                     ) : (
                       <>
                         <HiOutlineSparkles className="w-4 h-4" />
-                        Khởi tạo thảo luận
+                        Initialize Discussion
                       </>
                     )}
                   </button>

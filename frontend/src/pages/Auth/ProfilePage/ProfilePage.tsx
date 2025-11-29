@@ -3,14 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { authService } from '../../../services/api/authService';
 import { User } from '../../../types/user.types';
-import { 
-  FiEdit, 
-  FiSave, 
-  FiX, 
-  FiUser, 
-  FiMail, 
-  FiPhone, 
-  FiMapPin, 
+import {
+  FiEdit,
+  FiSave,
+  FiX,
+  FiUser,
+  FiMail,
+  FiPhone,
+  FiMapPin,
   FiCalendar,
   FiAward,
   FiClock,
@@ -45,7 +45,7 @@ const ProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
-  
+
   const [formData, setFormData] = useState<ProfileFormData>({
     fullName: '',
     profile: {
@@ -103,7 +103,7 @@ const ProfilePage: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    
+
     if (name.startsWith('profile.')) {
       const field = name.split('.')[1];
       setFormData(prev => ({
@@ -145,34 +145,34 @@ const ProfilePage: React.FC = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-emerald-700 bg-clip-text text-transparent">
-              Hồ Sơ Cá Nhân
+              Personal Profile
             </h1>
-            <p className="text-gray-600 mt-2">Quản lý thông tin cá nhân và tùy chọn tài khoản</p>
+            <p className="text-gray-600 mt-2">Manage your personal information and account preferences</p>
           </div>
-          <button 
+          <button
             className={`px-6 py-3 rounded-2xl font-semibold transition-all duration-300 flex items-center gap-3 ${
-              isEditing 
-                ? 'bg-red-500 text-white hover:bg-red-600 hover:shadow-lg' 
+              isEditing
+                ? 'bg-red-500 text-white hover:bg-red-600 hover:shadow-lg'
                 : 'bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:shadow-xl hover:scale-105'
             }`}
             onClick={() => setIsEditing(!isEditing)}
             type="button"
           >
             {isEditing ? <FiX className="w-5 h-5" /> : <FiEdit className="w-5 h-5" />}
-            {isEditing ? 'Hủy' : 'Chỉnh Sửa'}
+            {isEditing ? 'Cancel' : 'Edit'}
           </button>
         </div>
 
         {/* Message */}
         {message && (
           <div className={`mb-6 p-4 rounded-2xl backdrop-blur-sm border-2 ${
-            message.includes('thành công') 
-              ? 'bg-green-50 border-green-200 text-green-700' 
+            message.includes('thành công')
+              ? 'bg-green-50 border-green-200 text-green-700'
               : 'bg-red-50 border-red-200 text-red-700'
           }`}>
             <div className="flex items-center gap-3">
-              {message.includes('thành công') ? 
-                <FiCheckCircle className="w-5 h-5" /> : 
+              {message.includes('thành công') ?
+                <FiCheckCircle className="w-5 h-5" /> :
                 <FiAlertCircle className="w-5 h-5" />
               }
               <span className="font-medium">{message}</span>
@@ -202,7 +202,7 @@ const ProfilePage: React.FC = () => {
                     <FiUser className="w-3 h-3 text-white" />
                   </div>
                 </div>
-                
+
                 <h2 className="text-xl font-bold text-gray-900 mb-1">{user.fullName}</h2>
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-medium mb-3">
                   <HiOutlineAcademicCap className="w-4 h-4" />
@@ -222,7 +222,7 @@ const ProfilePage: React.FC = () => {
                     user.emailVerified ? 'text-green-600' : 'text-red-600'
                   }`}>
                     {user.emailVerified ? <FiCheckCircle className="w-4 h-4" /> : <FiAlertCircle className="w-4 h-4" />}
-                    {user.emailVerified ? 'Đã xác thực' : 'Chưa xác thực'}
+                    {user.emailVerified ? 'Verified' : 'Not Verified'}
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
@@ -231,7 +231,7 @@ const ProfilePage: React.FC = () => {
                     user.phoneVerified ? 'text-green-600' : 'text-red-600'
                   }`}>
                     {user.phoneVerified ? <FiCheckCircle className="w-4 h-4" /> : <FiAlertCircle className="w-4 h-4" />}
-                    {user.phoneVerified ? 'Đã xác thực' : 'Chưa xác thực'}
+                    {user.phoneVerified ? 'Verified' : 'Not Verified'}
                   </div>
                 </div>
               </div>
@@ -241,7 +241,7 @@ const ProfilePage: React.FC = () => {
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl p-6 border border-white/20">
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <FiAward className="w-5 h-5 text-emerald-500" />
-                Thống Kê Học Tập
+                Learning Statistics
               </h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -249,7 +249,7 @@ const ProfilePage: React.FC = () => {
                     <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
                       <HiOutlineUserGroup className="w-5 h-5 text-emerald-600" />
                     </div>
-                    <span className="text-gray-600">Khóa học hoàn thành</span>
+                    <span className="text-gray-600">Courses Completed</span>
                   </div>
                   <strong className="text-xl font-bold text-gray-900">{user.stats?.coursesCompleted || 0}</strong>
                 </div>
@@ -258,7 +258,7 @@ const ProfilePage: React.FC = () => {
                     <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                       <FiClock className="w-5 h-5 text-blue-600" />
                     </div>
-                    <span className="text-gray-600">Tổng giờ học</span>
+                    <span className="text-gray-600">Total Learning Hours</span>
                   </div>
                   <strong className="text-xl font-bold text-gray-900">{user.stats?.totalLearningHours || 0}h</strong>
                 </div>
@@ -267,7 +267,7 @@ const ProfilePage: React.FC = () => {
                     <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
                       <FiStar className="w-5 h-5 text-amber-600" />
                     </div>
-                    <span className="text-gray-600">Đánh giá trung bình</span>
+                    <span className="text-gray-600">Average Rating</span>
                   </div>
                   <strong className="text-xl font-bold text-gray-900">{user.stats?.avgRating || 0}/5</strong>
                 </div>
@@ -278,32 +278,32 @@ const ProfilePage: React.FC = () => {
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl p-6 border border-white/20">
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <FiShield className="w-5 h-5 text-emerald-500" />
-                Thông Tin Tài Khoản
+                Account Information
               </h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Trạng thái:</span>
+                  <span className="text-sm text-gray-600">Status:</span>
                   <strong className={`text-sm font-medium ${
                     user.isActive ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {user.isActive ? '🟢 Đang hoạt động' : '🔴 Đã khóa'}
+                    {user.isActive ? '🟢 Active' : '🔴 Locked'}
                   </strong>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Xác thực:</span>
+                  <span className="text-sm text-gray-600">Verification:</span>
                   <strong className={`text-sm font-medium ${
                     user.isVerified ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {user.isVerified ? '✅ Đã xác thực' : '❌ Chưa xác thực'}
+                    {user.isVerified ? '✅ Verified' : '❌ Not Verified'}
                   </strong>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Tham gia:</span>
+                  <span className="text-sm text-gray-600">Attendance:</span>
                   <strong className="text-sm text-gray-900">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</strong>
                 </div>
                 {user.lastLogin && (
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Đăng nhập cuối:</span>
+                    <span className="text-sm text-gray-600">Last Login:</span>
                     <strong className="text-sm text-gray-900">{new Date(user.lastLogin).toLocaleDateString('vi-VN')}</strong>
                   </div>
                 )}
@@ -322,8 +322,8 @@ const ProfilePage: React.FC = () => {
                       <FiUser className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold text-gray-900">Thông Tin Cá Nhân</h3>
-                      <p className="text-gray-600">Cập nhật thông tin cá nhân của bạn</p>
+                      <h3 className="text-2xl font-bold text-gray-900">Personal Information</h3>
+                      <p className="text-gray-600">Update your personal information</p>
                     </div>
                   </div>
 
@@ -331,7 +331,7 @@ const ProfilePage: React.FC = () => {
                     <div className="space-y-2">
                       <label htmlFor="fullName" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                         <FiUser className="w-4 h-4" />
-                        Họ và Tên *
+                        Full Name *
                       </label>
                       <input
                         id="fullName"
@@ -362,7 +362,7 @@ const ProfilePage: React.FC = () => {
                   <div className="space-y-2">
                     <label htmlFor="profile.bio" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                       <FiUser className="w-4 h-4" />
-                      Giới Thiệu Bản Thân
+                      About Yourself
                     </label>
                     <textarea
                       id="profile.bio"
@@ -371,7 +371,7 @@ const ProfilePage: React.FC = () => {
                       onChange={handleChange}
                       disabled={!isEditing}
                       rows={4}
-                      placeholder="Giới thiệu về bản thân, kinh nghiệm và sở thích..."
+                      placeholder="Introduce yourself, your experience, and interests..."
                       className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 outline-none resize-none disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>
@@ -380,7 +380,7 @@ const ProfilePage: React.FC = () => {
                     <div className="space-y-2">
                       <label htmlFor="profile.phone" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                         <FiPhone className="w-4 h-4" />
-                        Số Điện Thoại
+                        Phone Number
                       </label>
                       <input
                         id="profile.phone"
@@ -389,7 +389,7 @@ const ProfilePage: React.FC = () => {
                         value={formData.profile?.phone || ''}
                         onChange={handleChange}
                         disabled={!isEditing}
-                        placeholder="Nhập số điện thoại..."
+                        placeholder="Enter phone number..."
                         className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 outline-none disabled:bg-gray-50 disabled:text-gray-500"
                       />
                     </div>
@@ -397,7 +397,7 @@ const ProfilePage: React.FC = () => {
                     <div className="space-y-2">
                       <label htmlFor="profile.dateOfBirth" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                         <FiCalendar className="w-4 h-4" />
-                        Ngày Sinh
+                        Date of Birth
                       </label>
                       <input
                         id="profile.dateOfBirth"
@@ -415,7 +415,7 @@ const ProfilePage: React.FC = () => {
                     <div className="space-y-2">
                       <label htmlFor="profile.gender" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                         <FiUser className="w-4 h-4" />
-                        Giới Tính
+                        Gender
                       </label>
                       <select
                         id="profile.gender"
@@ -425,17 +425,17 @@ const ProfilePage: React.FC = () => {
                         disabled={!isEditing}
                         className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 outline-none disabled:bg-gray-50 disabled:text-gray-500"
                       >
-                        <option value="">Chọn giới tính</option>
-                        <option value="male">Nam</option>
-                        <option value="female">Nữ</option>
-                        <option value="other">Khác</option>
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
                       </select>
                     </div>
 
                     <div className="space-y-2">
                       <label htmlFor="profile.address" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                         <FiMapPin className="w-4 h-4" />
-                        Địa Chỉ
+                        Address
                       </label>
                       <input
                         id="profile.address"
@@ -458,8 +458,8 @@ const ProfilePage: React.FC = () => {
                       <FiGlobe className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold text-gray-900">Cài Đặt & Tùy Chọn</h3>
-                      <p className="text-gray-600">Tùy chỉnh trải nghiệm của bạn</p>
+                      <h3 className="text-2xl font-bold text-gray-900">Settings & Preferences</h3>
+                      <p className="text-gray-600">Customize your experience</p>
                     </div>
                   </div>
 
@@ -467,7 +467,7 @@ const ProfilePage: React.FC = () => {
                     <div className="space-y-2">
                       <label htmlFor="preferences.language" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                         <FiGlobe className="w-4 h-4" />
-                        Ngôn Ngữ
+                        Language
                       </label>
                       <select
                         id="preferences.language"
@@ -477,7 +477,7 @@ const ProfilePage: React.FC = () => {
                         disabled={!isEditing}
                         className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 outline-none disabled:bg-gray-50 disabled:text-gray-500"
                       >
-                        <option value="vi">Tiếng Việt</option>
+                        <option value="vi">Vietnamese</option>
                         <option value="en">English</option>
                       </select>
                     </div>
@@ -485,7 +485,7 @@ const ProfilePage: React.FC = () => {
                     <div className="space-y-2">
                       <label htmlFor="preferences.timezone" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                         <FiClock className="w-4 h-4" />
-                        Múi Giờ
+                        Timezone
                       </label>
                       <select
                         id="preferences.timezone"
@@ -517,11 +517,11 @@ const ProfilePage: React.FC = () => {
                           className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500"
                         />
                         <div>
-                          <span className="font-medium text-gray-900">Thông báo qua email</span>
-                          <p className="text-sm text-gray-600">Nhận thông báo qua email</p>
+                          <span className="font-medium text-gray-900">Email notification</span>
+                          <p className="text-sm text-gray-600">Receive notifications via email</p>
                         </div>
                       </label>
-                      
+
                       <label className="flex items-center gap-3 p-4 bg-white border-2 border-gray-200 rounded-2xl hover:border-emerald-300 transition-all duration-300 cursor-pointer">
                         <input
                           type="checkbox"
@@ -532,8 +532,8 @@ const ProfilePage: React.FC = () => {
                           className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500"
                         />
                         <div>
-                          <span className="font-medium text-gray-900">Thông báo SMS</span>
-                          <p className="text-sm text-gray-600">Nhận thông báo qua tin nhắn</p>
+                          <span className="font-medium text-gray-900">SMS notification</span>
+                          <p className="text-sm text-gray-600">Receive notifications via SMS</p>
                         </div>
                       </label>
                     </div>
@@ -542,15 +542,15 @@ const ProfilePage: React.FC = () => {
 
                 {isEditing && (
                   <div className="flex gap-4 pt-6 border-t border-gray-200">
-                    <button 
-                      type="submit" 
+                    <button
+                      type="submit"
                       className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-2xl hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold flex items-center gap-3 disabled:opacity-50"
                       disabled={isLoading}
                     >
                       <FiSave className="w-5 h-5" />
                       {isLoading ? 'Đang lưu...' : 'Lưu Thay Đổi'}
                     </button>
-                    <button 
+                    <button
                       type="button"
                       className="px-8 py-4 bg-white border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 hover:scale-105 transition-all duration-300 font-semibold flex items-center gap-3"
                       onClick={() => setIsEditing(false)}

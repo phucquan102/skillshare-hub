@@ -50,10 +50,10 @@ const StudentCourseCard: React.FC<StudentCourseCardProps> = ({ course }) => {
 
   const getStatusText = (status: string) => {
     const statusMap: { [key: string]: string } = {
-      active: 'Đang học',
-      completed: 'Đã hoàn thành',
-      cancelled: 'Đã hủy',
-      paused: 'Tạm dừng'
+      active: 'Active',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      paused: 'Paused'
     };
     return statusMap[status] || status;
   };
@@ -114,19 +114,19 @@ const StudentCourseCard: React.FC<StudentCourseCardProps> = ({ course }) => {
         <div className={styles.progressInfo}>
           {/* HIỂN THỊ SỐ LESSON THỰC TẾ */}
           <div className={styles.lessonProgress}>
-            {course.progress.completedLessons}/{actualTotalLessons} bài học
+            {course.progress.completedLessons}/{actualTotalLessons} lessons
           </div>
           <div className={styles.overallProgress}>
-            {course.progress.overallProgress}% hoàn thành
+            {course.progress.overallProgress}% completed
           </div>
         </div>
 
         <div className={styles.accessInfo}>
           {course.hasFullAccess ? (
-            <span className={styles.fullAccess}>Toàn quyền truy cập</span>
+            <span className={styles.fullAccess}>Full access</span>
           ) : (
             <span className={styles.partialAccess}>
-              Đã mua {course.purchasedLessons} bài học
+              Purchased {course.purchasedLessons} lessons
             </span>
           )}
         </div>
@@ -135,7 +135,7 @@ const StudentCourseCard: React.FC<StudentCourseCardProps> = ({ course }) => {
           className={styles.continueButton}
           onClick={handleContinueLearning}
         >
-          {course.progress.overallProgress > 0 ? 'Tiếp tục học' : 'Bắt đầu học'}
+          {course.progress.overallProgress > 0 ? 'Continue learning' : 'Start learning'}
         </button>
       </div>
     </div>

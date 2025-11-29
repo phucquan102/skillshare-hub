@@ -2,26 +2,26 @@ const mongoose = require('mongoose');
 
 const ratingSchema = new mongoose.Schema(
   {
-    // ✅ FIXED: courseId thay vì CourseId
+    
     courseId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Course',
       required: true,
       unique: true,
     },
-    // ✅ FIXED: averageRating thay vì AverageRating
+    
     averageRating: {
       type: Number,
       default: 0,
       min: 0,
       max: 5,
     },
-    // ✅ FIXED: totalRatings thay vì TotalRatings
+    
     totalRatings: {
       type: Number,
       default: 0,
     },
-    // ✅ FIXED: ratingDistribution thay vì RatingDistribution
+    
     ratingDistribution: {
       1: { type: Number, default: 0 },
       2: { type: Number, default: 0 },

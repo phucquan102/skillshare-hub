@@ -2339,40 +2339,58 @@ startLessonWithFallback: async (lessonId: string): Promise<any> => {
 
   // ========== UTILITY METHODS ==========
 
-  getUpcomingLessons: async (filters: { page?: number; limit?: number } = {}): Promise<LessonsResponse> => {
-    const queryParams = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && String(value).trim() !== '') {
-        queryParams.append(key, String(value));
+getUpcomingLessons: async (filters: { page?: number; limit?: number } = {}): Promise<LessonsResponse> => {
+  const queryParams = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      queryParams.append(key, String(value));
+    }
+  });
+
+  const endpoint = `${API_BASE_URL}/api/courses/upcoming-lessons?${queryParams.toString()}`;
+  
+  console.log('📡 [getUpcomingLessons] API Request:', endpoint);
+
+  try {
+    const response = await apiRequest<LessonsResponse>(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
 
-    const endpoint = `${API_BASE_URL}/api/courses/upcoming-lessons?${queryParams.toString()}`;
-    
-    console.log('📡 [getUpcomingLessons] API Request:', endpoint);
+    return response;
+  } catch (error) {
+    console.error('❌ Failed to fetch upcoming lessons:', error);
+    // Trả về response mặc định để không làm crash ứng dụng
+    return {
+      lessons: [],
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        totalLessons: 0
+      }
+    };
+  }
+},
 
-    try {
-      const response = await apiRequest<LessonsResponse>(endpoint, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      return response;
-    } catch (error) {
-      console.error('❌ Failed to fetch upcoming lessons:', error);
-      return {
-        lessons: [],
-        pagination: {
-          currentPage: 1,
-          totalPages: 0,
-          totalLessons: 0
-        }
-      };
-    }
-  },
+// THÊM hàm fallback
+getUpcomingLessonsWithFallback: async (filters: { page?: number; limit?: number } = {}): Promise<LessonsResponse> => {
+  try {
+    return await courseService.getUpcomingLessons(filters);
+  } catch (error) {
+    console.warn('Using fallback for upcoming lessons');
+    return {
+      lessons: [],
+      pagination: {
+        currentPage: 1,
+        totalPages: 0,
+        totalLessons: 0
+      }
+    };
+  }
+},
 
   searchLessons: async (query: string, filters: { page?: number; limit?: number } = {}): Promise<LessonsResponse> => {
     const queryParams = new URLSearchParams();

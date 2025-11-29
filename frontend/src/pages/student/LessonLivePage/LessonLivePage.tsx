@@ -222,8 +222,8 @@ const LessonLivePage: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <h3 className="text-xl font-semibold text-gray-900">Đang tải lớp học...</h3>
-          <p className="text-gray-600 mt-2">Vui lòng chờ trong giây lát</p>
+          <h3 className="text-xl font-semibold text-gray-900">Loading class...</h3>
+          <p className="text-gray-600 mt-2">Please wait a moment</p>
         </div>
       </div>
     );
@@ -237,20 +237,20 @@ const LessonLivePage: React.FC = () => {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <FiAlertCircle className="w-8 h-8 text-red-500" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Không thể tham gia lớp học</h3>
-          <p className="text-gray-600 mb-4">{error || 'Lớp học không tồn tại'}</p>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Cannot join the class</h3>
+          <p className="text-gray-600 mb-4">{error || 'Class does not exist'}</p>
           <div className="space-y-3">
             <button 
               onClick={() => navigate(`/course/${courseId}`)}
               className="w-full px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors font-medium"
             >
-              Quay lại khóa học
+              Back to course
             </button>
             <button 
               onClick={() => navigate('/courses')}
               className="w-full px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors font-medium"
             >
-              Danh sách khóa học
+              Course list
             </button>
           </div>
         </div>
@@ -279,7 +279,7 @@ const LessonLivePage: React.FC = () => {
               className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-gray-700"
             >
               <FiArrowLeft className="w-5 h-5" />
-              <span>Quay lại khóa học</span>
+              <span>Back to course</span>
             </button>
           </div>
 
@@ -308,7 +308,7 @@ const LessonLivePage: React.FC = () => {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p className="text-gray-300">Đang kết nối phòng họp...</p>
+            <p className="text-gray-300">Connecting to meeting room...</p>
           </div>
         </div>
       )}
